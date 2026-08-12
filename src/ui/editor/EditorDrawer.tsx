@@ -31,6 +31,7 @@ export default function EditorDrawer({
   const [tab, setTab] = useState<Tab>('code')
   const [filterSev, setFilterSev] = useState<Severity | null>(null)
   const [flashLine, setFlashLine] = useState<number | null>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const codeListRef = useRef<HTMLOListElement>(null)
   const bot = analysis.taskbots.find((b) => b.path === botPath)
   const findings = useMemo(() => analysis.findings.filter((f) => f.botPath === botPath), [analysis, botPath])
@@ -59,6 +60,15 @@ export default function EditorDrawer({
     return () => clearTimeout(timer)
   }, [tab, flashLine])
 
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    dialog.showModal()
+    return () => {
+      if (dialog.open) dialog.close()
+    }
+  }, [])
+
   if (!bot) return null
   const metrics = analysis.metrics[botPath]
   const score = analysis.scores[botPath]
@@ -74,18 +84,33 @@ export default function EditorDrawer({
   }
 
   const visibleFindings = filterSev ? findings.filter((f) => f.severity === filterSev) : findings
+  const close = () => {
+    dialogRef.current?.close()
+    onClose()
+  }
 
   return (
-    <aside className="drawer">
+    <dialog
+      ref={dialogRef}
+      className="drawer"
+      aria-label={bot.name}
+      onCancel={(event) => {
+        event.preventDefault()
+        close()
+      }}
+    >
       <div className="drawer-head">
         <div>
-          <div className="drawer-title">
+          <h1 className="drawer-title">
             {bot.name} <span className={'tb-grade grade-' + score.grade}>{score.score} · {score.grade}</span>
-          </div>
+          </h1>
           <div className="drawer-sub">{bot.path}</div>
         </div>
-        <button className="btn ghost" onClick={onClose}>
-          ✕ {t('editor.close')}
+        <button className="btn ghost" onClick={close}>
+          <svg className="drawer-close-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="m3 3 10 10M13 3 3 13" />
+          </svg>
+          {t('editor.close')}
         </button>
       </div>
       <div className="drawer-stats">
@@ -218,6 +243,6 @@ export default function EditorDrawer({
           </ul>
         </div>
       )}
-    </aside>
+    </dialog>
   )
 }

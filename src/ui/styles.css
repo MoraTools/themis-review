@@ -359,6 +359,16 @@ button, input, select, textarea { font: inherit; }
 }
 .react-flow__controls-button:last-child { border-bottom: 1px solid var(--border-strong); }
 .react-flow__controls-button:hover { background: var(--accent); fill: var(--text-on-accent); }
+.react-flow__controls-button.compact-toggle {
+  color: var(--text);
+  fill: none;
+}
+.react-flow__controls-button.compact-toggle:hover,
+.react-flow__controls-button.compact-toggle.active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.compact-toggle svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: square; }
 /* minimap in the bottom-left corner with the zoom controls parked to its right */
 .react-flow__minimap {
   margin: 0 0 12px 12px;
@@ -516,15 +526,23 @@ button, input, select, textarea { font: inherit; }
 
 /* ---------- editor drawer ---------- */
 .drawer {
-  position: absolute;
-  inset: 0 0 0 auto;
-  z-index: 10;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  width: min(760px, 92%);
-  border-left: 1px solid var(--border-strong);
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
   background: var(--bg);
+  color: var(--text);
 }
+.drawer::backdrop { background: var(--bg); }
 .drawer-head {
   display: flex;
   align-items: flex-start;
@@ -533,15 +551,28 @@ button, input, select, textarea { font: inherit; }
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
+.drawer-head > div { min-width: 0; }
+.drawer-head > .btn { flex: none; width: auto; }
+.drawer-close-icon { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 .drawer-title {
+  margin: 0;
   font-family: var(--font-display);
-  font-size: 1.9rem;
+  font-size: clamp(1.5rem, 3vw, 2.6rem);
   font-weight: 600;
   font-variation-settings: 'wght' 600;
   line-height: 0.95;
+  overflow-wrap: anywhere;
 }
 .drawer-title .tb-grade { font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.08em; }
-.drawer-sub { margin-top: 6px; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
+.drawer-sub {
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .drawer-stats {
   display: flex;
   flex-wrap: wrap;
@@ -554,8 +585,8 @@ button, input, select, textarea { font: inherit; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.tabs.small { gap: 20px; padding: 12px 20px 0; border-bottom: 1px solid var(--border); }
-.tabs.small .tab { font-family: var(--font-mono); font-size: 0.74rem; font-weight: 400; letter-spacing: 0.1em; padding-bottom: 12px; }
+.tabs.small { gap: 20px; padding: 12px 20px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tabs.small .tab { flex: none; padding-bottom: 12px; font-family: var(--font-mono); font-size: 0.74rem; font-weight: 400; letter-spacing: 0.1em; white-space: nowrap; }
 
 /* A <table> is not a scroll container, so it needs a wrapper or the page scrolls instead. */
 .code-list, .drawer-scroll { flex: 1; min-height: 0; overflow: auto; margin: 0; }

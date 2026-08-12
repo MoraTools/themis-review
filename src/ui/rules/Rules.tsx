@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { CALL_DEPTH_EXEMPT_TASKBOTS } from '../../core/graph'
 import type { ProjectAnalysis, Severity } from '../../core/model'
 import { RULES, type RuleCategory } from '../../core/rulesInfo'
 import { DEDUCTION, GRADE_BANDS, RULE_CAP } from '../../core/score'
@@ -113,6 +114,13 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
               </li>
             ))}
           </ul>
+        </div>
+        <div className="rules-model-block">
+          <span className="rules-model-label">{t('rules.depthExempt')}</span>
+          <ul>
+            {CALL_DEPTH_EXEMPT_TASKBOTS.map((name) => <li key={name}>{name}</li>)}
+          </ul>
+          <p className="rules-model-note">{t('rules.depthExemptNote')}</p>
         </div>
       </div>
       <p className="rules-note">{t('rules.note')}</p>

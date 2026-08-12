@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { analyzeZips } from '../src/core/analyze'
 import { parseTaskbot } from '../src/core/parse'
-import { buildGraph, callDepth, callSequence } from '../src/core/graph'
+import { buildGraph, CALL_DEPTH_EXEMPT_TASKBOTS, callDepth, callSequence } from '../src/core/graph'
 import { messageBoxRules } from '../src/core/rules/messagebox'
 import { structureRules } from '../src/core/rules/structure'
 
@@ -212,7 +212,7 @@ describe('synthetic taskbots', () => {
     expect(structureRules(ok).some((x) => x.ruleId === 'TOO_LONG')).toBe(false)
   })
 
-  it('measures call depth and exempts the messaging utility', () => {
+  it('measures call depth and exempts allowed utilities', () => {
     const call = (uid: string, target: string) => ({
       uid,
       commandName: 'runTask',
@@ -226,16 +226,20 @@ describe('synthetic taskbots', () => {
     })
     const p = (n: string) => 'Bots/x/tasks/' + n
     const bots = [
-      parseTaskbot(p('000_Master'), 'z', wrap([call('m1', p('001_Step')), call('m2', p('utilidad_mensajeria'))])),
-      parseTaskbot(p('001_Step'), 'z', wrap([call('s1', p('002_Deep')), call('s2', p('utilidad_mensajeria'))])),
+      parseTaskbot(p('000_Master'), 'z', wrap([call('m1', p('001_Step'))])),
+      parseTaskbot(p('001_Step'), 'z', wrap([
+        call('s1', p('002_Deep')),
+        ...CALL_DEPTH_EXEMPT_TASKBOTS.map((name, i) => call('allowed' + i, p(name))),
+      ])),
       parseTaskbot(p('002_Deep'), 'z', wrap([])),
-      parseTaskbot(p('utilidad_mensajeria'), 'z', wrap([])),
+      ...CALL_DEPTH_EXEMPT_TASKBOTS.map((name) => parseTaskbot(p(name), 'z', wrap([]))),
     ]
     const g = buildGraph(bots)
     const depth = callDepth(g.edges)
     expect(depth.get(p('000_Master'))).toBe(1)
     expect(depth.get(p('001_Step'))).toBe(2)
     expect(depth.get(p('002_Deep'))).toBe(3)
+    for (const name of CALL_DEPTH_EXEMPT_TASKBOTS) expect(depth.get(p(name))).toBe(3)
 
     const deep = g.findings.filter((f) => f.ruleId === 'CALL_DEPTH')
     expect(deep).toHaveLength(1)

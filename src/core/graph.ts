@@ -82,10 +82,18 @@ export function callSequence(taskbots: Taskbot[]): Map<string, number> {
   return order
 }
 
-/** Depth in the call graph: a master is level 1, what it calls is level 2, and so on.
- *  Level 3+ means the flow is buried too deep to follow; the messaging utility is the
- *  one exception because every taskbot is expected to call it directly. */
-const NEST_EXEMPT = /^utilidad_mensajeria/
+/** Taskbots that may be called at level 3+ without a CALL_DEPTH deduction. */
+export const CALL_DEPTH_EXEMPT_TASKBOTS = [
+  'utilidad_mensajeria',
+  'utilidad_cargarConfig',
+  'util_mensajeria',
+  'util_cargarConfig',
+  'util_loadConfig',
+  'util_config',
+  'utilidad_Config',
+] as const
+
+const CALL_DEPTH_EXEMPT = new Set(CALL_DEPTH_EXEMPT_TASKBOTS.map((name) => name.toLowerCase()))
 
 export function callDepth(edges: GraphEdge[]): Map<string, number> {
   const nodes = new Set<string>()
@@ -133,7 +141,7 @@ function callDepthFindings(edges: GraphEdge[], taskbots: Taskbot[]): Finding[] {
     const d = depth.get(e.to)
     if (d === undefined || d < 3) continue
     const calleeName = nameOf.get(e.to) ?? e.to.split('/').pop() ?? e.to
-    if (NEST_EXEMPT.test(calleeName)) continue
+    if (CALL_DEPTH_EXEMPT.has(calleeName.toLowerCase())) continue
     for (const call of e.calls) {
       out.push({
         ruleId: 'CALL_DEPTH',

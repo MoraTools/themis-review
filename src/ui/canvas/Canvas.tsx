@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyNodeChanges,
   Background,
+  ControlButton,
   Controls,
   MarkerType,
   MiniMap,
@@ -319,10 +320,12 @@ export default function Canvas({
   onSelect: (path: string) => void
   focus?: { path: string; nonce: number } | null
 }) {
+  const t = useT()
   const { nodes: rawNodes, edges } = useMemo(() => buildFlow(analysis), [analysis])
   const [nodes, setNodes] = useState<FlowNode[] | null>(null)
   const [rf, setRf] = useState<ReactFlowInstance<FlowNode, Edge> | null>(null)
   const [detailed, setDetailed] = useState(false)
+  const [compact, setCompact] = useState(false)
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
   // nodes are read through a ref here: keeping them in the effect's deps made every
   // drag (which rewrites the array) recentre the viewport mid-gesture
@@ -382,13 +385,14 @@ export default function Canvas({
     })
   }, [rf, nodes])
 
+  const showDetails = detailed && !compact
   const shownNodes = useMemo(
-    () => (detailed ? nodes : nodes?.filter((node) => node.type !== 'file')),
-    [detailed, nodes],
+    () => (showDetails ? nodes : nodes?.filter((node) => node.type !== 'file')),
+    [showDetails, nodes],
   )
   const shownEdges = useMemo(
-    () => displayEdges(edges, detailed, selectedEdge),
-    [detailed, edges, selectedEdge],
+    () => displayEdges(edges, showDetails, selectedEdge),
+    [showDetails, edges, selectedEdge],
   )
   const onMoveEnd = useCallback(
     (_: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => {
@@ -400,7 +404,7 @@ export default function Canvas({
   if (!shownNodes) return <div className="canvas-loading">…</div>
 
   return (
-    <DetailContext.Provider value={detailed}>
+    <DetailContext.Provider value={showDetails}>
       <ReactFlow
         className={rawNodes.length > MINIMAP_NODE_LIMIT ? 'no-minimap' : undefined}
         nodes={shownNodes}
@@ -423,7 +427,19 @@ export default function Canvas({
         {rawNodes.length <= MINIMAP_NODE_LIMIT && (
           <MiniMap position="bottom-left" pannable zoomable style={{ width: MINIMAP_W, height: MINIMAP_H }} />
         )}
-        <Controls position="bottom-left" showInteractive={false} />
+        <Controls position="bottom-left" showInteractive={false}>
+          <ControlButton
+            className={'compact-toggle' + (compact ? ' active' : '')}
+            title={t('canvas.compact')}
+            aria-label={t('canvas.compact')}
+            aria-pressed={compact}
+            onClick={() => setCompact((value) => !value)}
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M4 5.5 10 10l6-4.5M4 14.5 10 10l6 4.5" />
+            </svg>
+          </ControlButton>
+        </Controls>
         <Legend />
       </ReactFlow>
     </DetailContext.Provider>
