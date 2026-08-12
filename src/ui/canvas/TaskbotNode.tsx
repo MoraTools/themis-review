@@ -1,9 +1,11 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
+import { useContext } from 'react'
 import { useT } from '../i18n'
-import { typeColor, type TBNodeData } from './nodeTypes'
+import { DetailContext, typeColor, type TBNodeData } from './nodeTypes'
 
 export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
   const t = useT()
+  const detailed = useContext(DetailContext)
 
   if (data.ghost) {
     return (
@@ -36,38 +38,40 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
         )}
         {data.findingsCount > 0 && <span className="tb-findings">● {data.findingsCount}</span>}
       </div>
-      <div className="tb-vars">
-        <div className="tb-col tb-col-in">
-          {data.inputVars.map((v) => (
-            <div className="tb-var" key={v.name}>
-              <Handle
-                type="target"
-                position={Position.Left}
-                id={'in:' + v.name}
-                className="var-handle"
-                style={{ background: typeColor(v.type) }}
-              />
-              <span className="tb-var-dot" style={{ background: typeColor(v.type) }} />
-              <span className="tb-var-name">{v.name}</span>
-            </div>
-          ))}
+      {detailed && (
+        <div className="tb-vars">
+          <div className="tb-col tb-col-in">
+            {data.inputVars.map((v) => (
+              <div className="tb-var" key={v.name}>
+                <Handle
+                  type="target"
+                  position={Position.Left}
+                  id={'in:' + v.name}
+                  className="var-handle"
+                  style={{ background: typeColor(v.type) }}
+                />
+                <span className="tb-var-dot" style={{ background: typeColor(v.type) }} />
+                <span className="tb-var-name">{v.name}</span>
+              </div>
+            ))}
+          </div>
+          <div className="tb-col tb-col-out">
+            {data.wireOutVars.map((v) => (
+              <div className="tb-var out" key={v.name}>
+                <span className="tb-var-name">{v.name}</span>
+                <span className="tb-var-dot" style={{ background: typeColor(v.type) }} />
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={'out:' + v.name}
+                  className="var-handle"
+                  style={{ background: typeColor(v.type) }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="tb-col tb-col-out">
-          {data.wireOutVars.map((v) => (
-            <div className="tb-var out" key={v.name}>
-              <span className="tb-var-name">{v.name}</span>
-              <span className="tb-var-dot" style={{ background: typeColor(v.type) }} />
-              <Handle
-                type="source"
-                position={Position.Right}
-                id={'out:' + v.name}
-                className="var-handle"
-                style={{ background: typeColor(v.type) }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   )
 }

@@ -1,8 +1,41 @@
-import { useContext, useRef, useState } from 'react'
-import { analyzeZips } from '../core/analyze'
+import { useContext, useEffect, useRef, useState } from 'react'
 import type { ProjectAnalysis } from '../core/model'
 import { HERO_PHRASES, LangContext, useT } from './i18n'
 import heroArt from './assets/themis-dither-square.png'
+
+export function analyzeInWorker(
+  zips: { name: string; data: Uint8Array }[],
+  signal?: AbortSignal,
+): Promise<ProjectAnalysis> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('../core/analyze.worker.ts', import.meta.url), { type: 'module' })
+    let settled = false
+    const finish = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      signal?.removeEventListener('abort', abort)
+      worker.terminate()
+      callback()
+    }
+    const abort = () => finish(() => reject(signal?.reason ?? new DOMException('Aborted', 'AbortError')))
+    worker.onmessage = (event: MessageEvent<{ analysis?: ProjectAnalysis; error?: string }>) => {
+      finish(() => {
+        if (event.data.analysis) resolve(event.data.analysis)
+        else reject(new Error(event.data.error ?? 'Analysis failed'))
+      })
+    }
+    worker.onerror = (event) => {
+      finish(() => reject(new Error(event.message)))
+    }
+    signal?.addEventListener('abort', abort, { once: true })
+    if (signal?.aborted) return abort()
+    try {
+      worker.postMessage(zips, zips.map((zip) => zip.data.buffer as ArrayBuffer))
+    } catch (error) {
+      finish(() => reject(error))
+    }
+  })
+}
 
 export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalysis) => void }) {
   const t = useT()
@@ -11,24 +44,32 @@ export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalys
   const [drag, setDrag] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const activeAnalysis = useRef<AbortController | null>(null)
+
+  useEffect(() => () => activeAnalysis.current?.abort(), [])
 
   const handleFiles = async (files: FileList | File[]) => {
+    activeAnalysis.current?.abort()
+    const controller = new AbortController()
+    activeAnalysis.current = controller
     setError(null)
-    const zips = await Promise.all(
-      [...files]
-        .filter((f) => f.name.toLowerCase().endsWith('.zip'))
-        .map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })),
-    )
-    if (zips.length === 0) return
     try {
-      const a = analyzeZips(zips)
+      const zips = await Promise.all(
+        [...files]
+          .filter((f) => f.name.toLowerCase().endsWith('.zip'))
+          .map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })),
+      )
+      if (controller.signal.aborted || zips.length === 0) return
+      const a = await analyzeInWorker(zips, controller.signal)
       if (a.taskbots.length === 0) {
         setError(t('drop.error'))
         return
       }
       onAnalyzed(a)
     } catch (e) {
-      setError(String(e))
+      if (!controller.signal.aborted) setError(String(e))
+    } finally {
+      if (activeAnalysis.current === controller) activeAnalysis.current = null
     }
   }
 

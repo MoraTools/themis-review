@@ -334,6 +334,7 @@ button, input, select, textarea { font: inherit; }
 
 /* ---------- canvas ---------- */
 .canvas-wrap { flex: 1; position: relative; min-height: 0; }
+.canvas-wrap[hidden] { display: none; }
 .canvas-loading {
   flex: 1;
   display: grid;
@@ -345,8 +346,10 @@ button, input, select, textarea { font: inherit; }
 .react-flow__background-pattern { color: var(--border); }
 .react-flow__edge.edge-call path { stroke: var(--accent); stroke-width: 2.5; }
 .react-flow__edge.edge-wire path { opacity: 0.9; }
-/* hovering any edge dims the rest — one rule for every kind, animated call edges included */
-.react-flow:has(.react-flow__edge:hover) .react-flow__edge:not(:hover) { opacity: 0.15; }
+.react-flow__edge.edge-call:hover path.react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dashdraw 0.5s linear infinite;
+}
 .react-flow__controls { box-shadow: none; }
 .react-flow__controls-button {
   border: 1px solid var(--border-strong);
@@ -366,6 +369,7 @@ button, input, select, textarea { font: inherit; }
   /* 190px minimap + its 12px offset + a 10px gap */
   margin: 0 0 12px 212px;
 }
+.react-flow.no-minimap .react-flow__panel.react-flow__controls.bottom.left { margin-left: 12px; }
 .react-flow__minimap-mask { fill: rgba(0, 0, 0, 0.72); }
 .react-flow__minimap-node { fill: var(--border-strong); stroke: none; }
 .react-flow__attribution { display: none; }
@@ -564,9 +568,12 @@ button, input, select, textarea { font: inherit; }
   gap: 0;
   padding: 2px 14px 2px 8px;
   border-left: 3px solid transparent;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 34px;
 }
 /* gutter: number stays in its own column no matter the nesting depth */
 .code-no {
+  order: 0;
   flex: none;
   width: 40px;
   margin-right: 10px;
@@ -574,9 +581,16 @@ button, input, select, textarea { font: inherit; }
   text-align: right;
   color: var(--text-muted);
 }
-/* one dim guide per nesting level, editor style */
-.indent-guide { flex: none; width: 18px; border-left: 1px solid var(--border); }
+/* one generated background replaces one DOM node per nesting level */
+.code-line::before {
+  content: '';
+  order: 1;
+  flex: none;
+  width: calc(var(--depth, 0) * 18px);
+  background: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 18px);
+}
 .code-card {
+  order: 2;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -600,7 +614,7 @@ button, input, select, textarea { font: inherit; }
 .code-line.disabled .code-card { opacity: 0.5; }
 .code-line.msgbox .code-card { border-left: 3px solid var(--error); }
 .code-off { flex: none; color: var(--warn); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
-.code-flag { flex: none; cursor: help; align-self: center; }
+.code-flag { order: 3; flex: none; cursor: help; align-self: center; }
 
 .var-table { width: 100%; margin: 0; border-collapse: collapse; font-family: var(--font-mono); font-size: 11.5px; }
 .var-table th, .var-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -769,7 +783,13 @@ button, input, select, textarea { font: inherit; }
 .report-table tbody tr.row-link { cursor: pointer; }
 .report-table tbody tr:hover { background: var(--accent); color: var(--text-on-accent); }
 .report-table tbody tr:hover * { color: currentColor; }
-.report-bot { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--border-strong); }
+.report-bot {
+  margin-top: 44px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-strong);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
 .report-bot .tb-grade { font-family: var(--font-mono); font-size: 0.9rem; letter-spacing: 0.08em; }
 .report-bot-path { margin: 0 0 16px; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 .report-finding {
@@ -868,6 +888,7 @@ button, input, select, textarea { font: inherit; }
   .no-print { display: none !important; }
   .app { height: auto; }
   .report { max-width: none; padding: 0; overflow: visible; }
+  .report-bot { content-visibility: visible; contain-intrinsic-size: none; }
   .table-scroll { overflow: visible; }
   .report-table { min-width: 0; }
   .report-score { border-color: var(--accent); }

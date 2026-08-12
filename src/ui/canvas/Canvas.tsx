@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyNodeChanges,
   Background,
@@ -10,11 +10,21 @@ import {
   type Node,
   type ReactFlowInstance,
 } from '@xyflow/react'
+import type { ElkNode } from 'elkjs/lib/elk-api'
 import '@xyflow/react/dist/style.css'
 import type { ProjectAnalysis } from '../../core/model'
 import TaskbotNode from './TaskbotNode'
 import FileNode from './FileNode'
-import { FILE_NODE_HEIGHT, FILE_NODE_WIDTH, NODE_WIDTH, nodeHeight, typeColor, type FileNodeData, type TBNodeData } from './nodeTypes'
+import {
+  DetailContext,
+  FILE_NODE_HEIGHT,
+  FILE_NODE_WIDTH,
+  NODE_WIDTH,
+  nodeHeight,
+  typeColor,
+  type FileNodeData,
+  type TBNodeData,
+} from './nodeTypes'
 import { useT } from '../i18n'
 
 const nodeTypes = { taskbot: TaskbotNode, file: FileNode }
@@ -22,6 +32,8 @@ const nodeTypes = { taskbot: TaskbotNode, file: FileNode }
 /** minimap size is fixed so the zoom controls can be parked right beside it */
 const MINIMAP_W = 190
 const MINIMAP_H = 130
+const DETAIL_ZOOM = 0.25
+const MINIMAP_NODE_LIMIT = 100
 
 const LEGEND_KEYS = ['call', 'wire', 'ghost', 'file'] as const
 
@@ -78,8 +90,29 @@ function Legend() {
 
 type FlowNode = Node<TBNodeData> | Node<FileNodeData>
 
+export function displayEdges(edges: Edge[], detailed: boolean, selectedEdge: string | null): Edge[] {
+  const visible = detailed ? edges : edges.filter((edge) => edge.id.startsWith('call:'))
+  return visible.map((edge) => (edge.id === selectedEdge ? { ...edge, animated: true, selected: true } : edge))
+}
+
 function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
   const byPath = new Map(a.taskbots.map((t) => [t.path, t]))
+  const findingCounts = new Map<string, number>()
+  for (const finding of a.findings) {
+    findingCounts.set(finding.botPath, (findingCounts.get(finding.botPath) ?? 0) + 1)
+  }
+  const inputNames = new Map<string, Set<string>>()
+  const variableTypes = new Map<string, Map<string, string>>()
+  for (const bot of a.taskbots) {
+    const inputs = new Set<string>()
+    const types = new Map<string, string>()
+    for (const variable of bot.variables) {
+      if (variable.input) inputs.add(variable.name)
+      types.set(variable.name, variable.type)
+    }
+    inputNames.set(bot.path, inputs)
+    variableTypes.set(bot.path, types)
+  }
 
   // vars per bot that feed outgoing call wires
   const wireOut = new Map<string, Set<string>>()
@@ -107,7 +140,7 @@ function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
       inputVars: bot.variables.filter((v) => v.input).map((v) => ({ name: v.name, type: v.type })),
       wireOutVars: [...(wireOut.get(bot.path) ?? [])].map((n) => ({ name: n, type: vtypes.get(n) ?? 'ANY' })),
       outputVars: bot.variables.filter((v) => v.output).map((v) => v.name),
-      findingsCount: a.findings.filter((f) => f.botPath === bot.path).length,
+      findingsCount: findingCounts.get(bot.path) ?? 0,
     }
     nodes.push({ id: bot.path, type: 'taskbot', position: { x: 0, y: 0 }, data })
   }
@@ -161,13 +194,12 @@ function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
       sourceHandle: 'call-out',
       targetHandle: 'call-in',
       className: 'edge-call',
-      animated: true,
       markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#ffb900' },
     })
     const callee = byPath.get(e.to)
     if (!callee) continue
-    const calleeInputs = new Set(callee.variables.filter((v) => v.input).map((v) => v.name))
-    const calleeTypes = new Map(callee.variables.map((v) => [v.name, v.type]))
+    const calleeInputs = inputNames.get(callee.path)!
+    const calleeTypes = variableTypes.get(callee.path)!
     for (const c of e.calls) {
       for (const i of c.inputs) {
         if (i.callerVars.length === 0 || !calleeInputs.has(i.calleeVar)) continue
@@ -190,10 +222,44 @@ function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
   return { nodes, edges }
 }
 
-async function layout(nodes: FlowNode[], edges: Edge[]): Promise<FlowNode[]> {
-  const ELK = (await import('elkjs/lib/elk.bundled.js')).default
-  const elk = new ELK()
-  const graph = {
+export function layoutInWorker(
+  graph: ElkNode,
+  signal?: AbortSignal,
+): Promise<{ id: string; x: number; y: number }[]> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' })
+    let settled = false
+    const finish = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      signal?.removeEventListener('abort', abort)
+      worker.terminate()
+      callback()
+    }
+    const abort = () => finish(() => reject(signal?.reason ?? new DOMException('Aborted', 'AbortError')))
+    worker.onmessage = (
+      event: MessageEvent<{ positions?: { id: string; x: number; y: number }[]; error?: string }>,
+    ) => {
+      finish(() => {
+        if (event.data.positions) resolve(event.data.positions)
+        else reject(new Error(event.data.error ?? 'Layout failed'))
+      })
+    }
+    worker.onerror = (event) => {
+      finish(() => reject(new Error(event.message)))
+    }
+    signal?.addEventListener('abort', abort, { once: true })
+    if (signal?.aborted) return abort()
+    try {
+      worker.postMessage(graph)
+    } catch (error) {
+      finish(() => reject(error))
+    }
+  })
+}
+
+async function layout(nodes: FlowNode[], edges: Edge[], signal: AbortSignal): Promise<FlowNode[]> {
+  const graph: ElkNode = {
     id: 'root',
     layoutOptions: {
       'elk.algorithm': 'layered',
@@ -211,9 +277,37 @@ async function layout(nodes: FlowNode[], edges: Edge[]): Promise<FlowNode[]> {
       .filter((e) => e.id.startsWith('call:') || e.id.startsWith('file:'))
       .map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
   }
-  const res = await elk.layout(graph)
-  const pos = new Map(res.children?.map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]))
+  let positions: { id: string; x: number; y: number }[]
+  try {
+    positions = await layoutInWorker(graph, signal)
+  } catch {
+    signal.throwIfAborted()
+    const ELK = (await import('elkjs/lib/elk.bundled.js')).default
+    const result = await new ELK().layout(graph)
+    signal.throwIfAborted()
+    positions =
+      result.children?.map((child) => ({ id: child.id, x: child.x ?? 0, y: child.y ?? 0 })) ?? []
+  }
+  const pos = new Map(positions.map((child) => [child.id, { x: child.x, y: child.y }]))
   return nodes.map((n) => ({ ...n, position: pos.get(n.id) ?? { x: 0, y: 0 } }))
+}
+
+export function fullGraphBounds(nodes: FlowNode[]) {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const node of nodes) {
+    const width = node.type === 'file' ? FILE_NODE_WIDTH : NODE_WIDTH
+    const height = node.type === 'file' ? FILE_NODE_HEIGHT : nodeHeight(node.data as TBNodeData)
+    minX = Math.min(minX, node.position.x)
+    minY = Math.min(minY, node.position.y)
+    maxX = Math.max(maxX, node.position.x + width)
+    maxY = Math.max(maxY, node.position.y + height)
+  }
+  return nodes.length
+    ? { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+    : { x: 0, y: 0, width: 0, height: 0 }
 }
 
 export default function Canvas({
@@ -228,11 +322,14 @@ export default function Canvas({
   const { nodes: rawNodes, edges } = useMemo(() => buildFlow(analysis), [analysis])
   const [nodes, setNodes] = useState<FlowNode[] | null>(null)
   const [rf, setRf] = useState<ReactFlowInstance<FlowNode, Edge> | null>(null)
+  const [detailed, setDetailed] = useState(false)
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
   // nodes are read through a ref here: keeping them in the effect's deps made every
   // drag (which rewrites the array) recentre the viewport mid-gesture
   const nodesRef = useRef<FlowNode[] | null>(null)
   nodesRef.current = nodes
   const handledFocus = useRef(-1)
+  const initiallyFitted = useRef(false)
   // flips once when the async layout lands; unlike `nodes` it doesn't change on drag
   const layoutReady = nodes !== null
 
@@ -246,6 +343,7 @@ export default function Canvas({
     const w = node.type === 'file' ? FILE_NODE_WIDTH : NODE_WIDTH
     const h = node.type === 'file' ? FILE_NODE_HEIGHT : nodeHeight(node.data as TBNodeData)
     const zoom = Math.min(Math.max(rf.getZoom(), 0.6), 1.2)
+    setDetailed(zoom >= DETAIL_ZOOM)
     // duration 0: an animated pan depends on requestAnimationFrame, which never runs
     // while the tab is backgrounded, leaving the viewport silently unmoved
     rf.setCenter(node.position.x + w / 2, node.position.y + h / 2, { zoom, duration: 0 })
@@ -265,36 +363,69 @@ export default function Canvas({
   }, [focus, rf, layoutReady])
 
   useEffect(() => {
-    let alive = true
-    void layout(rawNodes, edges).then((n) => {
-      if (alive) setNodes(n)
-    })
+    const controller = new AbortController()
+    void layout(rawNodes, edges, controller.signal)
+      .then(setNodes)
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error('Layout failed', error)
+      })
     return () => {
-      alive = false
+      controller.abort()
     }
   }, [rawNodes, edges])
 
-  if (!nodes) return <div className="canvas-loading">…</div>
+  useEffect(() => {
+    if (!rf || !nodes || initiallyFitted.current) return
+    initiallyFitted.current = true
+    void rf.fitBounds(fullGraphBounds(nodes), { padding: 0.1, duration: 0 }).then(() => {
+      setDetailed(rf.getZoom() >= DETAIL_ZOOM)
+    })
+  }, [rf, nodes])
+
+  const shownNodes = useMemo(
+    () => (detailed ? nodes : nodes?.filter((node) => node.type !== 'file')),
+    [detailed, nodes],
+  )
+  const shownEdges = useMemo(
+    () => displayEdges(edges, detailed, selectedEdge),
+    [detailed, edges, selectedEdge],
+  )
+  const onMoveEnd = useCallback(
+    (_: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => {
+      setDetailed(viewport.zoom >= DETAIL_ZOOM)
+    },
+    [],
+  )
+
+  if (!shownNodes) return <div className="canvas-loading">…</div>
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      onInit={setRf}
-      onNodesChange={(chs) => setNodes((ns) => (ns ? applyNodeChanges(chs, ns) : ns))}
-      onNodeClick={(_, n) => {
-        if (n.type === 'taskbot' && !(n.data as TBNodeData).ghost) onSelect(n.id)
-      }}
-      nodesDraggable
-      fitView
-      minZoom={0.1}
-      proOptions={{ hideAttribution: true }}
-    >
-      <Background gap={24} />
-      <MiniMap position="bottom-left" pannable zoomable style={{ width: MINIMAP_W, height: MINIMAP_H }} />
-      <Controls position="bottom-left" showInteractive={false} />
-      <Legend />
-    </ReactFlow>
+    <DetailContext.Provider value={detailed}>
+      <ReactFlow
+        className={rawNodes.length > MINIMAP_NODE_LIMIT ? 'no-minimap' : undefined}
+        nodes={shownNodes}
+        edges={shownEdges}
+        nodeTypes={nodeTypes}
+        onInit={setRf}
+        onNodesChange={(chs) => setNodes((ns) => (ns ? applyNodeChanges(chs, ns) : ns))}
+        onNodeClick={(_, n) => {
+          setSelectedEdge(null)
+          if (n.type === 'taskbot' && !(n.data as TBNodeData).ghost) onSelect(n.id)
+        }}
+        onEdgeClick={(_, edge) => setSelectedEdge(edge.id.startsWith('call:') ? edge.id : null)}
+        onMoveEnd={onMoveEnd}
+        nodesDraggable
+        onlyRenderVisibleElements
+        minZoom={0.1}
+        proOptions={{ hideAttribution: true }}
+      >
+        <Background gap={24} />
+        {rawNodes.length <= MINIMAP_NODE_LIMIT && (
+          <MiniMap position="bottom-left" pannable zoomable style={{ width: MINIMAP_W, height: MINIMAP_H }} />
+        )}
+        <Controls position="bottom-left" showInteractive={false} />
+        <Legend />
+      </ReactFlow>
+    </DetailContext.Provider>
   )
 }

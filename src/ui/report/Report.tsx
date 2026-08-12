@@ -35,15 +35,32 @@ export default function Report({
   const [sort, setSort] = useState<Sort>({ col: 'score', dir: 1 })
 
   const visible = useMemo(() => analysis.findings.filter((f) => sevOn[f.severity]), [analysis, sevOn])
+  const severityCounts = useMemo(() => {
+    const counts: Record<Severity, number> = { error: 0, warn: 0, info: 0 }
+    for (const finding of analysis.findings) counts[finding.severity]++
+    return counts
+  }, [analysis])
+  const visibleByBot = useMemo(() => {
+    const grouped = new Map<string, typeof visible>()
+    for (const finding of visible) {
+      const list = grouped.get(finding.botPath) ?? []
+      list.push(finding)
+      grouped.set(finding.botPath, list)
+    }
+    for (const list of grouped.values()) {
+      list.sort(
+        (x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity] || (x.line ?? 0) - (y.line ?? 0),
+      )
+    }
+    return grouped
+  }, [visible])
 
   const rows = useMemo(() => {
     const list = analysis.taskbots.map((b) => ({
       bot: b,
       m: analysis.metrics[b.path],
       s: analysis.scores[b.path],
-      findings: visible
-        .filter((f) => f.botPath === b.path)
-        .sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity] || (x.line ?? 0) - (y.line ?? 0)),
+      findings: visibleByBot.get(b.path) ?? [],
     }))
     const value = (r: (typeof list)[number]): string | number => {
       switch (sort.col) {
@@ -62,7 +79,7 @@ export default function Report({
       const cmp = typeof x === 'string' ? x.localeCompare(String(y)) : (x as number) - (y as number)
       return cmp * sort.dir
     })
-  }, [analysis, visible, sort])
+  }, [analysis, sort, visibleByBot])
 
   const toggleSort = (col: SortCol) =>
     setSort((s) => ({ col, dir: s.col === col && s.dir === 1 ? -1 : 1 }))
@@ -89,7 +106,7 @@ export default function Report({
               checked={sevOn[sev]}
               onChange={() => setSevOn((s) => ({ ...s, [sev]: !s[sev] }))}
             />
-            {SEV_ICON[sev]} {t('report.severity.' + sev)} ({analysis.findings.filter((f) => f.severity === sev).length})
+            {SEV_ICON[sev]} {t('report.severity.' + sev)} ({severityCounts[sev]})
           </label>
         ))}
         <span className="report-options-hint">{t('report.filter.hint')}</span>

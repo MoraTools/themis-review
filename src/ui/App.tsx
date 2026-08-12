@@ -26,7 +26,6 @@ function Shell() {
 
   const exportPdf = () => {
     setView('report')
-    setSelected(null)
     setTimeout(() => window.print(), 100)
   }
 
@@ -40,12 +39,18 @@ function Shell() {
               {analysis ? t('tab.map') : t('tab.upload')}
             </button>
             {analysis && (
-              <button className={view === 'report' ? 'tab active' : 'tab'} onClick={() => setView('report')}>
+              <button
+                className={view === 'report' ? 'tab active' : 'tab'}
+                onClick={() => setView('report')}
+              >
                 {t('tab.report')}
               </button>
             )}
             {/* the rule reference stands on its own, with or without an upload */}
-            <button className={view === 'rules' ? 'tab active' : 'tab'} onClick={() => setView('rules')}>
+            <button
+              className={view === 'rules' ? 'tab active' : 'tab'}
+              onClick={() => setView('rules')}
+            >
               {t('tab.rules')}
             </button>
           </nav>
@@ -90,10 +95,12 @@ function Shell() {
 
       {!analysis && view !== 'rules' && <DropZone onAnalyzed={setAnalysis} />}
       {view === 'rules' && <Rules analysis={analysis} />}
-      {analysis && view === 'map' && (
-        <div className="canvas-wrap no-print">
+      {analysis && (
+        <div className="canvas-wrap no-print" hidden={view !== 'map'}>
           <Canvas analysis={analysis} onSelect={setSelected} focus={focus} />
-          {selected && <EditorDrawer analysis={analysis} botPath={selected} onClose={() => setSelected(null)} />}
+          {view === 'map' && selected && (
+            <EditorDrawer analysis={analysis} botPath={selected} onClose={() => setSelected(null)} />
+          )}
         </div>
       )}
       {analysis && view === 'report' && <Report analysis={analysis} onSelectBot={openOnMap} />}

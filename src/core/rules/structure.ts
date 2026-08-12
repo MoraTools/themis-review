@@ -5,6 +5,7 @@ const WIN_PATH_RE = /[A-Za-z]:\\[^\s"'<>|]+/
 export function structureRules(bot: Taskbot): Finding[] {
   const out: Finding[] = []
   const byParent = new Map<string, Action[]>()
+  const byUid = new Map(bot.actions.map((action) => [action.uid, action]))
   for (const a of bot.actions) {
     if (a.parentUid) {
       const arr = byParent.get(a.parentUid) ?? []
@@ -28,7 +29,7 @@ export function structureRules(bot: Taskbot): Finding[] {
 
     // disabled block: report topmost disabled node only
     if (a.disabled) {
-      const parent = bot.actions.find((p) => p.uid === a.parentUid)
+      const parent = a.parentUid ? byUid.get(a.parentUid) : undefined
       if (!parent || !parent.disabled) {
         out.push({ ruleId: 'DISABLED_CODE', severity: 'info', botPath: bot.path, line: a.line, params: { line: String(a.line), command: a.commandName } })
       }

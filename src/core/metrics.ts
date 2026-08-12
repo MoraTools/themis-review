@@ -8,6 +8,9 @@ export function computeMetrics(bot: Taskbot): TaskbotMetrics {
   let logMessages = 0
   let logToFile = 0
   let messageBoxes = 0
+  let inputVars = 0
+  let outputVars = 0
+  let localVars = 0
   for (const a of bot.actions) {
     if (!a.reachable) disabledLines++
     if (isComment(a)) {
@@ -18,8 +21,11 @@ export function computeMetrics(bot: Taskbot): TaskbotMetrics {
     if (a.commandName === 'logToFile') logToFile++
     if (isMessageBox(a)) messageBoxes++
   }
-  const inputVars = bot.variables.filter((v) => v.input).length
-  const outputVars = bot.variables.filter((v) => v.output).length
+  for (const variable of bot.variables) {
+    if (variable.input) inputVars++
+    if (variable.output) outputVars++
+    if (!variable.input && !variable.output) localVars++
+  }
   return {
     totalLines: bot.actions.length,
     disabledLines,
@@ -31,6 +37,6 @@ export function computeMetrics(bot: Taskbot): TaskbotMetrics {
     variables: bot.variables.length,
     inputVars,
     outputVars,
-    localVars: bot.variables.filter((v) => !v.input && !v.output).length,
+    localVars,
   }
 }

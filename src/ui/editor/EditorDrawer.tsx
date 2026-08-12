@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { isComment, type Action, type Finding, type ProjectAnalysis, type Severity } from '../../core/model'
 import { isMessageBox } from '../../core/rules/messagebox'
 import { useT } from '../i18n'
@@ -43,6 +43,11 @@ export default function EditorDrawer({
     const m = new Map<string, Finding[]>()
     for (const f of findings) if (f.varName) (m.get(f.varName) ?? m.set(f.varName, []).get(f.varName)!).push(f)
     return m
+  }, [findings])
+  const severityCounts = useMemo(() => {
+    const counts: Record<Severity, number> = { error: 0, warn: 0, info: 0 }
+    for (const finding of findings) counts[finding.severity]++
+    return counts
   }, [findings])
 
   // scroll the code list to a line after a finding click switches tabs
@@ -116,11 +121,13 @@ export default function EditorDrawer({
               .filter(Boolean)
               .join(' ')
             return (
-              <li key={a.uid} className={cls} data-line={a.line}>
+              <li
+                key={a.uid}
+                className={cls}
+                data-line={a.line}
+                style={{ '--depth': a.depth } as CSSProperties}
+              >
                 <span className="code-no">{a.line}</span>
-                {Array.from({ length: a.depth }, (_, i) => (
-                  <span key={i} className="indent-guide" />
-                ))}
                 <span className="code-card">
                   <ActionGlyph action={a} />
                   <span className="code-label">{describeAction(a)}</span>
@@ -187,7 +194,7 @@ export default function EditorDrawer({
                 className={'chip sev-' + sev + (filterSev === sev ? ' active' : '')}
                 onClick={() => setFilterSev(filterSev === sev ? null : sev)}
               >
-                {SEV_ICON[sev]} {t('report.severity.' + sev)} ({findings.filter((f) => f.severity === sev).length})
+                {SEV_ICON[sev]} {t('report.severity.' + sev)} ({severityCounts[sev]})
               </button>
             ))}
           </div>

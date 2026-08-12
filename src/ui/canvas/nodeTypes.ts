@@ -1,4 +1,7 @@
+import { createContext } from 'react'
 import type { BotScore, TaskbotMetrics } from '../../core/model'
+
+export const DetailContext = createContext(true)
 
 export interface TBNodeData {
   label: string

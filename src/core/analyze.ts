@@ -61,8 +61,14 @@ export function analyzeZips(zips: { name: string; data: Uint8Array }[]): Project
   }
 
   const scores: ProjectAnalysis['scores'] = {}
+  const findingsByBot = new Map<string, Finding[]>()
+  for (const finding of findings) {
+    const botFindings = findingsByBot.get(finding.botPath) ?? []
+    botFindings.push(finding)
+    findingsByBot.set(finding.botPath, botFindings)
+  }
   for (const bot of taskbots) {
-    scores[bot.path] = botScore(findings.filter((f) => f.botPath === bot.path))
+    scores[bot.path] = botScore(findingsByBot.get(bot.path) ?? [])
   }
 
   return {

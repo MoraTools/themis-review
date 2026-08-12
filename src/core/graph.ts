@@ -8,6 +8,7 @@ export interface GraphResult {
 
 export function buildGraph(taskbots: Taskbot[]): GraphResult {
   const byPath = new Map(taskbots.map((t) => [t.path, t]))
+  const inputsByPath = new Map(taskbots.map((bot) => [bot.path, new Set(bot.variables.filter((v) => v.input).map((v) => v.name))]))
   const edgeMap = new Map<string, GraphEdge>()
   const ghosts = new Set<string>()
   const findings: Finding[] = []
@@ -33,7 +34,7 @@ export function buildGraph(taskbots: Taskbot[]): GraphResult {
           })
         }
       } else {
-        const calleeInputs = new Set(callee.variables.filter((v) => v.input).map((v) => v.name))
+        const calleeInputs = inputsByPath.get(callee.path)!
         for (const input of call.inputs) {
           if (!calleeInputs.has(input.calleeVar)) {
             findings.push({
@@ -93,7 +94,9 @@ export function callDepth(edges: GraphEdge[]): Map<string, number> {
   for (const e of edges) {
     nodes.add(e.from)
     nodes.add(e.to)
-    outgoing.set(e.from, [...(outgoing.get(e.from) ?? []), e.to])
+    const targets = outgoing.get(e.from) ?? []
+    targets.push(e.to)
+    outgoing.set(e.from, targets)
     indegree.set(e.to, (indegree.get(e.to) ?? 0) + 1)
   }
 
@@ -108,8 +111,8 @@ export function callDepth(edges: GraphEdge[]): Map<string, number> {
   // Every node is in a cycle (no entry point): nothing meaningful to measure.
   if (queue.length === 0) return depth
 
-  while (queue.length > 0) {
-    const n = queue.shift()!
+  for (let i = 0; i < queue.length; i++) {
+    const n = queue[i]
     const d = depth.get(n)!
     for (const next of outgoing.get(n) ?? []) {
       const known = depth.get(next)
