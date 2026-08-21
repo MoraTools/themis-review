@@ -191,6 +191,68 @@ button, input, select, textarea { font: inherit; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .btn.lang { min-width: 52px; }
 
+/* — dropzone primary — authored hover: lift + shimmer + arrow — */
+.dropzone .btn.primary {
+  position: relative;
+  overflow: hidden;
+  gap: 10px;
+  padding: 10px 16px 10px 18px;
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 220ms, border-color 220ms;
+}
+.dropzone .btn.primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 26%, rgba(255, 255, 255, 0.38) 40%, transparent 64%);
+  transform: translateX(-124%);
+  transition: transform 560ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+.dropzone .btn-label {
+  position: relative;
+  z-index: 2;
+}
+.dropzone .btn-arrow {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 1px;
+  opacity: 0.88;
+  transform: translateX(-6px);
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms;
+}
+.dropzone .btn-arrow svg { display: block; }
+.dropzone:hover .btn.primary,
+.dropzone .btn.primary:hover,
+.dropzone .btn.primary:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(255, 185, 0, 0.24), 0 1px 0 rgba(255, 255, 255, 0.38) inset;
+}
+.dropzone:hover .btn.primary::before,
+.dropzone .btn.primary:hover::before,
+.dropzone .btn.primary:focus-visible::before {
+  transform: translateX(120%);
+}
+.dropzone:hover .btn-arrow,
+.dropzone .btn.primary:hover .btn-arrow,
+.dropzone .btn.primary:focus-visible .btn-arrow {
+  transform: translateX(0);
+  opacity: 1;
+}
+.dropzone .btn.primary:active {
+  transform: translateY(0);
+  box-shadow: none;
+  transition-duration: 110ms;
+}
+
 /* outlined rectangular cell, feature-tag pattern */
 .score-badge {
   display: inline-flex;
@@ -291,8 +353,79 @@ button, input, select, textarea { font: inherit; }
   border-radius: var(--radius-small);
   background: var(--surface-1);
   cursor: pointer;
+  position: relative;
+  contain: paint;
+  --beam-angle: 0deg;
+  --beam-strength: 0.72;
+  --beam-conic: conic-gradient(
+    from var(--beam-angle) at 50% 50%,
+    transparent 0deg 135deg,
+    var(--accent) 145deg,
+    #fff6c8 180deg,
+    var(--accent) 215deg,
+    transparent 225deg 360deg
+  );
 }
 .dropzone.drag { border-color: var(--accent); }
+
+/* ---------- dropzone beam — full-perimeter native conic sweep ---------- */
+@property --beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: true;
+}
+@keyframes beam-rotate {
+  to { --beam-angle: 360deg; }
+}
+.dropzone::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  clip-path: inset(0 round var(--radius-small));
+  background: var(--beam-conic);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: var(--beam-strength);
+  transition: opacity 240ms ease, filter 240ms ease;
+  z-index: 2;
+}
+.dropzone:hover,
+.dropzone.drag {
+  --beam-strength: 1;
+  animation: beam-rotate 2.8s linear infinite;
+}
+.dropzone:hover::before,
+.dropzone.drag::before {
+  filter: brightness(1.12);
+}
+.dropzone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  clip-path: inset(0 round var(--radius-small));
+  background: var(--beam-conic);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: calc(var(--beam-strength) * 0.32);
+  filter: blur(7px);
+  transition: opacity 240ms ease;
+  z-index: 1;
+}
+@supports not ((background: conic-gradient(from 0deg, red, blue)) or (--beam-angle: 0deg)) {
+  .dropzone::before,
+  .dropzone::after { display: none; }
+}
+
 .dropzone-tabs {
   display: flex;
   gap: 20px;
@@ -900,6 +1033,8 @@ button, input, select, textarea { font: inherit; }
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .dropzone::before { opacity: 0.35 !important; }
+  .dropzone::after { opacity: 0.12 !important; }
 }
 
 /* ---------- print = PDF export (kept light for ink and readability) ---------- */
@@ -916,6 +1051,8 @@ button, input, select, textarea { font: inherit; }
   }
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   body { background: #fff; color: #111; }
+  .dropzone::before,
+  .dropzone::after { display: none !important; }
   .no-print { display: none !important; }
   .app { height: auto; }
   .report { max-width: none; padding: 0; overflow: visible; }

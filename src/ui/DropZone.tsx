@@ -96,22 +96,27 @@ export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalys
         }}
         onClick={() => inputRef.current?.click()}
       >
-        <div className="dropzone-tabs">
-          <span className="dropzone-tab active">{t('drop.tab')}</span>
-        </div>
-        <div className="dropzone-body">
-          <span className="prompt">$</span>
-          <span className="dropzone-cmd">{t('drop.title')}</span>
-          <button
-            className="btn primary"
-            onClick={(e) => {
-              e.stopPropagation()
-              inputRef.current?.click()
-            }}
-          >
-            {t('drop.button')}
-          </button>
-        </div>
+          <div className="dropzone-tabs">
+            <span className="dropzone-tab active">{t('drop.tab')}</span>
+          </div>
+          <div className="dropzone-body">
+            <span className="prompt" aria-hidden="true">$</span>
+            <span className="dropzone-cmd">{t('drop.title')}</span>
+            <button
+              className="btn primary"
+              onClick={(e) => {
+                e.stopPropagation()
+                inputRef.current?.click()
+              }}
+            >
+              <span className="btn-label">{t('drop.button')}</span>
+              <span className="btn-arrow" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </button>
+          </div>
       </div>
       {error && <p className="error">{error}</p>}
       <footer className="credit">{t('credit')}</footer>
