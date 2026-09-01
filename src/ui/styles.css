@@ -659,6 +659,15 @@ button, input, select, textarea { font: inherit; }
 
 /* ---------- editor drawer ---------- */
 .drawer {
+  --bg: #0d0c09;
+  --surface-1: #15130f;
+  --surface-2: #1a1711;
+  --surface-3: #211d15;
+  --text: #ded9cd;
+  --text-muted: #9f998c;
+  --border: #443820;
+  --border-strong: #6b5423;
+
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -768,8 +777,8 @@ button, input, select, textarea { font: inherit; }
 .code-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .code-line:hover .code-card, .code-line.flash .code-card {
   border-color: var(--accent);
-  background: var(--accent);
-  color: var(--text-on-accent);
+  background: rgba(255, 185, 0, 0.1);
+  color: var(--text);
 }
 .code-line:hover .code-card *, .code-line.flash .code-card * { color: currentColor; }
 .code-line:hover .code-no, .code-line.flash .code-no { color: var(--accent); }
