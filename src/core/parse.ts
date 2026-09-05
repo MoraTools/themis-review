@@ -17,8 +17,8 @@ interface RawTaskbot {
   packages?: { name: string; version: string }[]
 }
 
-/** Matches $varName$ / $varName{key}$ references. Package-qualified system vars ($System:AATaskName$) are excluded by requiring '{' or '$' next. */
-const VAR_REF = /\$([A-Za-z][A-Za-z0-9_]*)(?=[{$])/g
+/** Matches direct, indexed, dictionary, and method/property variable references. Package-qualified system vars ($System:AATaskName$) stay excluded by not accepting ':' next. */
+const VAR_REF = /\$([A-Za-z][A-Za-z0-9_]*)(?=[$\[{.])/g
 
 export function extractVarRefs(text: string): string[] {
   const out: string[] = []

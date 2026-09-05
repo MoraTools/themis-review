@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { analyzeZips } from '../src/core/analyze'
-import { parseTaskbot } from '../src/core/parse'
+import { extractVarRefs, parseTaskbot } from '../src/core/parse'
 import { buildGraph, CALL_DEPTH_EXEMPT_TASKBOTS, callDepth, callSequence } from '../src/core/graph'
 import { messageBoxRules } from '../src/core/rules/messagebox'
 import { structureRules } from '../src/core/rules/structure'
@@ -186,6 +186,15 @@ describe('synthetic taskbots', () => {
     attributes: [{ name: 'isChecked', value: { type: 'BOOLEAN', boolean: closes } }],
   })
   const log = (uid: string) => ({ uid, commandName: 'log_message', packageName: 'A360BotFramework', attributes: [] })
+
+  it('recognizes Automation Anywhere variable reference forms', () => {
+    expect(extractVarRefs('$direct$')).toEqual(['direct'])
+    expect(extractVarRefs('$pRecDelTXT[0].String:trim.String:uppercase$')).toEqual(['pRecDelTXT'])
+    expect(extractVarRefs('$dict{key}$')).toEqual(['dict'])
+    expect(extractVarRefs('$value.String:trim$')).toEqual(['value'])
+    expect(extractVarRefs('$list[$index$]$')).toEqual(['list', 'index'])
+    expect(extractVarRefs('$System:AATaskName$')).toEqual([])
+  })
 
   it('flags only the boxes that never close', () => {
     const bot = parseTaskbot('Bots/x/tasks/T', 'z', wrap([msgBox('a', false), msgBoxPlus('b', false), msgBox('c', true), msgBoxPlus('d', true)]))
