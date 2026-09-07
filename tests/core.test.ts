@@ -194,6 +194,46 @@ describe('synthetic taskbots', () => {
     expect(extractVarRefs('$value.String:trim$')).toEqual(['value'])
     expect(extractVarRefs('$list[$index$]$')).toEqual(['list', 'index'])
     expect(extractVarRefs('$System:AATaskName$')).toEqual([])
+
+    const structured = parseTaskbot('Bots/x/tasks/Windows', 'z', wrap([
+      {
+        uid: 'window-vars', commandName: 'activate', packageName: 'Window', attributes: [
+          { name: 'source', value: { objectTypeName: 'VARIABLE', string: 'pWinListaAcreedoresSAP' } },
+          { name: 'targets', value: { type: 'VARIABLE_MAP', variableMapNames: ['pWinExportarReporteSAP'] } },
+        ],
+      },
+    ], [
+      { name: 'pWinListaAcreedoresSAP' },
+      { name: 'pWinExportarReporteSAP' },
+    ]))
+    expect(structured.varRefs.pWinListaAcreedoresSAP).toEqual([1])
+    expect(structured.varRefs.pWinExportarReporteSAP).toEqual([1])
+  })
+
+  it('finds Window references inside nested condition attributes on the correct action lines', () => {
+    const condition = (name: string, value: unknown) => ({
+      name: 'condition',
+      value: { type: 'CONDITIONAL', conditionalName: 'windowNotExists', packageName: 'Window' },
+      attributes: [{ name, value }],
+    })
+    const bot = parseTaskbot('Bots/x/tasks/Windows', 'z', wrap([
+      { uid: 'parent', commandName: 'try', packageName: 'ErrorHandler', children: [
+        { uid: 'window', commandName: 'if', packageName: 'If', attributes: [
+          condition('window', { type: 'WINDOW', expression: '$cWinList$' }),
+          condition('window', { type: 'WINDOW', expression: '$cWinList$' }),
+        ] },
+        { uid: 'object', commandName: 'if', packageName: 'If', attributes: [
+          condition('uiObject', { type: 'UIOBJECT', uiObjectWindow: { type: 'WINDOW', expression: '$cWinList$' } }),
+        ] },
+      ], branches: [
+        { uid: 'export', commandName: 'if', packageName: 'If', attributes: [
+          condition('window', { type: 'WINDOW', expression: '$cWinExport$' }),
+        ] },
+      ] },
+    ], [{ name: 'cWinList' }, { name: 'cWinExport' }, { name: 'pStrUnused', defaultValue: '$pStrUnused$' }]))
+    expect(bot.varRefs.cWinList).toEqual([2, 3])
+    expect(bot.varRefs.cWinExport).toEqual([4])
+    expect(bot.varRefs.pStrUnused).toBeUndefined()
   })
 
   it('flags only the boxes that never close', () => {

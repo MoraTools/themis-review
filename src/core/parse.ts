@@ -28,9 +28,13 @@ export function extractVarRefs(text: string): string[] {
 
 function walkValueStrings(v: AAValue | undefined, visit: (s: string) => void): void {
   if (v == null || typeof v !== 'object') return
-  if (typeof v.string === 'string') visit(v.string)
+  if (v.objectTypeName === 'VARIABLE' && typeof v.string === 'string') visit('$' + v.string + '$')
+  else if (typeof v.string === 'string') visit(v.string)
   if (typeof v.expression === 'string') visit(v.expression)
   if (typeof v.variableName === 'string') visit('$' + v.variableName + '$')
+  if (Array.isArray(v.variableMapNames)) {
+    for (const name of v.variableMapNames) if (typeof name === 'string') visit('$' + name + '$')
+  }
   for (const k of Object.keys(v)) {
     const child = (v as Record<string, unknown>)[k]
     if (Array.isArray(child)) {
@@ -98,7 +102,7 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
       parentUid,
     })
 
-    // variable reference scan (attributes + returnTo)
+    // Scan the complete attribute tree, including condition/iterator sibling attributes.
     const seen = new Set<string>()
     const visit = (s: string) => {
       texts.push(s)
@@ -109,7 +113,7 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
         }
       }
     }
-    for (const a of node.attributes ?? []) walkValueStrings(a.value, visit)
+    walkValueStrings({ attributes: node.attributes }, visit)
     walkValueStrings(node.returnTo, visit)
 
     if (node.commandName === 'runTask') {
