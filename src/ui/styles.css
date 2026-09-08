@@ -355,20 +355,20 @@ button, input, select, textarea { font: inherit; }
   cursor: pointer;
   position: relative;
   contain: paint;
+  animation: beam-rotate 6s linear infinite;
   --beam-angle: 0deg;
-  --beam-strength: 0.72;
   --beam-conic: conic-gradient(
     from var(--beam-angle) at 50% 50%,
-    transparent 0deg 135deg,
-    var(--accent) 145deg,
-    #fff6c8 180deg,
-    var(--accent) 215deg,
-    transparent 225deg 360deg
+    #5c3b08 0deg, var(--accent) 35deg, #fff2bd 48deg,
+    #ffd36b 58deg, #8c5b0c 90deg, #302005 130deg,
+    #d99119 165deg, #ffe4a0 180deg, #fff2bd 192deg,
+    var(--accent) 220deg, #493007 260deg, #eab54b 300deg,
+    #fff2bd 315deg, var(--accent) 328deg, #5c3b08 360deg
   );
 }
 .dropzone.drag { border-color: var(--accent); }
 
-/* ---------- dropzone beam — full-perimeter native conic sweep ---------- */
+/* ---------- continuous metal rim — native conic reflections ---------- */
 @property --beam-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -382,7 +382,7 @@ button, input, select, textarea { font: inherit; }
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 1px;
+  padding: 2px;
   clip-path: inset(0 round var(--radius-small));
   background: var(--beam-conic);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -390,25 +390,14 @@ button, input, select, textarea { font: inherit; }
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   pointer-events: none;
-  opacity: var(--beam-strength);
-  transition: opacity 240ms ease, filter 240ms ease;
   z-index: 2;
-}
-.dropzone:hover,
-.dropzone.drag {
-  --beam-strength: 1;
-  animation: beam-rotate 2.8s linear infinite;
-}
-.dropzone:hover::before,
-.dropzone.drag::before {
-  filter: brightness(1.12);
 }
 .dropzone::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 1px;
+  padding: 3px;
   clip-path: inset(0 round var(--radius-small));
   background: var(--beam-conic);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -416,9 +405,8 @@ button, input, select, textarea { font: inherit; }
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   pointer-events: none;
-  opacity: calc(var(--beam-strength) * 0.32);
-  filter: blur(7px);
-  transition: opacity 240ms ease;
+  opacity: 0.5;
+  filter: blur(4px);
   z-index: 1;
 }
 @supports not ((background: conic-gradient(from 0deg, red, blue)) or (--beam-angle: 0deg)) {
