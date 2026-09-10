@@ -1,6 +1,6 @@
 # Themis Review
 
-**https://jamir-boop.github.io/themis-review/**
+**https://moratools.github.io/themis-review/**
 
 Static code review for Automation Anywhere (A360) bots, 100% in the browser.
 
