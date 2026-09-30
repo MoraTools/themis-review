@@ -26,14 +26,14 @@ export function extractVarRefs(text: string): string[] {
   return out
 }
 
-function walkValueStrings(v: AAValue | undefined, visit: (s: string) => void): void {
+function walkValueStrings(v: AAValue | undefined, visit: (s: string, nativeRef?: boolean) => void): void {
   if (v == null || typeof v !== 'object') return
-  if (v.objectTypeName === 'VARIABLE' && typeof v.string === 'string') visit('$' + v.string + '$')
+  if (v.objectTypeName === 'VARIABLE' && typeof v.string === 'string') visit('$' + v.string + '$', true)
   else if (typeof v.string === 'string') visit(v.string)
   if (typeof v.expression === 'string') visit(v.expression)
-  if (typeof v.variableName === 'string') visit('$' + v.variableName + '$')
+  if (typeof v.variableName === 'string') visit('$' + v.variableName + '$', true)
   if (Array.isArray(v.variableMapNames)) {
-    for (const name of v.variableMapNames) if (typeof name === 'string') visit('$' + name + '$')
+    for (const name of v.variableMapNames) if (typeof name === 'string') visit('$' + name + '$', true)
   }
   for (const k of Object.keys(v)) {
     const child = (v as Record<string, unknown>)[k]
@@ -80,6 +80,12 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
   const texts: string[] = []
 
   const declared = new Set((raw.variables ?? []).map((v) => v.name ?? ''))
+  // Native VARIABLE values can serialize names in lowercase. Keep ambiguous aliases unresolved.
+  const declaredAliases = new Map<string, string | undefined>()
+  for (const name of declared) {
+    const key = name.toLowerCase()
+    declaredAliases.set(key, declaredAliases.has(key) ? undefined : name)
+  }
 
   let line = 0
   const walk = (node: RawNode, depth: number, parentReachable: boolean, parentUid?: string) => {
@@ -104,10 +110,11 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
 
     // Scan the complete attribute tree, including condition/iterator sibling attributes.
     const seen = new Set<string>()
-    const visit = (s: string) => {
+    const visit = (s: string, nativeRef = false) => {
       texts.push(s)
-      for (const name of extractVarRefs(s)) {
-        if (declared.has(name) && !seen.has(name)) {
+      for (const ref of extractVarRefs(s)) {
+        const name = declared.has(ref) ? ref : nativeRef ? declaredAliases.get(ref.toLowerCase()) : undefined
+        if (name !== undefined && !seen.has(name)) {
           seen.add(name)
           ;(varRefs[name] ??= []).push(myLine)
         }

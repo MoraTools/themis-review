@@ -1,11 +1,7 @@
 import { asText, isTaskbotCandidate, readZip, type ZipEntry } from './zip'
 import { parseTaskbot } from './parse'
 import { buildGraph } from './graph'
-import { computeMetrics } from './metrics'
-import { namingRules } from './rules/naming'
-import { messageBoxRules } from './rules/messagebox'
-import { structureRules } from './rules/structure'
-import { hygieneRules } from './rules/hygiene'
+import { reviewBot } from './review'
 import { botScore, projectScore } from './score'
 import type { FileEdge, Finding, OtherFile, ProjectAnalysis, Taskbot, TaskbotMetrics } from './model'
 
@@ -42,9 +38,9 @@ export function analyzeZips(zips: { name: string; data: Uint8Array }[]): Project
   const metrics: Record<string, TaskbotMetrics> = {}
   const findings: Finding[] = []
   for (const bot of taskbots) {
-    const m = computeMetrics(bot)
-    metrics[bot.path] = m
-    findings.push(...namingRules(bot), ...messageBoxRules(bot), ...structureRules(bot), ...hygieneRules(bot, m))
+    const review = reviewBot(bot)
+    metrics[bot.path] = review.metrics
+    findings.push(...review.findings)
   }
 
   const g = buildGraph(taskbots)
