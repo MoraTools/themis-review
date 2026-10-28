@@ -2,3 +2,6 @@ node_modules/
 dist/
 .data/
 *.local
+
+# impeccable CLI binary; the launcher downloads it when missing
+.agents/skills/impeccable/scripts/bin/
