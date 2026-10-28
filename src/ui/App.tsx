@@ -6,8 +6,9 @@ import Canvas from './canvas/Canvas'
 import EditorDrawer from './editor/EditorDrawer'
 import Report from './report/Report'
 import Rules from './rules/Rules'
+import Tdd from './report/Tdd'
 
-type View = 'map' | 'report' | 'rules'
+type View = 'map' | 'report' | 'rules' | 'tdd'
 
 function Shell() {
   const t = useT()
@@ -38,6 +39,9 @@ function Shell() {
             <button className={view === 'map' ? 'tab active' : 'tab'} onClick={() => setView('map')}>
               {analysis ? t('tab.map') : t('tab.upload')}
             </button>
+            {analysis && (
+              <button className={view === 'tdd' ? 'tab active' : 'tab'} onClick={() => setView('tdd')}>TDD</button>
+            )}
             {analysis && (
               <button
                 className={view === 'report' ? 'tab active' : 'tab'}
@@ -104,6 +108,7 @@ function Shell() {
         </div>
       )}
       {analysis && view === 'report' && <Report analysis={analysis} onSelectBot={openOnMap} />}
+      {analysis && view === 'tdd' && <Tdd analysis={analysis} onSelectBot={openOnMap} />}
     </div>
   )
 }

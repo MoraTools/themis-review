@@ -40,6 +40,10 @@ const COMMAND_LABEL: Record<string, string> = {
   catch: 'Catch',
   delay: 'Add a regular delay',
   deleteEmptyRows: 'Delete empty rows',
+  deleteFiles: 'Delete files',
+  deleteFolder: 'Delete folder',
+  createFile: 'Create file',
+  renameFiles: 'Rename files',
   documentation_about: 'About Task Description',
   documentation_comment: 'Comment',
   documentation_sequence: 'Steps',
@@ -201,29 +205,71 @@ const OPERATOR: Record<string, string> = {
 
 /** `if` keeps its operands on the condition attribute entry itself, alongside name/value */
 function condition(a: Action): string {
-  const entry = a.attributes.find((x) => x.name === 'condition') as
-    | { name: string; value?: AAValue; attributes?: { name: string; value?: AAValue }[] }
-    | undefined
-  if (!entry) return ''
+  const entry = a.attributes.find((x) => x.name === 'condition') as ConditionEntry | undefined
+  if (!entry) return '[condition not decoded from source]'
+  return conditionEntry(a, entry)
+}
+interface ConditionEntry {
+  value?: AAValue
+  attributes?: { name: string; value?: AAValue }[]
+  groupAttribute?: ConditionEntry
+  operatorAttribute?: ConditionEntry
+  operator?: string
+}
+function conditionEntry(a: Action, entry: ConditionEntry): string {
+  if (entry.groupAttribute) {
+    const left = conditionEntry(a, entry.groupAttribute)
+    const next = entry.operatorAttribute
+    return next ? `(${left}) ${next.operator ?? '[operator not decoded]'} (${conditionEntry(a, next)})` : left
+  }
+  if (entry.operatorAttribute) {
+    const left = conditionEntry(a, { ...entry, operatorAttribute: undefined })
+    const next = entry.operatorAttribute
+    return `(${left}) ${next.operator ?? '[operator not decoded]'} (${conditionEntry(a, next)})`
+  }
   const inner = entry.attributes ?? []
   const get = (n: string) => inner.find((x) => x.name === n)?.value
-  const left = primitive(get('variable')) ?? primitive(get('sourceString')) ?? primitive(get('window')) ?? ''
+  const operand = (name: string) => {
+    const value = get(name)
+    if (value?.string === '') return '""'
+    return primitive(value)
+  }
+  const left = operand('variable') ?? operand('sourceString') ?? operand('sourceDateTime') ?? operand('window') ?? ''
   const opRaw = get('operator')?.string ?? ''
   const op = OPERATOR[opRaw] ?? opRaw
-  const right = primitive(get('value')) ?? ''
+  const right = operand('value') ?? operand('destDateTime') ?? operand('stringValue') ?? ''
   // only name the operand type when there is an operand to name
   const kind = typeof entry.value?.conditionalName === 'string' ? entry.value.conditionalName : ''
   const noun = left ? kind.replace(/Variable$/, '').toLowerCase() : ''
-  return [noun, left, op, right].filter(Boolean).join(' ')
+  if (op && left) return [noun, left, op, right].filter(Boolean).join(' ')
+  const relevant = inner.filter(at => !['operator', 'waitTimeout', 'advancedWait', 'matchCase', 'isIgnoreCarriage', 'subtype', 'valueType', 'wait', 'hasClickOption', 'hasRepeatOptionSet', 'isMigratedBot', 'compareMode', 'offsetX', 'offsetY', 'repeatTimes', 'selectClickOrOffsetMatch'].includes(at.name))
+  const operands = relevant.map(at => { const p = operand(at.name); return p === undefined ? '' : `${at.name} ${p}` }).filter(Boolean)
+  if (operands.length) return [kind || 'source condition', ...operands].join(' ')
+  if (inner.some(at => at.name === 'uiObject')) {
+    const control = capturedControl({ ...a, attributes: inner })
+    return `${kind === 'capture' ? 'captured object exists' : kind === 'captureObjectNotExist' ? 'captured object does not exist' : kind || 'Recorder condition'} ${control || '[captured control in source]'}`
+  }
+  return `${kind || 'condition'} [source operands not decoded]`
 }
 
 /** Recorder actions hide the captured control inside a base64 JSON blob. Decoding is
  *  cached per action because the blobs run to several KB each. */
 const uiObjectCache = new Map<string, string>()
 
-function capturedControl(a: Action): string {
+export function capturedControl(a: Action, nameOnly = false): string {
+  const value = attr(a, 'uiObject')
+  const sourceObject = value?.uiObject as { controlType?: string; criteria?: Record<string, { enabled?: boolean; value?: AAValue }> } | undefined
+  if (sourceObject?.criteria) {
+    const criteria = sourceObject.criteria
+    const get = (key: string) => { const entry = criteria[key]; return entry?.enabled ? primitive(entry.value) : undefined }
+    if (nameOnly) return get('Name') ?? get('HTML InnerText') ?? get('HTML Name') ?? get('HTML ID') ?? ''
+    const identifier = get('HTML ID') ?? get('HTML Name') ?? get('HTML InnerText') ?? get('Name') ?? get('DOMXPath') ?? get('CSS Selector')
+    const tag = get('HTML Tag') ?? sourceObject.controlType ?? ''
+    const window = primitive(value?.uiObjectWindow as AAValue | undefined)
+    return [tag ? `on ${tag}` : '', identifier ?? '', window ? `in ${window}` : ''].filter(Boolean).join(' ')
+  }
   const cached = uiObjectCache.get(a.uid)
-  if (cached !== undefined) return cached
+  if (cached !== undefined) return nameOnly ? cached.match(/“[^”]+”/)?.[0] ?? '' : cached
 
   let out = ''
   try {
@@ -246,12 +292,16 @@ function capturedControl(a: Action): string {
     out = '' // an unreadable blob just means a shorter label
   }
   uiObjectCache.set(a.uid, out)
-  return out
+  return nameOnly ? out.match(/“[^”]+”/)?.[0] ?? '' : out
 }
 
 /** Control Room renders these without the `Package:` prefix, or from specific attributes. */
 function special(a: Action): string | undefined {
   const p = firstPrimitive(a)
+  if (a.packageName === 'Boolean' && a.commandName === 'assign') {
+    const value = primitive(attr(a, 'userDefined') ?? attr(a, 'variable'))
+    if (value) return `Boolean: Assign ${value}${returnTarget(a) ? ' to ' + returnTarget(a) : ''}`
+  }
   switch (a.commandName) {
     case 'BetterComments':
     case 'Comment':
@@ -260,6 +310,24 @@ function special(a: Action): string | undefined {
       return `Message box ${p ?? ''}`.trim()
     case 'if':
       return `If ${condition(a)}`.trim()
+    case 'elseIf':
+      return `Else if ${condition(a)}`.trim()
+    case 'catch':
+      return 'Error handler: Catch'
+    case 'loop.commands.start': {
+      if (a.attributes.some(attribute => attribute.name === 'condition')) {
+        const atEnd = attr(a, 'checkConditionAtEnd')?.boolean === true
+        return `Loop while ${condition(a)} (condition ${atEnd ? 'after' : 'before'} body)`
+      }
+      const iterator = a.attributes.find(at => at.name === 'iterator') as { value?: AAValue; attributes?: { name: string; value?: AAValue }[] } | undefined
+      if (iterator) {
+        const kind = typeof iterator.value?.iteratorName === 'string' ? iterator.value.iteratorName : ''
+        const operands = (iterator.attributes ?? []).map(at => { const p = primitive(at.value); return p === undefined ? '' : `${at.name} ${p}` }).filter(Boolean)
+        return ['Loop', kind, ...operands].filter(Boolean).join(' ')
+      }
+      const operands = a.attributes.filter(at => !['loopType', 'advancedWait'].includes(at.name)).map(at => { const p = primitive(at.value); return p === undefined ? '' : `${at.name} ${p}` }).filter(Boolean)
+      return ['Loop', ...operands].filter(Boolean).join(' ')
+    }
     case 'Keystrokes':
       return `Simulate keystrokes ${p ?? ''}`.trim()
     case 'waitForWindow': {
@@ -270,6 +338,14 @@ function special(a: Action): string | undefined {
     case 'runTask': {
       const name = taskbotName(a)
       return name ? `Task Bot: Run ${name}` : undefined
+    }
+    case 'restGet':
+    case 'restPost': {
+      const uriValue = attr(a, 'uri') ?? attr(a, 'url')
+      const uri = (primitive(uriValue) ?? '[URI in source]')
+        .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/gi, '$1[REDACTED]@')
+        .replace(/([?&](?:password|secret|api[_-]?key|token|access[_-]?token)=)([^&\s”]+)/gi, (_, key: string, value: string) => key + (uriValue?.expression && /^\$[^$]+\$$/.test(value) ? value : '[REDACTED]'))
+      return `REST: ${a.commandName === 'restGet' ? 'GET' : 'POST'} ${uri}${returnTarget(a) ? ' to ' + returnTarget(a) : ''}`
     }
     case 'log_message': {
       const level = LOG_LEVEL[attr(a, 'logLevel')?.string ?? ''] ?? ''
@@ -285,9 +361,14 @@ function special(a: Action): string | undefined {
       return `Error handler: Throw ${typeof ex === 'string' ? ex : (p ?? '')}`.trim()
     }
     case 'capture': {
-      const action = attr(a, 'buttonAction')?.string
-      const verb = action ? action.charAt(0) + action.slice(1).toLowerCase() : ''
-      return `Recorder: Capture ${verb} ${capturedControl(a)}`.replace(/\s+/g, ' ').trim()
+      const action = a.attributes.find(at => /Action$/.test(at.name))?.value?.string
+      const verbs: Record<string, string> = { LEFTCLICK: 'Left click', RIGHTCLICK: 'Right click', DOUBLECLICK: 'Double click', CLICK: 'Click', SETTEXT: 'Set text', GETPROPERTY: 'Get property', SELECT: 'Select', SELECTITEMBYTEXT: 'Select item by text', EXPAND: 'Expand', EXTRACTTOCSV: 'Extract to CSV' }
+      const verb = action ? verbs[action] ?? action : ''
+      const inputValue = attr(a, 'valueCV') ?? attr(a, 'value')
+      const password = a.attributes.some(attribute => attribute.name === 'passwordtextAction')
+      const safePasswordReference = inputValue?.expression && /^\$[^$]+\$$/.test(inputValue.expression) ? inputValue.expression : inputValue?.variableName ? `$${inputValue.variableName}$` : '[REDACTED]'
+      const input = /SETTEXT|SELECTITEMBYTEXT/.test(action ?? '') ? password ? safePasswordReference : primitive(inputValue) : undefined
+      return `Recorder: Capture ${verb} ${capturedControl(a)}${input ? ' value ' + input : ''}`.replace(/\s+/g, ' ').trim()
     }
     default:
       return undefined

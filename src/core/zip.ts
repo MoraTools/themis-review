@@ -20,10 +20,12 @@ export function asText(e: ZipEntry): string {
   return decoder.decode(e.data)
 }
 
-/** Taskbot files carry no extension. The folder they sit in is localized by the
- *  Control Room UI language (tasks/Tareas/Aufgaben/...), so the name is never matched —
- *  parseTaskbot validates the JSON shape and analyze skips whatever fails. */
-export function isTaskbotCandidate(path: string): boolean {
+/** File names and localized folder names do not identify a Taskbot. Check JSON bytes, then validate the parsed shape. */
+export function isTaskbotCandidate(path: string, data?: Uint8Array): boolean {
   const basename = path.split('/').pop() ?? ''
-  return basename.length > 0 && !basename.includes('.')
+  if (!basename) return false
+  if (!data) return true
+  let offset = data[0] === 0xef && data[1] === 0xbb && data[2] === 0xbf ? 3 : 0
+  while ([9, 10, 13, 32].includes(data[offset])) offset++
+  return data[offset] === 123
 }

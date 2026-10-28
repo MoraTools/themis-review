@@ -1068,3 +1068,9 @@ button, input, select, textarea { font: inherit; }
   .report-finding.sev-warn { border-left-color: #9a6700; }
   .report-finding.sev-info { border-left-color: #0969da; }
 }
+
+.tdd-hint { max-width: 70ch; line-height: 1.6; }
+.tdd-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 12px; }
+.tdd-actions .btn:disabled { opacity: 0.55; cursor: wait; }
+.tdd-bot-link { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.tdd-bot-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
