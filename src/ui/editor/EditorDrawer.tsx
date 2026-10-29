@@ -88,7 +88,13 @@ export default function EditorDrawer({
 
   const visibleFindings = filterSev ? findings.filter((f) => f.severity === filterSev) : findings
   const close = () => {
-    dialogRef.current?.close()
+    const dialog = dialogRef.current
+    dialog?.close()
+    // opened from a report row, the opener is gone with the report: return focus to the bot's map node
+    const focused = document.activeElement
+    if (!focused || focused === document.body || dialog?.contains(focused)) {
+      document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(botPath)}"]`)?.focus()
+    }
     onClose()
   }
 
