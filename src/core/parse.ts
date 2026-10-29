@@ -1,4 +1,4 @@
-import type { AAAttribute, AAValue, Action, ActionNode, Call, CallInput, Taskbot, Variable } from './model'
+import type { AAAttribute, AAValue, Action, Call, CallInput, Taskbot, Variable } from './model'
 
 interface RawNode {
   uid: string
@@ -70,7 +70,7 @@ function parseCall(node: RawNode, line: number, reachable: boolean): Call | unde
 
 export function parseTaskbot(path: string, sourceZip: string, json: string): Taskbot {
   const raw = JSON.parse(json) as RawTaskbot
-  // The parsed source shape identifies a Taskbot, regardless of its file name.
+  // Extensionless files are only candidates; this is what actually identifies a taskbot.
   if (!Array.isArray(raw.nodes) || !Array.isArray(raw.variables)) {
     throw new Error('not a taskbot: ' + path)
   }
@@ -88,13 +88,13 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
   }
 
   let line = 0
-  const walk = (node: RawNode, depth: number, parentReachable: boolean, parentUid?: string): ActionNode => {
+  const walk = (node: RawNode, depth: number, parentReachable: boolean, parentUid?: string) => {
     line++
     const myLine = line
     const reachable = parentReachable && !node.disabled
     const children = node.children ?? []
     const branches = node.branches ?? []
-    const action: ActionNode = {
+    actions.push({
       uid: node.uid,
       line: myLine,
       depth,
@@ -106,10 +106,7 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
       returnTo: node.returnTo,
       childCount: children.length + branches.length,
       parentUid,
-      children: [],
-      branches: [],
-    }
-    actions.push(action)
+    })
 
     // Scan the complete attribute tree, including condition/iterator sibling attributes.
     const seen = new Set<string>()
@@ -131,11 +128,10 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
       if (call) calls.push(call)
     }
 
-    action.children = children.map((c) => walk(c, depth + 1, reachable, node.uid))
-    action.branches = branches.map((b) => walk(b, depth, reachable, node.uid))
-    return action
+    for (const c of children) walk(c, depth + 1, reachable, node.uid)
+    for (const b of branches) walk(b, depth, reachable, node.uid)
   }
-  const nodes = (raw.nodes ?? []).map((n) => walk(n, 0, true))
+  for (const n of raw.nodes ?? []) walk(n, 0, true)
 
   const parts = path.split('/')
   const name = parts[parts.length - 1]
@@ -163,6 +159,5 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
     calls,
     varRefs,
     textBlob: texts.join('\n').toLowerCase(),
-    nodes,
   }
 }

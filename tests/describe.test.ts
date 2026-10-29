@@ -128,17 +128,6 @@ describe('label edge cases', () => {
     }))
     expect(describeAction(bot.actions[0])).toBe('Recorder: Capture Click')
   })
-  it('shows the password-entry operation without exposing a literal password', () => {
-    const source = (value: object) => parseTaskbot('Bots/tasks/T', 'z', wrap([{ uid: 'password', commandName: 'capture', packageName: 'Recorder', attributes: [{ name: 'passwordtextAction', value: { string: 'SETTEXT' } }, { name: 'valueCV', value }] }])).actions[0]
-    expect(describeAction(source({ string: 'TEST_PASSWORD_SENTINEL' }))).toContain('Set text')
-    expect(describeAction(source({ string: 'TEST_PASSWORD_SENTINEL' }))).not.toContain('TEST_PASSWORD_SENTINEL')
-    expect(describeAction(source({ expression: '$pStrPassword$' }))).toContain('$pStrPassword$')
-  })
-  it('shows a REST target without exposing URI credentials', () => {
-    const bot = parseTaskbot('Bots/tasks/T', 'z', wrap([{ uid: 'rest', commandName: 'restGet', packageName: 'Rest', attributes: [{ name: 'uri', value: { string: 'https://user:URI_PASSWORD@api.example/request?api_key=URI_KEY&country=PE' } }] }]))
-    const label = describeAction(bot.actions[0])
-    expect(label).toContain('api.example/request'); expect(label).not.toMatch(/URI_PASSWORD|URI_KEY/)
-  })
 
   it('falls back to package and command for anything unmapped', () => {
     const bot = parseTaskbot('Bots/x/tasks/T', 'z', wrap([

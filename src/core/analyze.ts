@@ -11,25 +11,18 @@ export function analyzeZips(zips: { name: string; data: Uint8Array }[]): Project
   const taskbots: Taskbot[] = []
   const otherFiles: OtherFile[] = []
   const seenPaths = new Set<string>()
-  const sourceByBot = new Map<string, ZipEntry>()
-  const duplicateTaskbots: NonNullable<ProjectAnalysis['duplicateTaskbots']> = []
 
   for (const e of entries) {
     if (e.path === 'manifest.json') continue
-    if (isTaskbotCandidate(e.path, e.data)) {
-      if (seenPaths.has(e.path)) {
-        const selected = sourceByBot.get(e.path)
-        if (selected) duplicateTaskbots.push({ path: e.path, selectedZip: selected.sourceZip, sourceZip: e.sourceZip, identical: asText(selected) === asText(e) })
-        continue // same bot in several zips: first wins
-      }
+    if (isTaskbotCandidate(e.path)) {
+      if (seenPaths.has(e.path)) continue // same bot in several zips: first wins
       try {
         const bot = parseTaskbot(e.path, e.sourceZip, asText(e))
         taskbots.push(bot)
         seenPaths.add(e.path)
-        sourceByBot.set(e.path, e)
         continue
       } catch {
-        // JSON with a different shape falls through to otherFiles.
+        // extensionless but not a taskbot JSON — fall through to otherFiles
       }
     }
     // recorder screenshots live in <TaskName>Metadata/ next to the taskbot
@@ -85,7 +78,5 @@ export function analyzeZips(zips: { name: string; data: Uint8Array }[]): Project
     projectScore: projectScore(taskbots.map((t) => ({ score: scores[t.path].score, lines: metrics[t.path].totalLines }))),
     otherFiles,
     zipNames: zips.map((z) => z.name),
-    archiveFiles: entries.filter((e) => !e.path.endsWith('/')),
-    duplicateTaskbots,
   }
 }

@@ -5,16 +5,6 @@ export type Lang = 'es' | 'en'
 type Dict = Record<string, string>
 
 const es: Dict = {
-  'tdd.title': 'Documento de diseño técnico',
-  'tdd.hint': 'Diagramas y datos del código fuente. Las capturas aparecen con su acción de origen. La introducción y el resumen del proceso quedan vacíos.',
-  'tdd.docx': 'Descargar TDD DOCX',
-  'tdd.pdf': 'Descargar TDD PDF',
-  'tdd.preparing': 'Preparando el documento...',
-  'tdd.ready': 'Documento preparado para descarga.',
-  'tdd.error': 'No se pudo crear el documento. Intenta de nuevo.',
-  'tdd.scope': 'Taskbots incluidos',
-  'tdd.images': 'Referencias de imagen',
-  'tdd.calls': 'Llamadas',
   'app.tagline': 'Revisión de código para Automation Anywhere',
   'drop.kicker': 'Control Room · A360 · Procesado local',
   'drop.tab': 'zip',
@@ -55,7 +45,7 @@ const es: Dict = {
   'rules.cat.graph': 'Grafo de llamadas',
   'rules.sharedCap': 'Total de la familia {group}: estas reglas comparten un solo tope, por eso muestran el mismo número.',
   'rules.sharedCapNote': 'Puntos de una familia que comparte tope entre varias reglas; el número es el total de la familia, no se suma dos veces.',
-  'header.export': 'Exportar PDF de revisión',
+  'header.export': 'Exportar PDF',
   'header.reset': 'Nuevo análisis',
   'score.project': 'Puntaje',
   'canvas.legend.title': 'Leyenda',
@@ -153,16 +143,6 @@ const es: Dict = {
 }
 
 const en: Dict = {
-  'tdd.title': 'Technical design document',
-  'tdd.hint': 'Diagrams and data from source code. Each screenshot appears with its source action. Introduction and process summary are blank.',
-  'tdd.docx': 'Download TDD DOCX',
-  'tdd.pdf': 'Download TDD PDF',
-  'tdd.preparing': 'Preparing the document...',
-  'tdd.ready': 'Document prepared for download.',
-  'tdd.error': 'The document could not be created. Try again.',
-  'tdd.scope': 'Included Taskbots',
-  'tdd.images': 'Image references',
-  'tdd.calls': 'Calls',
   'app.tagline': 'Code review for Automation Anywhere',
   'drop.kicker': 'Control Room · A360 · Processed locally',
   'drop.tab': 'zip',
@@ -203,7 +183,7 @@ const en: Dict = {
   'rules.cat.graph': 'Call graph',
   'rules.sharedCap': 'Family total for {group}: these rules share one cap, which is why they show the same number.',
   'rules.sharedCapNote': 'Points for a family whose cap is shared by several rules; the figure is the family total, not counted twice.',
-  'header.export': 'Export review PDF',
+  'header.export': 'Export PDF',
   'header.reset': 'New analysis',
   'score.project': 'Score',
   'canvas.legend.title': 'Legend',

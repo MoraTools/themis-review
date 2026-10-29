@@ -7,21 +7,17 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "tdd:batch": "node scripts/tdd-batch.mjs"
+    "test": "vitest run"
   },
   "dependencies": {
     "@xyflow/react": "^12.8.2",
-    "docx": "^9.8.1",
     "elkjs": "^0.10.0",
     "fflate": "^0.8.2",
-    "pdfmake": "^0.2.20",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "@types/pdfmake": "^0.2.12",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",

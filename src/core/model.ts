@@ -43,12 +43,6 @@ export interface Action {
   parentUid?: string
 }
 
-/** Source hierarchy. The flattened editor actions remain available for review. */
-export interface ActionNode extends Action {
-  children: ActionNode[]
-  branches: ActionNode[]
-}
-
 export interface CallInput {
   calleeVar: string
   /** raw expression or literal passed */
@@ -93,7 +87,6 @@ export interface Taskbot {
   varRefs: Record<string, number[]>
   /** lowercase concatenation of every attribute string/expression — used to match asset file references */
   textBlob: string
-  nodes?: ActionNode[]
 }
 
 export type Severity = 'error' | 'warn' | 'info'
@@ -144,8 +137,6 @@ export interface ProjectAnalysis {
   projectScore: BotScore
   otherFiles: OtherFile[]
   zipNames: string[]
-  archiveFiles?: { path: string; sourceZip: string; data: Uint8Array }[]
-  duplicateTaskbots?: { path: string; selectedZip: string; sourceZip: string; identical: boolean }[]
 }
 
 export const COMMENT_COMMANDS = new Set([
