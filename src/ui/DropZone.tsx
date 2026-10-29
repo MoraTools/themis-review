@@ -78,7 +78,6 @@ export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalys
       <div className="hero-visual" aria-hidden="true">
         <img src={heroArt} alt="" />
       </div>
-      <p className="kicker">{t('drop.kicker')}</p>
       <h1 className="display">{HERO_PHRASES[lang][phraseIdx]}</h1>
       <p className="hero-hint">{t('drop.hint')}</p>
 

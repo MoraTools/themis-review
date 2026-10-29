@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { Icon, SeverityIcon } from '../Icons'
+import { useContext, useMemo, useState } from 'react'
 import type { ProjectAnalysis, Severity } from '../../core/model'
-import { useT } from '../i18n'
+import { LangContext, useT, useNumber } from '../i18n'
 
 const SEV_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 }
-const SEV_ICON = { error: '🔴', warn: '🟡', info: '🔵' } as const
 const SEVERITIES: Severity[] = ['error', 'warn', 'info']
 
 type SortCol = 'name' | 'lines' | 'comments' | 'logs' | 'vars' | 'findings' | 'score'
@@ -13,9 +13,9 @@ type Sort = { col: SortCol; dir: 1 | -1 }
 function Th({ col, label, sort, onSort }: { col: SortCol; label: string; sort: Sort; onSort: (c: SortCol) => void }) {
   const active = sort.col === col
   return (
-    <th className={'sortable' + (active ? ' sorted' : '')} onClick={() => onSort(col)}>
-      {label}
-      <span className="sort-arrow">{active ? (sort.dir === 1 ? '▲' : '▼') : ''}</span>
+    <th className={'sortable' + (active ? ' sorted' : '')} aria-sort={active ? sort.dir === 1 ? 'ascending' : 'descending' : 'none'}>
+      <button onClick={() => onSort(col)}>{label}
+      {active && <Icon name={sort.dir === 1 ? 'arrow-up' : 'arrow-down'} />}</button>
     </th>
   )
 }
@@ -28,7 +28,9 @@ export default function Report({
   onSelectBot: (path: string) => void
 }) {
   const t = useT()
-  const date = new Date().toISOString().slice(0, 10)
+  const number = useNumber()
+  const { lang } = useContext(LangContext)
+  const date = new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date())
   // info findings are noise in a printed report; opt in when you want the full list
   const [sevOn, setSevOn] = useState<Record<Severity, boolean>>({ error: true, warn: true, info: false })
   // worst score first: the report leads with the taskbots that need work
@@ -89,7 +91,7 @@ export default function Report({
       <header className="report-head">
         <h1>{t('report.title')}</h1>
         <div className={'report-score grade-' + analysis.projectScore.grade}>
-          <span className="report-score-num">{analysis.projectScore.score}</span>
+          <span className="report-score-num">{number(analysis.projectScore.score)}</span>
           <span className="report-score-grade">{analysis.projectScore.grade}</span>
         </div>
       </header>
@@ -106,7 +108,7 @@ export default function Report({
               checked={sevOn[sev]}
               onChange={() => setSevOn((s) => ({ ...s, [sev]: !s[sev] }))}
             />
-            {SEV_ICON[sev]} {t('report.severity.' + sev)} ({severityCounts[sev]})
+            <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(severityCounts[sev])})
           </label>
         ))}
         <span className="report-options-hint">{t('report.filter.hint')}</span>
@@ -128,15 +130,17 @@ export default function Report({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.bot.path} className="row-link" title={t('report.openOnMap')} onClick={() => onSelectBot(r.bot.path)}>
+              <tr key={r.bot.path} className="row-link" tabIndex={0} onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelectBot(r.bot.path) }
+              }} title={t('report.openOnMap')} onClick={() => onSelectBot(r.bot.path)}>
                 <td>{r.bot.name}</td>
-                <td>{r.m.totalLines}</td>
-                <td>{r.m.commentLines}</td>
-                <td>{r.m.logMessages}</td>
-                <td>{r.m.variables}</td>
-                <td>{r.findings.length}</td>
+                <td>{number(r.m.totalLines)}</td>
+                <td>{number(r.m.commentLines)}</td>
+                <td>{number(r.m.logMessages)}</td>
+                <td>{number(r.m.variables)}</td>
+                <td>{number(r.findings.length)}</td>
                 <td className={'grade-' + r.s.grade}>
-                  {r.s.score} · {r.s.grade}
+                  {number(r.s.score)} · {r.s.grade}
                 </td>
               </tr>
             ))}
@@ -147,15 +151,15 @@ export default function Report({
       {rows.map((r) => (
         <section key={r.bot.path} className="report-bot">
           <h2>
-            {r.bot.name} <span className={'tb-grade grade-' + r.s.grade}>{r.s.score} · {r.s.grade}</span>
+            {r.bot.name} <span className={'tb-grade grade-' + r.s.grade}>{number(r.s.score)} · {r.s.grade}</span>
           </h2>
           <p className="report-bot-path">{r.bot.path}</p>
-          {r.findings.length === 0 && <p>{t('report.noFindings')}✅</p>}
+          {r.findings.length === 0 && <p>{t('report.noFindings')}<Icon name="circle-check" /></p>}
           {r.findings.map((f, i) => (
             <div key={i} className={'report-finding sev-' + f.severity}>
               <div className="finding-msg">
-                {SEV_ICON[f.severity]} <strong>{t('report.severity.' + f.severity)}</strong>
-                {f.line ? ` · ${t('report.finding.line')} ${f.line}` : ''} · <code>{f.ruleId}</code>
+                <SeverityIcon severity={f.severity} /> <span className={'severity-chip sev-' + f.severity}>{t('report.severity.' + f.severity)}</span>
+                {f.line ? ` · ${t('report.finding.line')} ${number(f.line)}` : ''} · <code>{f.ruleId}</code>
                 <br />
                 {t(`rule.${f.ruleId}.msg`, f.params)}
               </div>

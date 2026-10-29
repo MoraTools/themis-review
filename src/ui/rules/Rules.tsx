@@ -1,11 +1,11 @@
+import { Icon, SeverityIcon } from '../Icons'
 import { useMemo, useState } from 'react'
 import { CALL_DEPTH_EXEMPT_TASKBOTS } from '../../core/graph'
 import type { ProjectAnalysis, Severity } from '../../core/model'
 import { RULES, type RuleCategory } from '../../core/rulesInfo'
 import { DEDUCTION, GRADE_BANDS, RULE_CAP } from '../../core/score'
-import { useT } from '../i18n'
+import { useT, useNumber } from '../i18n'
 
-const SEV_ICON = { error: '🔴', warn: '🟡', info: '🔵' } as const
 const SEV_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 }
 
 type SortCol = 'id' | 'severity' | 'category' | 'fired' | 'deducted'
@@ -15,15 +15,16 @@ type Sort = { col: SortCol; dir: 1 | -1 }
 function Th({ col, label, sort, onSort }: { col: SortCol; label: string; sort: Sort; onSort: (c: SortCol) => void }) {
   const active = sort.col === col
   return (
-    <th className={'sortable' + (active ? ' sorted' : '')} onClick={() => onSort(col)}>
-      {label}
-      <span className="sort-arrow">{active ? (sort.dir === 1 ? '▲' : '▼') : ''}</span>
+    <th className={'sortable' + (active ? ' sorted' : '')} aria-sort={active ? sort.dir === 1 ? 'ascending' : 'descending' : 'none'}>
+      <button onClick={() => onSort(col)}>{label}
+      {active && <Icon name={sort.dir === 1 ? 'arrow-up' : 'arrow-down'} />}</button>
     </th>
   )
 }
 
 export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }) {
   const t = useT()
+  const number = useNumber()
   const [sort, setSort] = useState<Sort>({ col: 'severity', dir: 1 })
 
   /** how much each rule family actually cost on the loaded upload, cap included */
@@ -84,7 +85,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
         <h1>{t('rules.title')}</h1>
       </header>
       <p className="report-meta">
-        {RULES.length} {t('rules.count')}
+        {number(RULES.length)} {t('rules.count')}
         {analysis ? ` · ${t('rules.onUpload')}: ${analysis.zipNames.join(', ')}` : ` · ${t('rules.noUpload')}`}
       </p>
 
@@ -95,14 +96,14 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
           <ul>
             {(['error', 'warn', 'info'] as Severity[]).map((s) => (
               <li key={s}>
-                {SEV_ICON[s]} {t('report.severity.' + s)} <strong>−{DEDUCTION[s]}</strong>
+                <SeverityIcon severity={s} /> {t('report.severity.' + s)} <strong>−{number(DEDUCTION[s])}</strong>
               </li>
             ))}
           </ul>
         </div>
         <div className="rules-model-block">
           <span className="rules-model-label">{t('rules.cap')}</span>
-          <p className="rules-model-value">−{RULE_CAP}</p>
+          <p className="rules-model-value">−{number(RULE_CAP)}</p>
           <p className="rules-model-note">{t('rules.capNote')}</p>
         </div>
         <div className="rules-model-block">
@@ -110,7 +111,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
           <ul>
             {GRADE_BANDS.map((b) => (
               <li key={b.grade}>
-                <span className={'grade-' + b.grade}>{b.grade}</span> ≥ {b.min}
+                <span className={'grade-' + b.grade}>{b.grade}</span> ≥ {number(b.min)}
               </li>
             ))}
           </ul>
@@ -143,11 +144,11 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
             {rows.map((r) => (
               <tr key={r.id}>
                 <td><code>{r.id}</code></td>
-                <td>{SEV_ICON[r.severity]} −{DEDUCTION[r.severity]}</td>
-                <td>{t('rules.cat.' + r.category)}</td>
-                <td>{r.fired || '—'}</td>
+                <td><SeverityIcon severity={r.severity} /> −{number(DEDUCTION[r.severity])}</td>
+                <td className="rules-text">{t('rules.cat.' + r.category)}</td>
+                <td>{r.fired ? number(r.fired) : '—'}</td>
                 <td title={sharedFamilies.has(r.capGroup) ? t('rules.sharedCap', { group: r.capGroup }) : undefined}>
-                  {r.deducted ? '−' + Math.round(r.deducted * 10) / 10 : '—'}
+                  {r.deducted ? '−' + number(Math.round(r.deducted * 10) / 10) : '—'}
                   {sharedFamilies.has(r.capGroup) && r.deducted ? <span className="rules-shared">∑</span> : null}
                 </td>
                 <td className="rules-msg">{t(`rule.${r.id}.msg`, placeholders)}</td>

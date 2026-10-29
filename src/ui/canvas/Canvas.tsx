@@ -26,6 +26,7 @@ import {
   type FileNodeData,
   type TBNodeData,
 } from './nodeTypes'
+import { Icon } from '../Icons'
 import { useT } from '../i18n'
 
 const nodeTypes = { taskbot: TaskbotNode, file: FileNode }
@@ -69,7 +70,7 @@ function Legend() {
     <div ref={ref} className={'legend' + (open ? ' open' : '')} onPointerLeave={() => setOpen(false)}>
       <button className="legend-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <span className="legend-caret" aria-hidden="true">
-          {open ? '▾' : '▸'}
+          <Icon name={open ? 'chevron-down' : 'chevron-right'} />
         </span>
         {t('canvas.legend.title')}
       </button>
@@ -195,7 +196,7 @@ function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
       sourceHandle: 'call-out',
       targetHandle: 'call-in',
       className: 'edge-call',
-      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#ffb900' },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: 'var(--accent-edge)' },
     })
     const callee = byPath.get(e.to)
     if (!callee) continue
@@ -407,6 +408,13 @@ export default function Canvas({
     <DetailContext.Provider value={showDetails}>
       <ReactFlow
         className={rawNodes.length > MINIMAP_NODE_LIMIT ? 'no-minimap' : undefined}
+        ariaLabelConfig={{
+          'controls.zoomIn.ariaLabel': t('canvas.zoomIn'),
+          'controls.zoomOut.ariaLabel': t('canvas.zoomOut'),
+          'controls.fitView.ariaLabel': t('canvas.fit'),
+          'minimap.ariaLabel': t('canvas.minimap'),
+        }}
+        aria-label={t('canvas.label')}
         nodes={shownNodes}
         edges={shownEdges}
         nodeTypes={nodeTypes}

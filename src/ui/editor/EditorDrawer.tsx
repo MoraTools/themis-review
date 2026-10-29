@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { ThemeToggles } from '../ThemeToggles'
+import { Icon, SeverityIcon } from '../Icons'
+import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { isComment, type Action, type Finding, type ProjectAnalysis, type Severity } from '../../core/model'
 import { isMessageBox } from '../../core/rules/messagebox'
-import { useT } from '../i18n'
+import { LangContext, useT, useNumber } from '../i18n'
 import { typeColor } from '../canvas/nodeTypes'
 import { describeAction, glyphFor, GLYPH_PATH } from './describe'
 
@@ -15,7 +17,6 @@ function ActionGlyph({ action }: { action: Action }) {
   )
 }
 
-const SEV_ICON = { error: '🔴', warn: '🟡', info: '🔵' } as const
 const SEVERITIES: Severity[] = ['error', 'warn', 'info']
 
 export default function EditorDrawer({
@@ -28,6 +29,8 @@ export default function EditorDrawer({
   onClose: () => void
 }) {
   const t = useT()
+  const { lang } = useContext(LangContext)
+  const number = useNumber()
   const [tab, setTab] = useState<Tab>('code')
   const [filterSev, setFilterSev] = useState<Severity | null>(null)
   const [flashLine, setFlashLine] = useState<number | null>(null)
@@ -102,10 +105,11 @@ export default function EditorDrawer({
       <div className="drawer-head">
         <div>
           <h1 className="drawer-title">
-            {bot.name} <span className={'tb-grade grade-' + score.grade}>{score.score} · {score.grade}</span>
+            {bot.name} <span className={'tb-grade grade-' + score.grade}>{number(score.score)} · {score.grade}</span>
           </h1>
           <div className="drawer-sub">{bot.path}</div>
         </div>
+        <ThemeToggles />
         <button className="btn ghost" onClick={close}>
           <svg className="drawer-close-icon" viewBox="0 0 16 16" aria-hidden="true">
             <path d="m3 3 10 10M13 3 3 13" />
@@ -114,21 +118,21 @@ export default function EditorDrawer({
         </button>
       </div>
       <div className="drawer-stats">
-        <span>{metrics.totalLines} {t('node.lines')}</span>
-        <span>{metrics.commentLines} {t('node.comments')}</span>
-        <span>{metrics.logMessages} {t('node.logs')}</span>
-        <span>{metrics.variables} {t('node.vars')}</span>
-        <span>{t('editor.packages')}: {bot.packages.length}</span>
+        <span>{number(metrics.totalLines)} {t('node.lines')}</span>
+        <span>{number(metrics.commentLines)} {t('node.comments')}</span>
+        <span>{number(metrics.logMessages)} {t('node.logs')}</span>
+        <span>{number(metrics.variables)} {t('node.vars')}</span>
+        <span>{t('editor.packages')}: {number(bot.packages.length)}</span>
       </div>
       <nav className="tabs small">
         <button className={tab === 'code' ? 'tab active' : 'tab'} onClick={() => setTab('code')}>
-          {t('editor.actions')} ({metrics.totalLines})
+          {t('editor.actions')} ({number(metrics.totalLines)})
         </button>
         <button className={tab === 'vars' ? 'tab active' : 'tab'} onClick={() => setTab('vars')}>
-          {t('editor.variables')} ({bot.variables.length})
+          {t('editor.variables')} ({number(bot.variables.length)})
         </button>
         <button className={tab === 'findings' ? 'tab active' : 'tab'} onClick={() => setTab('findings')}>
-          {t('editor.findings')} ({findings.length})
+          {t('editor.findings')} ({number(findings.length)})
         </button>
       </nav>
 
@@ -152,15 +156,15 @@ export default function EditorDrawer({
                 data-line={a.line}
                 style={{ '--depth': a.depth } as CSSProperties}
               >
-                <span className="code-no">{a.line}</span>
+                <span className="code-no">{number(a.line)}</span>
                 <span className="code-card">
                   <ActionGlyph action={a} />
-                  <span className="code-label">{describeAction(a)}</span>
+                  <span className="code-label">{describeAction(a, lang)}</span>
                   {(a.disabled || !a.reachable) && <span className="code-off">{t('editor.disabled')}</span>}
                 </span>
                 {fs.map((f, i) => (
                   <span key={i} className="code-flag" title={t(`rule.${f.ruleId}.msg`, f.params)}>
-                    {SEV_ICON[f.severity]}
+                    <SeverityIcon severity={f.severity} />
                   </span>
                 ))}
               </li>
@@ -190,12 +194,12 @@ export default function EditorDrawer({
                     <span className="tb-var-dot" style={{ background: typeColor(v.type) }} /> {v.name}
                   </td>
                   <td>{v.type}</td>
-                  <td>{v.input && v.output ? 'I/O' : v.input ? 'IN' : v.output ? 'OUT' : v.readOnly ? 'CONST' : '—'}</td>
+                  <td>{v.input && v.output ? t('editor.var.both') : v.input ? t('editor.var.in') : v.output ? t('editor.var.out') : v.readOnly ? t('editor.var.const') : '—'}</td>
                   <td className="var-desc">{v.description || '—'}</td>
                   <td>
                     {fs.map((f, i) => (
                       <span key={i} title={t(`rule.${f.ruleId}.msg`, f.params)}>
-                        {SEV_ICON[f.severity]}
+                        <SeverityIcon severity={f.severity} />
                       </span>
                     ))}
                   </td>
@@ -211,7 +215,7 @@ export default function EditorDrawer({
         <div className="drawer-scroll">
           <div className="filter-chips">
             <button className={filterSev === null ? 'chip active' : 'chip'} onClick={() => setFilterSev(null)}>
-              {t('editor.filter.all')} ({findings.length})
+              {t('editor.filter.all')} ({number(findings.length)})
             </button>
             {SEVERITIES.map((sev) => (
               <button
@@ -219,7 +223,7 @@ export default function EditorDrawer({
                 className={'chip sev-' + sev + (filterSev === sev ? ' active' : '')}
                 onClick={() => setFilterSev(filterSev === sev ? null : sev)}
               >
-                {SEV_ICON[sev]} {t('report.severity.' + sev)} ({severityCounts[sev]})
+                <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(severityCounts[sev])})
               </button>
             ))}
           </div>
@@ -230,13 +234,18 @@ export default function EditorDrawer({
                 <li
                   key={i}
                   className={'finding sev-' + f.severity + (line !== undefined ? ' jumpable' : '')}
+                  tabIndex={line !== undefined ? 0 : undefined}
+                  role={line !== undefined ? 'button' : undefined}
+                  onKeyDown={(event) => {
+                    if (line !== undefined && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); jumpTo(f) }
+                  }}
                   onClick={() => jumpTo(f)}
                 >
                   <div className="finding-msg">
-                    {SEV_ICON[f.severity]} {line !== undefined ? `L${line} · ` : ''}
+                    <SeverityIcon severity={f.severity} /> {line !== undefined ? `L${number(line)} · ` : ''}
                     {t(`rule.${f.ruleId}.msg`, f.params)}
                   </div>
-                  <div className="finding-fix">💡 {t(`rule.${f.ruleId}.fix`, f.params)}</div>
+                  <div className="finding-fix"><Icon name="info" /> {t(`rule.${f.ruleId}.fix`, f.params)}</div>
                 </li>
               )
             })}

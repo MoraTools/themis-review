@@ -13,7 +13,7 @@ function bots(zip: string) {
 
 describe('Control Room style labels', () => {
   const all = bots('Framework.zip')
-  const labels = all.flatMap((b) => b.actions.map(describeAction))
+  const labels = all.flatMap((b) => b.actions.map((action) => describeAction(action)))
 
   it('never leaks raw JSON or empty labels', () => {
     for (const l of labels) {
@@ -94,6 +94,7 @@ describe('label edge cases', () => {
       variables: [], packages: [],
     }))
     expect(describeAction(bot.actions[0])).toBe('Bot Framework: Log Message WARNING: “sin casos”')
+    expect(describeAction(bot.actions[0], 'es')).toBe('Bot Framework: Registrar mensaje ADVERTENCIA: “sin casos”')
   })
 
   it('spells out an if condition with its operator', () => {
@@ -113,6 +114,7 @@ describe('label edge cases', () => {
       variables: [], packages: [],
     }))
     expect(describeAction(bot.actions[0])).toBe('If string $pStrModo$ Equals to (=) “SI”')
+    expect(describeAction(bot.actions[0], 'es')).toBe('Si string $pStrModo$ Igual a (=) “SI”')
   })
 
   it('survives a recorder action whose captured-object blob is unreadable', () => {

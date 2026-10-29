@@ -1,6 +1,7 @@
-import { useContext, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ProjectAnalysis } from '../core/model'
-import { LangContext, useT, type Lang } from './i18n'
+import { LangContext, useT, useNumber, type Lang } from './i18n'
+import { ThemeToggles } from './ThemeToggles'
 import DropZone from './DropZone'
 import Canvas from './canvas/Canvas'
 import EditorDrawer from './editor/EditorDrawer'
@@ -11,7 +12,7 @@ type View = 'map' | 'report' | 'rules'
 
 function Shell() {
   const t = useT()
-  const { lang, setLang } = useContext(LangContext)
+  const number = useNumber()
   const [analysis, setAnalysis] = useState<ProjectAnalysis | null>(null)
   const [view, setView] = useState<View>('map')
   const [selected, setSelected] = useState<string | null>(null)
@@ -32,6 +33,10 @@ function Shell() {
   return (
     <div className="app">
       <header className="header no-print">
+        <div className="brand">
+          <span className="brand-name">Themis</span>
+          <span className="brand-sub">Review</span>
+        </div>
         <div className="header-zone header-left">
           <nav className="tabs">
             {/* without an upload the map tab is the way back to the drop zone */}
@@ -56,41 +61,23 @@ function Shell() {
           </nav>
         </div>
 
-        <div className="brand">
-          <span className="brand-name">Themis</span>
-          <span className="brand-name">Review</span>
-        </div>
-
-        <div className="header-zone header-right">
-          {analysis && (
+        {analysis && (
+          <div className="header-zone header-right">
             <span className="score-badge">
               <span className="score-badge-label">{t('score.project')}</span>
               <span className={'score-badge-value grade-' + analysis.projectScore.grade}>
-                {analysis.projectScore.score} · {analysis.projectScore.grade}
+                {number(analysis.projectScore.score)} · {analysis.projectScore.grade}
               </span>
             </span>
-          )}
-          {analysis && (
-            <button className="btn primary" onClick={exportPdf}>
-              {t('header.export')}
-            </button>
-          )}
-          {analysis && (
-            <button
-              className="btn"
-              onClick={() => {
-                setAnalysis(null)
-                setSelected(null)
-                setView('map')
-              }}
-            >
-              {t('header.reset')}
-            </button>
-          )}
-          <button className="btn lang" onClick={() => setLang(lang === 'es' ? 'en' : 'es')}>
-            {lang === 'es' ? 'EN' : 'ES'}
-          </button>
-        </div>
+            <button className="btn primary" onClick={exportPdf}>{t('header.export')}</button>
+            <button className="btn" onClick={() => {
+              setAnalysis(null)
+              setSelected(null)
+              setView('map')
+            }}>{t('header.reset')}</button>
+          </div>
+        )}
+        <ThemeToggles />
       </header>
 
       {!analysis && view !== 'rules' && <DropZone onAnalyzed={setAnalysis} />}
@@ -108,22 +95,21 @@ function Shell() {
   )
 }
 
-const LANG_KEY = 'themis-lang'
-
-function initialLang(): Lang {
-  const saved = localStorage.getItem(LANG_KEY)
-  if (saved === 'es' || saved === 'en') return saved
-  return navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en'
+declare global {
+  interface Window {
+    SuitePreferences: { setLang: (lang: Lang) => void; toggleTheme: () => void }
+  }
 }
 
 export default function App() {
-  const [lang, setLangState] = useState<Lang>(initialLang)
-  const setLang = (l: Lang) => {
-    localStorage.setItem(LANG_KEY, l)
-    setLangState(l)
-  }
+  const [lang, setLangState] = useState<Lang>(() => document.documentElement.lang === 'es' ? 'es' : 'en')
+  useEffect(() => {
+    const sync = () => setLangState(document.documentElement.lang === 'es' ? 'es' : 'en')
+    document.addEventListener('suite:lang', sync)
+    return () => document.removeEventListener('suite:lang', sync)
+  }, [])
   return (
-    <LangContext.Provider value={{ lang, setLang }}>
+    <LangContext.Provider value={{ lang, setLang: (next) => window.SuitePreferences.setLang(next) }}>
       <Shell />
     </LangContext.Provider>
   )

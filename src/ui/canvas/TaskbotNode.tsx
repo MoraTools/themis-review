@@ -1,10 +1,12 @@
+import { Icon } from '../Icons'
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
 import { useContext } from 'react'
-import { useT } from '../i18n'
+import { useT, useNumber } from '../i18n'
 import { DetailContext, typeColor, type TBNodeData } from './nodeTypes'
 
 export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
   const t = useT()
+  const number = useNumber()
   const detailed = useContext(DetailContext)
 
   if (data.ghost) {
@@ -27,16 +29,16 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
         {data.score && <span className={'tb-grade grade-' + data.score.grade}>{data.score.grade}</span>}
       </div>
       <div className="tb-stats">
-        <span title={t('node.lines')}>📄 {m.totalLines}</span>
-        <span title={t('node.comments')}>💬 {m.commentLines}</span>
-        <span title={t('node.logs')}>📝 {m.logMessages}</span>
-        <span title={t('node.vars')}>🔡 {m.variables}</span>
+        <span title={t('node.lines')}><Icon name="file-archive" /> {number(m.totalLines)}</span>
+        <span title={t('node.comments')}><Icon name="info" /> {number(m.commentLines)}</span>
+        <span title={t('node.logs')}><Icon name="book-open" /> {number(m.logMessages)}</span>
+        <span title={t('node.vars')}><Icon name="menu" /> {number(m.variables)}</span>
         {m.messageBoxes > 0 && (
           <span className="tb-warn" title={t('node.msgbox')}>
-            ⚠ {m.messageBoxes}
+            <Icon name="triangle-alert" /> {number(m.messageBoxes)}
           </span>
         )}
-        {data.findingsCount > 0 && <span className="tb-findings">● {data.findingsCount}</span>}
+        {data.findingsCount > 0 && <span className="tb-findings"><Icon name="circle-alert" /> {number(data.findingsCount)}</span>}
       </div>
       {detailed && (
         <div className="tb-vars">

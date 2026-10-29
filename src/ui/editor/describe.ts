@@ -1,80 +1,14 @@
+import { translate, type Lang } from '../i18n'
 import type { AAValue, Action } from '../../core/model'
 
 /** Human-readable action labels in the shape the Control Room task-bot view uses:
  *  `Package: Verb args`, string literals in “ ”, variables kept as $name$.
  *  Derived from two real Control Room exports (see plan.md). */
 
-const PACKAGE_LABEL: Record<string, string> = {
-  A360BotFramework: 'Bot Framework',
-  A360ScreenRecorder: 'Screen Recorder',
-  A360ToolBox: 'Tool Box',
-  betterComments: 'BetterComment',
-  Comment: 'Comment',
-  CsvTxt: 'CSV/TXT',
-  DataTable: 'Data Table',
-  DataTablePlus: 'Data Table',
-  Datetime: 'Datetime',
-  ErrorHandler: 'Error handler',
-  Excel_MS: 'Excel',
-  Excel: 'Excel advanced',
-  ListPlus: 'List',
-  LogToFile: 'Log To File',
-  MessageBoxPlus: 'Message box',
-  PlaySound: 'Play sound',
-  Recorder: 'Recorder',
-  TaskBot: 'Task Bot',
-  VBScript: 'VBScript',
-}
-
-const COMMAND_LABEL: Record<string, string> = {
-  assign: 'Assign',
-  assignToNumber: 'Assign',
-  addItem: 'Add item',
-  capture: 'Capture',
-  closeWindow: 'Close window',
-  CloseCsvTxt: 'Close csv/txt',
-  CloseSpreadsheet: 'Close spreadsheet',
-  config_read_xml: 'Read XML',
-  copyFiles: 'Copy file',
-  createFolder: 'Create folder',
-  catch: 'Catch',
-  delay: 'Add a regular delay',
-  deleteEmptyRows: 'Delete empty rows',
-  documentation_about: 'About Task Description',
-  documentation_comment: 'Comment',
-  documentation_sequence: 'Steps',
-  downloadTo: 'Download file',
-  else: 'Else',
-  EndRecordSession: 'End Recording',
-  executeFunction: 'Execute function',
-  Filter: 'Filter',
-  finally: 'Finally',
-  getTextFromFile: 'Get text from file',
-  log_message: 'Log Message',
-  logs_start_session: 'Start Logger Session',
-  logs_stop_session: 'Stop Logger Session',
-  logToFile: 'Log to file',
-  OpenCSVTXT: 'Open',
-  playMediaFile: 'Play media file',
-  put: 'Put',
-  randomString: 'Generate random string of length',
-  ReadFromCsvTxt: 'Read data',
-  removeBlankEntries: 'Remove blank entries',
-  replace: 'Replace',
-  runApp: 'Run application',
-  runTask: 'Run',
-  SaveSpreadSheet: 'Save spreadsheet',
-  SetCell: 'Set cell',
-  split: 'Split',
-  startRecordSession: 'Start Recording',
-  stopTask: 'Stop task',
-  throw: 'Throw',
-  toString: 'To string',
-  try: 'Try',
-  writeDataTableToWorksheet: 'Write data table to worksheet',
-  'loop.commands.start': 'Loop',
-  'loop.commands.break': 'Break',
-  'loop.commands.continue': 'Continue',
+function label(lang: Lang, kind: string, value: string) {
+  const key = `action.${kind}.${value}`
+  const text = translate(lang, key)
+  return text === key ? value : text
 }
 
 /** Attributes worth showing, in the order Control Room tends to read them. */
@@ -112,7 +46,7 @@ function quoted(s: string): string {
 }
 
 /** first meaningful literal or expression inside a value tree */
-function primitive(v: AAValue | undefined): string | undefined {
+function primitive(v: AAValue | undefined, lang: Lang): string | undefined {
   if (v == null || typeof v !== 'object') return undefined
   if (typeof v.expression === 'string' && v.expression) return v.expression
   if (typeof v.string === 'string' && v.string) {
@@ -130,10 +64,10 @@ function primitive(v: AAValue | undefined): string | undefined {
     // rich-text payloads (comments, task descriptions) hide their text under an `html` key
     const htmlEntry = v.dictionary.find((e) => e.key === 'html')?.value?.string
     if (typeof htmlEntry === 'string' && htmlEntry) return quoted(stripHtml(htmlEntry))
-    return `Dictionary (${v.dictionary.length})`
+    return translate(lang, 'action.dictionary', { count: new Intl.NumberFormat(lang).format(v.dictionary.length) })
   }
-  if (Array.isArray(v.list)) return `List (${v.list.length})`
-  if (Array.isArray(v.table)) return `Table (${v.table.length})`
+  if (Array.isArray(v.list)) return translate(lang, 'action.list', { count: new Intl.NumberFormat(lang).format(v.list.length) })
+  if (Array.isArray(v.table)) return translate(lang, 'action.table', { count: new Intl.NumberFormat(lang).format(v.table.length) })
   return undefined
 }
 
@@ -146,14 +80,14 @@ function attr(a: Action, name: string): AAValue | undefined {
   return a.attributes.find((x) => x.name === name)?.value
 }
 
-function firstPrimitive(a: Action): string | undefined {
+function firstPrimitive(a: Action, lang: Lang): string | undefined {
   for (const name of PRIMARY_ATTRS) {
-    const p = primitive(attr(a, name))
+    const p = primitive(attr(a, name), lang)
     if (p) return p
   }
   for (const at of a.attributes) {
     if (ATTR_DENY.has(at.name)) continue
-    const p = primitive(at.value)
+    const p = primitive(at.value, lang)
     if (p) return p
   }
   return undefined
@@ -176,41 +110,18 @@ function taskbotName(a: Action): string | undefined {
   return decodeURIComponent(s.replace(/^repository:\/\/\//, '')).split('/').pop()
 }
 
-const LOG_LEVEL: Record<string, string> = {
-  INFO: 'INFORMATION',
-  WARN: 'WARNING',
-  ERROR: 'ERROR',
-  DEBUG: 'DEBUG',
-  TRACE: 'TRACE',
-  FATAL: 'FATAL',
-}
-
-const OPERATOR: Record<string, string> = {
-  EQ: 'Equals to (=)',
-  NEQ: 'Not equals to (!=)',
-  GT: 'Greater than (>)',
-  GTE: 'Greater than or equal to (>=)',
-  LT: 'Less than (<)',
-  LTE: 'Less than or equal to (<=)',
-  CONTAINS: 'Contains',
-  NOT_CONTAINS: 'Does not contain',
-  STARTS_WITH: 'Starts with',
-  ENDS_WITH: 'Ends with',
-  IS_EMPTY: 'Is empty',
-}
-
 /** `if` keeps its operands on the condition attribute entry itself, alongside name/value */
-function condition(a: Action): string {
+function condition(a: Action, lang: Lang): string {
   const entry = a.attributes.find((x) => x.name === 'condition') as
     | { name: string; value?: AAValue; attributes?: { name: string; value?: AAValue }[] }
     | undefined
   if (!entry) return ''
   const inner = entry.attributes ?? []
   const get = (n: string) => inner.find((x) => x.name === n)?.value
-  const left = primitive(get('variable')) ?? primitive(get('sourceString')) ?? primitive(get('window')) ?? ''
+  const left = primitive(get('variable'), lang) ?? primitive(get('sourceString'), lang) ?? primitive(get('window'), lang) ?? ''
   const opRaw = get('operator')?.string ?? ''
-  const op = OPERATOR[opRaw] ?? opRaw
-  const right = primitive(get('value')) ?? ''
+  const op = label(lang, 'operator', opRaw)
+  const right = primitive(get('value'), lang) ?? ''
   // only name the operand type when there is an operand to name
   const kind = typeof entry.value?.conditionalName === 'string' ? entry.value.conditionalName : ''
   const noun = left ? kind.replace(/Variable$/, '').toLowerCase() : ''
@@ -221,8 +132,8 @@ function condition(a: Action): string {
  *  cached per action because the blobs run to several KB each. */
 const uiObjectCache = new Map<string, string>()
 
-function capturedControl(a: Action): string {
-  const cached = uiObjectCache.get(a.uid)
+function capturedControl(a: Action, lang: Lang): string {
+  const cached = uiObjectCache.get(lang + ':' + a.uid)
   if (cached !== undefined) return cached
 
   let out = ''
@@ -237,7 +148,7 @@ function capturedControl(a: Action): string {
       const tag = grab('HTML Tag')
       const id = grab('HTML ID') ?? grab('HTML Name')
       const text = grab('HTML InnerText')
-      if (tag) props.push(`on ${tag.toLowerCase()}`)
+      if (tag) props.push(translate(lang, 'action.on', { tag: tag.toLowerCase() }))
       const name = id ?? text
       if (name) props.push(quoted(name))
       out = props.join(' ')
@@ -245,67 +156,67 @@ function capturedControl(a: Action): string {
   } catch {
     out = '' // an unreadable blob just means a shorter label
   }
-  uiObjectCache.set(a.uid, out)
+  uiObjectCache.set(lang + ':' + a.uid, out)
   return out
 }
 
 /** Control Room renders these without the `Package:` prefix, or from specific attributes. */
-function special(a: Action): string | undefined {
-  const p = firstPrimitive(a)
+function special(a: Action, lang: Lang): string | undefined {
+  const p = firstPrimitive(a, lang)
   switch (a.commandName) {
     case 'BetterComments':
     case 'Comment':
       return `BetterComment ${p ?? ''}`.trim()
     case 'messageBox':
-      return `Message box ${p ?? ''}`.trim()
+      return `${translate(lang, 'action.messageBox')} ${p ?? ''}`.trim()
     case 'if':
-      return `If ${condition(a)}`.trim()
+      return `${translate(lang, 'action.if')} ${condition(a, lang)}`.trim()
     case 'Keystrokes':
-      return `Simulate keystrokes ${p ?? ''}`.trim()
+      return `${translate(lang, 'action.keystrokes')} ${p ?? ''}`.trim()
     case 'waitForWindow': {
-      const type = attr(a, 'waitType')?.string === 'CLOSE' ? 'close' : 'open'
-      const win = primitive(attr(a, 'window')) ?? ''
-      return `Wait for window to ${type} with window title ${win}`.trim()
+      const type = attr(a, 'waitType')?.string === 'CLOSE' ? translate(lang, 'action.close') : translate(lang, 'action.open')
+      const win = primitive(attr(a, 'window'), lang) ?? ''
+      return translate(lang, 'action.waitWindow', { type, window: win }).trim()
     }
     case 'runTask': {
       const name = taskbotName(a)
-      return name ? `Task Bot: Run ${name}` : undefined
+      return name ? `${label(lang, 'package', 'TaskBot')}: ${label(lang, 'command', 'runTask')} ${name}` : undefined
     }
     case 'log_message': {
-      const level = LOG_LEVEL[attr(a, 'logLevel')?.string ?? ''] ?? ''
-      const msg = primitive(attr(a, 'logMessage')) ?? ''
-      return `Bot Framework: Log Message ${level}${level ? ': ' : ''}${msg}`.trim()
+      const level = label(lang, 'logLevel', attr(a, 'logLevel')?.string ?? '')
+      const msg = primitive(attr(a, 'logMessage'), lang) ?? ''
+      return `Bot Framework: ${label(lang, 'command', 'log_message')} ${level}${level ? ': ' : ''}${msg}`.trim()
     }
     case 'logs_start_session':
-      return `Bot Framework: Start Logger Session ${returnTarget(a) ?? ''}`.trim()
+      return `Bot Framework: ${label(lang, 'command', 'logs_start_session')} ${returnTarget(a) ?? ''}`.trim()
     case 'documentation_about':
-      return 'Bot Framework: About Task Description'
+      return `Bot Framework: ${label(lang, 'command', 'documentation_about')}`
     case 'throw': {
       const ex = (attr(a, 'exceptionType') as AAValue | undefined)?.exceptionName
-      return `Error handler: Throw ${typeof ex === 'string' ? ex : (p ?? '')}`.trim()
+      return `${label(lang, 'package', 'ErrorHandler')}: ${label(lang, 'command', 'throw')} ${typeof ex === 'string' ? ex : (p ?? '')}`.trim()
     }
     case 'capture': {
       const action = attr(a, 'buttonAction')?.string
       const verb = action ? action.charAt(0) + action.slice(1).toLowerCase() : ''
-      return `Recorder: Capture ${verb} ${capturedControl(a)}`.replace(/\s+/g, ' ').trim()
+      return `${label(lang, 'package', 'Recorder')}: ${label(lang, 'command', 'capture')} ${verb} ${capturedControl(a, lang)}`.replace(/\s+/g, ' ').trim()
     }
     default:
       return undefined
   }
 }
 
-export function describeAction(a: Action): string {
-  const s = special(a)
+export function describeAction(a: Action, lang: Lang = 'en'): string {
+  const s = special(a, lang)
   if (s) return s
 
-  const pkg = PACKAGE_LABEL[a.packageName] ?? a.packageName
-  const verb = COMMAND_LABEL[a.commandName] ?? a.commandName
+  const pkg = label(lang, 'package', a.packageName)
+  const verb = label(lang, 'command', a.commandName)
   const parts = [`${pkg}: ${verb}`]
 
-  const p = firstPrimitive(a)
+  const p = firstPrimitive(a, lang)
   if (p) parts.push(p)
   const to = returnTarget(a)
-  if (to) parts.push(`to ${to}`)
+  if (to) parts.push(`${translate(lang, 'action.to')} ${to}`)
   return parts.join(' ')
 }
 

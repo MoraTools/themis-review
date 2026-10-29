@@ -19,17 +19,17 @@ export interface TBNodeData {
 }
 
 export const TYPE_COLORS: Record<string, string> = {
-  STRING: '#63b3ed',
-  NUMBER: '#68d391',
-  DICTIONARY: '#b794f4',
-  LIST: '#f6ad55',
-  BOOLEAN: '#f687b3',
-  DATETIME: '#4fd1c5',
-  FILE: '#f6e05e',
-  TABLE: '#fc8181',
-  RECORD: '#d6bcfa',
-  WINDOW: '#a0aec0',
-  ANY: '#cbd5e0',
+  STRING: 'var(--type-string)',
+  NUMBER: 'var(--type-number)',
+  DICTIONARY: 'var(--type-dictionary)',
+  LIST: 'var(--type-list)',
+  BOOLEAN: 'var(--type-boolean)',
+  DATETIME: 'var(--type-datetime)',
+  FILE: 'var(--type-file)',
+  TABLE: 'var(--type-table)',
+  RECORD: 'var(--type-record)',
+  WINDOW: 'var(--type-window)',
+  ANY: 'var(--type-any)',
 }
 
 export function typeColor(t: string): string {
@@ -53,15 +53,3 @@ export interface FileNodeData {
 
 export const FILE_NODE_WIDTH = 170
 export const FILE_NODE_HEIGHT = 52
-
-export function fileIcon(ext: string): string {
-  switch (ext) {
-    case 'xml': return '⚙'
-    case 'xlsx': case 'xls': case 'csv': return '▦'
-    case 'ps1': case 'bat': case 'vbs': return '»'
-    case 'png': case 'jpg': case 'gif': case 'svg': return '◱'
-    case 'wav': case 'mp3': return '♪'
-    case 'pdf': return '≡'
-    default: return '·'
-  }
-}
