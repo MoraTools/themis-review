@@ -82,18 +82,14 @@ export function callSequence(taskbots: Taskbot[]): Map<string, number> {
   return order
 }
 
-/** Taskbots that may be called at level 3+ without a CALL_DEPTH deduction. */
-export const CALL_DEPTH_EXEMPT_TASKBOTS = [
-  'utilidad_mensajeria',
-  'utilidad_cargarConfig',
-  'util_mensajeria',
-  'util_cargarConfig',
-  'util_loadConfig',
-  'util_config',
-  'utilidad_Config',
-] as const
+/** Name prefix (case-insensitive) of the shared utilities that may sit at level 3. */
+export const CALL_DEPTH_UTILITY_PREFIX = 'util'
 
-const CALL_DEPTH_EXEMPT = new Set(CALL_DEPTH_EXEMPT_TASKBOTS.map((name) => name.toLowerCase()))
+/** Levels 1-2: any taskbot. Level 3: only util* taskbots. Level 4 or deeper: none. */
+export function callDepthAllowed(calleeName: string, depth: number): boolean {
+  if (depth <= 2) return true
+  return depth === 3 && calleeName.toLowerCase().startsWith(CALL_DEPTH_UTILITY_PREFIX)
+}
 
 export function callDepth(edges: GraphEdge[]): Map<string, number> {
   const nodes = new Set<string>()
@@ -139,9 +135,9 @@ function callDepthFindings(edges: GraphEdge[], taskbots: Taskbot[]): Finding[] {
   const out: Finding[] = []
   for (const e of edges) {
     const d = depth.get(e.to)
-    if (d === undefined || d < 3) continue
+    if (d === undefined) continue
     const calleeName = nameOf.get(e.to) ?? e.to.split('/').pop() ?? e.to
-    if (CALL_DEPTH_EXEMPT.has(calleeName.toLowerCase())) continue
+    if (callDepthAllowed(calleeName, d)) continue
     for (const call of e.calls) {
       out.push({
         ruleId: 'CALL_DEPTH',

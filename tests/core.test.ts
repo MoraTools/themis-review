@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { analyzeZips } from '../src/core/analyze'
 import { extractVarRefs, parseTaskbot } from '../src/core/parse'
-import { buildGraph, CALL_DEPTH_EXEMPT_TASKBOTS, callDepth, callSequence } from '../src/core/graph'
+import { buildGraph, callDepth, callSequence } from '../src/core/graph'
 import { messageBoxRules } from '../src/core/rules/messagebox'
 import { structureRules } from '../src/core/rules/structure'
 
@@ -123,9 +123,9 @@ describe('all zips combined', () => {
     expect(a.fileEdges.some((fe) => fe.to.endsWith('.xml'))).toBe(true)
   })
 
-  it('never flags utilidad_mensajeria for call depth', () => {
-    const depthFindings = a.findings.filter((f) => f.ruleId === 'CALL_DEPTH')
-    expect(depthFindings.every((f) => !f.params.callee.startsWith('utilidad_mensajeria'))).toBe(true)
+  it('flags util* taskbots for call depth only at level 4 or deeper', () => {
+    const utilFindings = a.findings.filter((f) => f.ruleId === 'CALL_DEPTH' && /^util/i.test(f.params.callee))
+    expect(utilFindings.every((f) => Number(f.params.depth) >= 4)).toBe(true)
   })
 })
 
@@ -261,7 +261,7 @@ describe('synthetic taskbots', () => {
     expect(structureRules(ok).some((x) => x.ruleId === 'TOO_LONG')).toBe(false)
   })
 
-  it('measures call depth and exempts allowed utilities', () => {
+  it('measures call depth: any taskbot at 1-2, only util* at 3, none at 4+', () => {
     const call = (uid: string, target: string) => ({
       uid,
       commandName: 'runTask',
@@ -274,24 +274,36 @@ describe('synthetic taskbots', () => {
       ],
     })
     const p = (n: string) => 'Bots/x/tasks/' + n
+    const bot = (name: string, ...targets: string[]) =>
+      parseTaskbot(p(name), 'z', wrap(targets.map((t, i) => call(name + i, p(t)))))
     const bots = [
-      parseTaskbot(p('000_Master'), 'z', wrap([call('m1', p('001_Step'))])),
-      parseTaskbot(p('001_Step'), 'z', wrap([
-        call('s1', p('002_Deep')),
-        ...CALL_DEPTH_EXEMPT_TASKBOTS.map((name, i) => call('allowed' + i, p(name))),
-      ])),
-      parseTaskbot(p('002_Deep'), 'z', wrap([])),
-      ...CALL_DEPTH_EXEMPT_TASKBOTS.map((name) => parseTaskbot(p(name), 'z', wrap([]))),
+      bot('000_Master', '001_Step', 'util_atLevel2'),
+      bot('001_Step', 'util_mensajeria', 'Utilidad_Config', '002_Deep'),
+      bot('002_Deep', 'util_atLevel4', '003_Deeper'),
+      bot('util_atLevel2'),
+      bot('util_mensajeria'),
+      bot('Utilidad_Config'),
+      bot('util_atLevel4'),
+      bot('003_Deeper'),
     ]
     const g = buildGraph(bots)
     const depth = callDepth(g.edges)
     expect(depth.get(p('000_Master'))).toBe(1)
     expect(depth.get(p('001_Step'))).toBe(2)
+    expect(depth.get(p('util_atLevel2'))).toBe(2)
+    expect(depth.get(p('util_mensajeria'))).toBe(3)
+    expect(depth.get(p('Utilidad_Config'))).toBe(3)
     expect(depth.get(p('002_Deep'))).toBe(3)
-    for (const name of CALL_DEPTH_EXEMPT_TASKBOTS) expect(depth.get(p(name))).toBe(3)
+    expect(depth.get(p('util_atLevel4'))).toBe(4)
+    expect(depth.get(p('003_Deeper'))).toBe(4)
 
-    const deep = g.findings.filter((f) => f.ruleId === 'CALL_DEPTH')
-    expect(deep).toHaveLength(1)
-    expect(deep[0]).toMatchObject({ botPath: p('001_Step'), severity: 'error', params: { callee: '002_Deep', depth: '3' } })
+    const flagged = g.findings
+      .filter((f) => f.ruleId === 'CALL_DEPTH')
+      .map((f) => [f.botPath, f.params?.callee, f.params?.depth, f.severity])
+    expect(flagged).toEqual([
+      [p('001_Step'), '002_Deep', '3', 'error'],
+      [p('002_Deep'), 'util_atLevel4', '4', 'error'],
+      [p('002_Deep'), '003_Deeper', '4', 'error'],
+    ])
   })
 })

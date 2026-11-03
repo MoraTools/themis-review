@@ -8,7 +8,7 @@ Upload one or more `.zip` files exported from the Control Room and get:
 
 - **Node map** (Blender-style): each taskbot is a node with its metrics (lines, comments, logs, variables); Run Task calls are drawn as connections and each variable passed between taskbots as an individual wire colored by type.
 - **Editor view** per taskbot: line-by-line code with findings in the margin, plus a variables and packages table.
-- **Review rules**: naming convention `<scope><Type><CamelName>` from core_framework, Message Boxes that don't close themselves (those with timeout are not flagged) or that ended up in dead code, taskbots nested from level 3 onward (`utilidad_mensajeria` exempt), empty catches, hardcoded paths, disabled code, unused or undescribed variables (input/output variables weigh more than locals), missing dependencies, log coverage, and comment coverage.
+- **Review rules**: naming convention `<scope><Type><CamelName>` from core_framework, Message Boxes that don't close themselves (those with timeout are not flagged) or that ended up in dead code, taskbots nested at level 3 (only `util*` taskbots allowed there) or level 4 and deeper (all flagged), empty catches, hardcoded paths, disabled code, unused or undescribed variables (input/output variables weigh more than locals), missing dependencies, log coverage, and comment coverage.
 - **Score 0–100** per taskbot and per project, plus an **exportable PDF report** (Export button → print) with each finding and its suggested fix. UI in Spanish and English.
 
 Nothing is uploaded to any server: zips are processed entirely on the front-end.
