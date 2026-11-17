@@ -41,7 +41,7 @@ On the map, grade salience only grows from A to F: A and B have no mark, C, D an
 
 `--border-strong` is the 3:1 line color: light `#807d77`, dark `#7c7870`, at least 3:1 on every surface (rail, canvas, panel, raised, strong, field). Dashed ghost and file nodes use it, so no separate ghost token is needed. Call edges, the call handle and the legend call swatch all use `--edge-call`.
 
-State tokens in `:root`: `--selected-border` (`--text`) and `--selected-bg` (`--surface-strong`) mark the selected node, the open legend, the flashed code line and pressed filter chips. Hover only moves a border to `--border-strong`; it never uses gold. A sorted table header uses `--text`, and prints muted.
+State tokens in `:root`: `--selected-border` (`--text`) and `--selected-bg` (`--surface-strong`) mark the selected node, the open legend, the flashed code line, pressed filter chips and the pressed compact toggle of the map (with an inset border, not a gold fill). Map control hover uses `--surface-raised`. There are no alias tokens: use `--surface`, `--surface-raised`, `--radius`, `--crit-text` and `--on-accent` directly. Hover only moves a border to `--border-strong`; it never uses gold. A sorted table header uses `--text`, and prints muted.
 
 Data-type tokens belong to the theme blocks. Use `var(--type-...)` from React Flow nodes, variables, and edges. Type labels remain present; do not use color alone to identify data.
 
@@ -49,9 +49,9 @@ Data-type tokens belong to the theme blocks. Use `var(--type-...)` from React Fl
 
 Serve Inter 4.001 and Cormorant 4.000 locally. Inter is the interface face. Cormorant sets the 22px uppercase Themis wordmark, page titles, upload headline, and large report grade. Never use Cormorant below 22px or for controls and data.
 
-The mono stack is `Consolas, "Cascadia Mono", ui-monospace, "SF Mono", Menlo, "DejaVu Sans Mono", monospace`. Do not ship Cascadia Mono. Use mono for code, paths, figures, 11px uppercase labels with 0.06em tracking, and 11px uppercase chips with 0.04em tracking. The report score number is mono. Buttons use Inter 13px 600 and sentence case.
+The mono stack is `Consolas, "Cascadia Mono", ui-monospace, "SF Mono", Menlo, "DejaVu Sans Mono", monospace`. Do not ship Cascadia Mono. Use mono for code, paths, figures, 11px uppercase labels with `--track-label` (0.06em), and 11px uppercase chips with `--track-chip` (0.04em). One caps-label rule (a selector list in `styles.css`) sets the label font, tracking and case; do not copy the recipe into new rules. The report score number is mono. Buttons use Inter 13px 600 and sentence case.
 
-Font sizes come only from the `--fs-*` tokens in `:root`: 11, 12, 13, 14, 16, 18, 22, 26, 32, 40, 64 and 80px, plus `--fs-display` for the upload headline. Prose is never mono: errors, the report and rules meta lines and the editor stats use Inter; figures and file names are mono only inside `<code>`. The texts that explain the score (`.report-facts`, `.rules-note`, `.report-lost`) are 13px with a 68ch measure, and the scoring sentence uses `--text`. Finding messages, fixes and name keys keep a 60ch measure, and the rule id follows the finding title. The floor is 12px for all sentence text, values, hints, notes, paths, stats and table cells. Only uppercase mono labels and chips use 11px. Compact map nodes scale a token by the inverse zoom.
+Font sizes come only from the `--fs-*` tokens in `:root`: 11, 12, 13, 14, 16, 18, 22, 26, 32, 40, 64 and 80px, plus `--fs-display` for the upload headline. Prose is never mono: errors, the report and rules meta lines and the editor stats use Inter; figures and file names are mono only inside `<code>`. The texts that explain the score (`.report-facts`, `.rules-note`, `.report-lost`) are 13px with a 68ch measure. In the report facts the scope line (Included / Not shown) uses `--text`; the formula, bands and distribution lines stay muted. Finding messages, fixes and name keys keep a 60ch measure, and the rule id follows the finding title. The floor is 12px for all sentence text, values, hints, notes, paths, stats and table cells. Only uppercase mono labels and chips use 11px. Compact map nodes scale a token by the inverse zoom.
 
 ## Layout
 
@@ -61,7 +61,7 @@ The upload error line is always rendered (empty without an error, `role="alert"`
 
 Keep the statue's existing position, dimensions, responsive fading, and mobile hiding. Its dark rendering uses screen blend; light uses `invert(1)` and multiply. Keep the seven random hero phrases and credit. The hint states that A360 export analysis runs locally.
 
-Reports and rules have a centered reading area. Tables scroll inside their wrappers. The canvas retains its map, legend, minimap, and controls. The editor remains a full-screen dialog.
+Reports and rules have a centered reading area. The report head is a two-column grid: title, date and files line, and facts in column 1, the grade box in column 2 beside them; at 760px and below the meta and facts go under the title and grade box. Under 760px each summary row has two lines (the taskbot name at full width, then findings and score under their headers, through a subgrid), and finding card heads are a grid: chip, place and rule id on row 1, the title on row 2. Tables scroll inside their wrappers. The canvas retains its map, legend, minimap, and controls. The editor remains a full-screen dialog.
 
 ## Elevation & Depth
 
@@ -71,7 +71,13 @@ Use tonal layers and one-pixel borders. No resting shadows on panels or buttons.
 
 Controls and panels have 4px corners (`--radius`, also on the minimap, the map controls column and code cards); chips have 3px corners (`--radius-chip`). Controls are `--control-h` high: 32px, or 44px at 760px and below and on coarse pointers. Editor tabs and the legend toggle follow the same token (editor tabs keep 40px on desktop).
 
-Inline text targets (report Line links, taskbot names, editor finding flags) share one rule: inline-flex, at least `--target-min` wide and high (24px, 44px with the 44px controls), with padding offset by a matching negative margin so the text does not move. Finding items have an 8px row gap.
+Inline text targets (report Line links, taskbot names, editor finding flags, rule links, Points lost links) share one rule: inline-flex, at least `--target-min` wide and high (24px, 44px with the 44px controls), with padding offset by a matching negative margin so the text does not move. Stacked Points lost rows drop the vertical offset and have a 2px gap. Grade strip buttons are at least `--target-min` square, and the strip uses a min-height. The 44px query is `screen` only; `@media print` resets the whole target rule to plain inline text with no min size, padding or margin. Finding items have an 8px row gap and align on the baseline, so a line label and its text share one baseline.
+
+List separators never start a line. Inline lists use atomic items (`inline-block`, nowrap) with a trailing `·` from `li:not(:last-child)::after`; the clean-taskbots list is a flex-wrap list with gaps and no glyph.
+
+The grade form (`Grade.tsx`) is `.grade` (font, color, nowrap only) around an inner `.grade-pair` that holds the baseline flex of letter and score, so the score badge and other boxes can center it vertically. At 480px and below the score badge sits in the tab row, right-aligned, at control height, with its label for screen readers only.
+
+The editor head has one actions group (Show on map, the toggles, Close) with the only auto margin, so it keeps its x for any title. The Variables table first column keeps the 20px gutter (15px at 760px and below). Call handles with no wire carry `idle` and are hidden; the Handle stays for React Flow.
 
 There is one chip shape and type. The severity status chip is a static tag tinted by its severity. The filter chip (editor findings filter and report severity filter) is a control at control height. Its selected state has a strong fill, a text-color border and a check mark, so it is not color only. A report filter chip holds a hidden checkbox and shows the focus ring on the chip.
 
@@ -83,7 +89,9 @@ The two icon-only preference toggles use local Lucide SVGs. Show a sun in dark m
 
 Use 160ms color-only transitions during theme changes, plus the theme icon turn and cross-fade. Keep the upload zone's rotating gold conic rim, derived from accent tokens. Reduced motion stops the rim and transitions. No entrance animation is needed.
 
-Style selection, caret, scrollbars, focus, and browser chrome. Every interactive element has a 2px focus outline with a 2px offset; header and editor tabs draw it inset (`-4px`) with `--radius`, so the bar edge does not clip it. Severity uses chips and SVG icons, never emoji. Print remains light with local fonts and the same grade distinctions.
+Style selection, caret, scrollbars, focus, and browser chrome. Every interactive element has a 2px focus outline with a 2px offset; header and editor tabs draw it inset (`-4px`) with `--radius`, so the bar edge does not clip it. Severity uses chips and SVG icons, never emoji. Print remains light with local fonts and the same grade distinctions. In the PDF single finding cards stay whole; grouped cards may break inside, with their head, message and fix kept with the first lines (orphans and widows 3); the footer joins the last card. Pages 2 and later show the files and date in the `@page` bottom-left box, in the page counter font, from `--print-id`, which the report sets on the root element (margin boxes read custom properties only from the root).
+
+Under `forced-colors: active`, chips, the score badge and strip buttons get a 2px `CanvasText` border, selected chips `Highlight`, grade and severity bars a 4px `CanvasText` left border, and focus a `Highlight` outline.
 
 ## Do's and Don'ts
 

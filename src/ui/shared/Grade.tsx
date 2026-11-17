@@ -8,7 +8,8 @@ export function Grade({ score, className = '' }: { score: BotScore; className?: 
   const value = number(score.score)
   return (
     <span className={'grade grade-' + score.grade + (className && ' ' + className)} role="img" aria-label={t('grade.aria', { grade: score.grade, score: value })}>
-      <span className="grade-letter">{score.grade}</span> <span className="grade-score">{value}</span>
+      {/* the baseline pair lives inside, so a parent box can center it */}
+      <span className="grade-pair"><span className="grade-letter">{score.grade}</span> <span className="grade-score">{value}</span></span>
     </span>
   )
 }

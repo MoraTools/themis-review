@@ -1,5 +1,5 @@
 import { Icon, SeverityIcon } from '../Icons'
-import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
+import { Handle, Position, useNodeConnections, type NodeProps, type Node } from '@xyflow/react'
 import { useContext } from 'react'
 import { Name } from '../shared/Name'
 import { Grade } from '../shared/Grade'
@@ -37,7 +37,11 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
   const detailed = useContext(DetailContext)
   const vertical = useContext(VerticalContext)
   const mode = detailed ? '' : ' compact'
-  const callIn = <Handle type="target" position={vertical ? Position.Top : Position.Left} id="call-in" className="call-handle" />
+  // a call handle with no wire on it is hidden by CSS; the Handle stays for React Flow
+  const wiresIn = useNodeConnections({ handleType: 'target', handleId: 'call-in' }).length
+  const wiresOut = useNodeConnections({ handleType: 'source', handleId: 'call-out' }).length
+  const handleClass = (wires: number) => (wires ? 'call-handle' : 'call-handle idle')
+  const callIn = <Handle type="target" position={vertical ? Position.Top : Position.Left} id="call-in" className={handleClass(wiresIn)} />
 
   if (data.ghost) {
     return (
@@ -55,7 +59,7 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
   const handles = (
     <>
       {callIn}
-      <Handle type="source" position={vertical ? Position.Bottom : Position.Right} id="call-out" className="call-handle" />
+      <Handle type="source" position={vertical ? Position.Bottom : Position.Right} id="call-out" className={handleClass(wiresOut)} />
     </>
   )
   // own fixed row, counted in nodeHeight(), so the stats never wrap

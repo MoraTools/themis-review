@@ -1,5 +1,5 @@
 import { Icon, SeverityIcon } from '../Icons'
-import { useContext, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
 import { LangContext, useT, useNumber, usePlural } from '../i18n'
@@ -99,35 +99,43 @@ export default function Report({
   const lineAction = (line: number) => t('report.finding.openLine', { line: number(line) })
   const shownRows = rows.filter((r) => r.findings.length > 0)
   const silent = rows.filter((r) => r.findings.length === 0)
+  // pages 2+ of the PDF name the report: @page margin boxes read custom properties only from the root element
+  const printId = `${analysis.zipNames.join(', ')} · ${date}`
+  useEffect(() => {
+    const root = document.documentElement.style
+    root.setProperty('--print-id', JSON.stringify(printId))
+    return () => { root.removeProperty('--print-id') }
+  }, [printId])
 
   return (
     <div className="report">
+      {/* title, meta and facts in column 1, the grade box beside them */}
       <header className="report-head">
         <h1>{t('report.title')}</h1>
         <div className="report-score">
           <Grade score={analysis.projectScore} />
         </div>
+        <p className="report-meta">
+          {t('report.date')}: {date} · {t('report.files')}: {analysis.zipNames.join(', ')}
+        </p>
+        <div className="report-facts">
+          <p className="report-facts-scope">
+            {t('report.scope.included', { list: included })}
+            {hidden && ' ' + plural('report.scope.hidden', hiddenTotal(counts, sevOn), { list: hidden })} {t('report.scope.score')}
+          </p>
+          <p className="report-facts-rule">{scoring.rule}</p>
+          <p>{scoring.bands}</p>
+          <p>
+            {t('report.scoring.dist')}{' '}
+            <span className="report-dist">{GRADE_BANDS.map((b, i) => (
+              <span key={b.grade}>
+                {i > 0 && ' · '}
+                <span className={'grade-' + b.grade}>{b.grade} {number(dist[b.grade])}</span>
+              </span>
+            ))}</span>
+          </p>
+        </div>
       </header>
-      <p className="report-meta">
-        {t('report.date')}: {date} · {t('report.files')}: {analysis.zipNames.join(', ')}
-      </p>
-      <div className="report-facts">
-        <p>
-          {t('report.scope.included', { list: included })}
-          {hidden && ' ' + plural('report.scope.hidden', hiddenTotal(counts, sevOn), { list: hidden })} {t('report.scope.score')}
-        </p>
-        <p className="report-facts-rule">{scoring.rule}</p>
-        <p>{scoring.bands}</p>
-        <p>
-          {t('report.scoring.dist')}{' '}
-          <span className="report-dist">{GRADE_BANDS.map((b, i) => (
-            <span key={b.grade}>
-              {i > 0 && ' · '}
-              <span className={'grade-' + b.grade}>{b.grade} {number(dist[b.grade])}</span>
-            </span>
-          ))}</span>
-        </p>
-      </div>
 
       <div className="report-options no-print">
         <SeverityFilter label={t('report.filter.title')} counts={counts} on={sevOn} onToggle={onToggleSeverity} />
@@ -136,9 +144,10 @@ export default function Report({
 
       <h2>{t('report.summary')}</h2>
       <div className="table-scroll">
-        <table className="report-table summary-table">
-          <thead>
-            <tr>
+        {/* explicit roles: under 760px the rows are grids, which drops the implicit table semantics */}
+        <table className="report-table summary-table" role="table">
+          <thead role="rowgroup">
+            <tr role="row">
               <SortHeader col="name" label={t('report.taskbot')} sort={sort} onSort={toggleSort} />
               <SortHeader col="lines" label={t('node.lines')} sort={sort} onSort={toggleSort} className="num col-detail" />
               <SortHeader col="comments" label={t('node.comments')} sort={sort} onSort={toggleSort} className="num col-detail" />
@@ -148,10 +157,10 @@ export default function Report({
               <SortHeader col="score" label={t('report.score')} sort={sort} onSort={toggleSort} className="num" />
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {rows.map((r) => (
-              <tr key={r.bot.path}>
-                <td>
+              <tr role="row" key={r.bot.path}>
+                <td role="cell">
                   <button
                     type="button"
                     className="row-name no-print"
@@ -164,11 +173,11 @@ export default function Report({
                   {/* the PDF links each name to its section (clean taskbots to the compact list) */}
                   <a className="print-only row-anchor" href={'#' + (r.findings.length > 0 ? r.anchor : 'report-clean')}>{r.bot.name}</a>
                 </td>
-                <td className="num col-detail">{number(r.m.totalLines)}</td>
-                <td className="num col-detail">{number(r.m.commentLines)}</td>
-                <td className="num col-detail">{number(r.m.logMessages)}</td>
-                <td className="num col-detail">{number(r.m.variables)}</td>
-                <td className="num">
+                <td role="cell" className="num col-detail">{number(r.m.totalLines)}</td>
+                <td role="cell" className="num col-detail">{number(r.m.commentLines)}</td>
+                <td role="cell" className="num col-detail">{number(r.m.logMessages)}</td>
+                <td role="cell" className="num col-detail">{number(r.m.variables)}</td>
+                <td role="cell" className="num">
                   <span className="sev-counts">
                     {SEVERITIES.filter((s) => r.counts[s] > 0).map((s) => (
                       <span key={s} className={'sev-count' + (sevOn[s] ? '' : ' dim')}>
@@ -182,7 +191,7 @@ export default function Report({
                       : r.all.length === 0 && number(0)}
                   </span>
                 </td>
-                <td className="num">
+                <td role="cell" className="num">
                   <Grade score={r.s} />
                 </td>
               </tr>
@@ -197,21 +206,23 @@ export default function Report({
           <Icon name="circle-check" className="empty-ok" /> {plural('report.clean', rows.length)}
         </p>
       ) : silent.length > 0 && (
-        <p id="report-clean" className="report-silent">
-          {t('report.silent')}{' '}
-          {silent.map((r, i) => {
-            const list = hiddenList(r.counts, sevOn, lang)
-            return (
-              <span key={r.bot.path} className="report-silent-item">
-                {i > 0 && ' · '}
-                <button type="button" className="row-name" aria-label={t('report.openInEditor', { name: r.bot.name })} onClick={() => onOpen(r.bot.path)}>
-                  {r.bot.name}
-                </button>
-                {list && ` (${plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list })})`}
-              </span>
-            )
-          })}
-        </p>
+        <div id="report-clean" className="report-silent">
+          {t('report.silent')}
+          {/* a wrap list with gaps, no separator glyph that could start a line */}
+          <ul className="report-silent-list">
+            {silent.map((r) => {
+              const list = hiddenList(r.counts, sevOn, lang)
+              return (
+                <li key={r.bot.path} className="report-silent-item">
+                  <button type="button" className="row-name" aria-label={t('report.openInEditor', { name: r.bot.name })} onClick={() => onOpen(r.bot.path)}>
+                    {r.bot.name}
+                  </button>
+                  {list && ` (${plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list })})`}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
 
       {shownRows.map((r) => {

@@ -208,16 +208,19 @@ export default function EditorDrawer({
           </h1>
           <div className="drawer-sub">{bot.path}</div>
         </div>
-        <ThemeToggles />
-        <button type="button" className="btn ghost drawer-map" onClick={onShowOnMap}>
-          {t('editor.showOnMap')}
-        </button>
-        <button className="btn ghost" onClick={close}>
-          <svg className="drawer-close-icon" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="m3 3 10 10M13 3 3 13" />
-          </svg>
-          {t('editor.close')}
-        </button>
+        {/* one actions group with the only auto margin, so its x does not follow the title length */}
+        <div className="drawer-actions">
+          <button type="button" className="btn ghost drawer-map" onClick={onShowOnMap}>
+            {t('editor.showOnMap')}
+          </button>
+          <ThemeToggles />
+          <button className="btn ghost drawer-close" onClick={close}>
+            <svg className="drawer-close-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="m3 3 10 10M13 3 3 13" />
+            </svg>
+            {t('editor.close')}
+          </button>
+        </div>
       </div>
       <div className="drawer-stats">
         <span>{plural('node.lines', metrics.totalLines)}</span>
