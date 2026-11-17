@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useContext, useEffect, useReducer, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { LangContext, useT, type Lang } from './i18n'
 import { ThemeToggles } from './ThemeToggles'
@@ -8,19 +8,80 @@ import Canvas from './canvas/Canvas'
 import EditorDrawer from './editor/EditorDrawer'
 import Report from './report/Report'
 import Rules from './rules/Rules'
-import { initialShell, shellReducer } from './shared/selection'
+import {
+  cleanStart, closeEditor, editorEntry, initialShell, pageTitle, pushEditor, shellReducer, viewFromHash,
+  type Selection, type View,
+} from './shared/selection'
 import { Grade } from './shared/Grade'
 import { DEFAULT_SEVERITY_ON, severityFilterReducer } from './findings/SeverityFilter'
 
 function Shell() {
   const t = useT()
+  const { lang } = useContext(LangContext)
   const busyText = useBusyText()
   const [{ analysis, nav: { view, selection, mapFocus } }, dispatch] = useReducer(shellReducer, initialShell)
   // the report filter lives here, so view switches keep it and Export PDF from any view prints with it
   const [sevOn, dispatchSeverity] = useReducer(severityFilterReducer, DEFAULT_SEVERITY_ON)
-  const setView = (next: typeof view) => dispatch({ type: 'view', view: next })
   // where focus goes back after the editor closes: the opener in the view it came from
   const [returnTo, setReturnTo] = useState<{ path: string; from: 'map' | 'report' } | null>(null)
+  // set by a tab, Back or Forward, so the next render moves focus to the view's h1 (not on the first load)
+  const focusHeading = useRef(false)
+  const selectionRef = useRef(selection)
+  selectionRef.current = selection
+
+  // the view lives in the hash (#map, #report, #rules) and nothing else: an address is what people copy and send
+  useEffect(() => cleanStart(history, location), [])
+  const showHashView = () => {
+    if (!analysis && location.hash && location.hash !== '#rules') cleanStart(history, location)
+    focusHeading.current = true
+    dispatch({ type: 'view', view: viewFromHash(location.hash, !!analysis) })
+  }
+  useEffect(() => {
+    window.addEventListener('hashchange', showHashView)
+    return () => window.removeEventListener('hashchange', showHashView)
+  })
+  // a tab click sets the hash, which adds a history entry; the upload view has no hash
+  const goTo = (next: View) => {
+    if (analysis || next === 'rules') location.hash = next
+    else if (location.hash) {
+      history.pushState(null, '', location.pathname + location.search)
+      showHashView()
+    }
+  }
+
+  // the open editor is one history entry with the same URL and the selection in its state; Back closes it
+  const open = (next: Selection) => {
+    pushEditor(history, next)
+    dispatch({ type: 'open', ...next })
+  }
+  const closeNow = () => {
+    const current = selectionRef.current
+    if (!current) return
+    setReturnTo({ path: current.path, from: current.from })
+    dispatch({ type: 'close' })
+  }
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const entry = editorEntry(event.state)
+      if (entry && analysis?.taskbots.some((b) => b.path === entry.path)) dispatch({ type: 'open', ...entry })
+      else closeNow()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  })
+
+  useEffect(() => {
+    const bot = selection && analysis?.taskbots.find((b) => b.path === selection.path)
+    document.title = pageTitle(view, !!analysis, t, bot ? bot.name : undefined)
+  }, [view, analysis, selection, lang])
+  useEffect(() => {
+    if (!focusHeading.current) return
+    focusHeading.current = false
+    const heading = [...document.querySelectorAll<HTMLElement>('#main h1')].find((h) => !h.closest('[hidden]'))
+    if (!heading) return
+    heading.tabIndex = -1
+    heading.focus()
+  }, [view, analysis])
 
   // one file picker for "Choose files" and "New analysis"; the old analysis stays until a new one succeeds
   const fileInput = useRef<HTMLInputElement>(null)
@@ -28,9 +89,14 @@ function Shell() {
   const newButton = useRef<HTMLButtonElement>(null)
   const upload = useUpload((next) => {
     setReturnTo(null)
+    // replace, not push: Back from the first map must not return to an upload page with the analysis gone
+    history.replaceState(null, '', '#map')
     dispatch({ type: 'loaded', analysis: next })
     dispatchSeverity({ type: 'loaded', analysis: next })
   })
+  const pick = () => {
+    if (upload.busy === 0) fileInput.current?.click()
+  }
   // after a failed upload, focus goes back to the button that chooses files
   useEffect(() => {
     if (upload.error) (newButton.current ?? chooseButton.current)?.focus()
@@ -53,6 +119,8 @@ function Shell() {
     let title = document.title
     const before = () => {
       title = document.title
+      // keep the hash in step with the view, so the Map tab still changes the hash after printing
+      history.replaceState(history.state, '', '#report')
       flushSync(() => dispatch({ type: 'view', view: 'report' }))
       const names = analysis.zipNames.map((n) => n.replace(/\.zip$/i, '')).join(', ')
       document.title = `Themis - ${names} - ${new Date().toISOString().slice(0, 10)}`
@@ -77,14 +145,14 @@ function Shell() {
         <div className="header-zone header-left">
           <nav className="tabs" aria-label={t('nav.views')}>
             {/* without an upload the map tab is the way back to the drop zone */}
-            <button className={view === 'map' ? 'tab active' : 'tab'} aria-current={view === 'map' ? 'page' : undefined} onClick={() => setView('map')}>
+            <button className={view === 'map' ? 'tab active' : 'tab'} aria-current={view === 'map' ? 'page' : undefined} onClick={() => goTo('map')}>
               {analysis ? t('tab.map') : t('tab.upload')}
             </button>
             {analysis && (
               <button
                 className={view === 'report' ? 'tab active' : 'tab'}
                 aria-current={view === 'report' ? 'page' : undefined}
-                onClick={() => setView('report')}
+                onClick={() => goTo('report')}
               >
                 {t('tab.report')}
               </button>
@@ -93,7 +161,7 @@ function Shell() {
             <button
               className={view === 'rules' ? 'tab active' : 'tab'}
               aria-current={view === 'rules' ? 'page' : undefined}
-              onClick={() => setView('rules')}
+              onClick={() => goTo('rules')}
             >
               {t('tab.rules')}
             </button>
@@ -116,9 +184,8 @@ function Shell() {
                 className="btn"
                 aria-label={t('header.reset')}
                 title={t('header.reset')}
-                disabled={upload.busy > 0}
-                aria-busy={upload.busy > 0}
-                onClick={() => fileInput.current?.click()}
+                aria-disabled={upload.busy > 0}
+                onClick={pick}
               ><Icon name="plus" /><span className="btn-label">{t('header.reset')}</span></button>
             </div>
           </div>
@@ -136,12 +203,12 @@ function Shell() {
         </div>
       )}
 
-      <main id="main" className="app-main" tabIndex={-1}>
+      <main id="main" className="app-main" tabIndex={-1} aria-busy={upload.busy > 0}>
       {!analysis && view !== 'rules' && (
         <DropZone
           busy={upload.busy}
           error={upload.error}
-          onPick={() => fileInput.current?.click()}
+          onPick={pick}
           onFiles={(files) => void upload.run(files)}
           buttonRef={chooseButton}
         />
@@ -150,17 +217,19 @@ function Shell() {
       {analysis && (
         <div className="canvas-wrap no-print" hidden={view !== 'map'}>
           <h1 className="sr-only">{t('tab.map')}</h1>
-          <Canvas analysis={analysis} focus={mapFocus} onSelect={(path) => dispatch({ type: 'open', path, from: 'map' })} />
+          <Canvas analysis={analysis} focus={mapFocus} onSelect={(path) => open({ path, from: 'map' })} />
         </div>
       )}
       {analysis && view === 'report' && (
         <Report
           analysis={analysis}
-          onOpen={(path, line) => dispatch({ type: 'open', path, from: 'report', line })}
+          onOpen={(path, line) => open({ path, from: 'report', line })}
           sevOn={sevOn}
           onToggleSeverity={(severity) => dispatchSeverity({ type: 'severity', severity })}
           onRule={(ruleId) => {
-            flushSync(() => setView('rules'))
+            // a view change like a tab, without the h1 focus: focus goes to the rule row
+            history.pushState(null, '', '#rules')
+            flushSync(() => dispatch({ type: 'view', view: 'rules' }))
             const row = document.getElementById('rule-' + ruleId)
             row?.scrollIntoView({ block: 'center' })
             row?.focus({ preventScroll: true })
@@ -187,13 +256,12 @@ function Shell() {
           analysis={analysis}
           botPath={selection.path}
           line={selection.line}
-          onClose={() => {
-            setReturnTo({ path: selection.path, from: selection.from })
-            dispatch({ type: 'close' })
-          }}
+          onClose={() => closeEditor(history, closeNow)}
           onShowOnMap={() => {
             // the map centers and selects the node from nav.mapFocus; focus goes to the node
             setReturnTo({ path: selection.path, from: 'map' })
+            // the editor entry becomes the map entry, so Back returns to the view before it
+            history.replaceState(null, '', '#map')
             dispatch({ type: 'showOnMap', path: selection.path })
           }}
         />

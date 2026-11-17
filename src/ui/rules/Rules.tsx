@@ -122,36 +122,36 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
 
       <h2>{t('rules.table')}</h2>
       <div className="table-scroll">
-        <table className="report-table rules-table">
+        <table className="report-table rules-table" role="table">
           {/* shown under 760px, where the header row becomes a row of sort chips */}
           <caption className="rules-sort-by">{t('rules.sortBy')}</caption>
-          <thead>
-            <tr>
+          <thead role="rowgroup">
+            <tr role="row">
               <SortHeader col="id" label={t('rules.col.id')} sort={sort} onSort={toggleSort} />
               <SortHeader col="severity" label={t('rules.col.severity')} sort={sort} onSort={toggleSort} />
               <SortHeader col="category" label={t('rules.col.category')} sort={sort} onSort={toggleSort} />
               <SortHeader col="fired" label={t('rules.col.fired')} sort={sort} onSort={toggleSort} />
               <SortHeader col="deducted" label={t('rules.col.deducted')} sort={sort} onSort={toggleSort} />
-              <th>{t('rules.col.detects')}</th>
-              <th>{t('rules.col.fix')}</th>
+              <th role="columnheader">{t('rules.col.detects')}</th>
+              <th role="columnheader">{t('rules.col.fix')}</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {rows.map((r) => (
-              <tr key={r.id} id={'rule-' + r.id} tabIndex={-1}>
-                <td className="rules-name">
+              <tr role="row" key={r.id} id={'rule-' + r.id} tabIndex={-1}>
+                <td role="cell" className="rules-name">
                   <span className="rules-title">{t(`rule.${r.id}.title`)}</span> <code className="rules-id">{r.id}</code>
                 </td>
-                <td className="rules-sev"><SeverityIcon severity={r.severity} /> −{number(DEDUCTION[r.severity])}</td>
-                <td className="rules-text">{t('rules.cat.' + r.category)}</td>
-                <td className="rules-times" data-label={t('rules.col.fired')}>{r.fired ? number(r.fired) : '—'}</td>
-                <td className="rules-points" data-label={t('rules.col.deducted')}
+                <td role="cell" className="rules-sev"><SeverityIcon severity={r.severity} /> −{number(DEDUCTION[r.severity])}</td>
+                <td role="cell" className="rules-text">{t('rules.cat.' + r.category)}</td>
+                <td role="cell" className="rules-times" data-label={t('rules.col.fired')}>{r.fired ? number(r.fired) : '—'}</td>
+                <td role="cell" className="rules-points" data-label={t('rules.col.deducted')}
                   title={sharedFamilies.has(r.capGroup) ? t('rules.sharedCap', { group: `${groupLabel(lang, r.capGroup)} (${r.capGroup})` }) : undefined}>
                   {r.deducted ? '−' + number(Math.round(r.deducted * 10) / 10) : '—'}
                   {sharedFamilies.has(r.capGroup) && r.deducted ? <span className="rules-shared">∑</span> : null}
                 </td>
-                <td className="rules-msg" data-label={t('rules.col.detects')}>{t(`rule.${r.id}.msg`, slots)}</td>
-                <td className="rules-msg" data-label={t('rules.col.fix')}>
+                <td role="cell" className="rules-msg" data-label={t('rules.col.detects')}>{t(`rule.${r.id}.msg`, slots)}</td>
+                <td role="cell" className="rules-msg" data-label={t('rules.col.fix')}>
                   {t(`rule.${r.id}.fix`, slots)}
                   {/* findings show only the rename, so the naming key lives here */}
                   {r.id === 'VAR_NAME_FORMAT' && <span className="rules-key">{t('report.nameKey')}</span>}

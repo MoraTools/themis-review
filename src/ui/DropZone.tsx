@@ -126,7 +126,8 @@ export default function DropZone({ busy, error, onPick, onFiles, buttonRef }: {
       <div className="hero-visual" aria-hidden="true">
         <img src={heroArt} alt="" />
       </div>
-      <h1 className="display">{HERO_PHRASES[lang][phraseIdx]}</h1>
+      <h1 className="sr-only">{t('tab.upload')}</h1>
+      <p className="display">{HERO_PHRASES[lang][phraseIdx]}</p>
       <p className="hero-hint">{t('drop.hint')}</p>
 
       <div
@@ -152,11 +153,10 @@ export default function DropZone({ busy, error, onPick, onFiles, buttonRef }: {
             <button
               ref={buttonRef}
               className="btn primary"
-              disabled={busy > 0}
-              aria-busy={busy > 0}
+              aria-disabled={busy > 0}
               onClick={(e) => {
                 e.stopPropagation()
-                onPick()
+                if (!busy) onPick()
               }}
             >
               <span className="btn-label">{t('drop.button')}</span>

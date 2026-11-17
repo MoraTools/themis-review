@@ -35,6 +35,44 @@ export function navReducer(state: NavState, action: NavAction): NavState {
   }
 }
 
+/** the view a location hash names; without an analysis only the rules stand on their own (else the upload view, 'map') */
+export function viewFromHash(hash: string, hasAnalysis: boolean): View {
+  const name = hash.replace(/^#/, '')
+  if (name === 'rules') return 'rules'
+  return hasAnalysis && name === 'report' ? 'report' : 'map'
+}
+
+/** the history calls the shell uses, so tests can pass a fake */
+export type HistoryLike = Pick<History, 'state' | 'pushState' | 'replaceState' | 'back'>
+
+/** a fresh page has no analysis: drop any view hash and editor entry, so it shows the upload view at a clean address */
+export function cleanStart(history: HistoryLike, location: Pick<Location, 'pathname' | 'search' | 'hash'>) {
+  if (location.hash || history.state !== null) history.replaceState(null, '', location.pathname + location.search)
+}
+
+/** the editor selection kept in a history entry's state (never in the URL), or null */
+export function editorEntry(state: unknown): Selection | null {
+  const entry = (state as { editor?: Selection } | null)?.editor
+  return entry && typeof entry.path === 'string' ? entry : null
+}
+
+/** opening the editor adds one history entry with the same URL, so Back closes it */
+export function pushEditor(history: HistoryLike, selection: Selection) {
+  history.pushState({ editor: selection }, '')
+}
+
+/** Close and Escape go back when the entry is ours (popstate then closes), so history does not grow per open */
+export function closeEditor(history: HistoryLike, closeNow: () => void) {
+  if (editorEntry(history.state)) history.back()
+  else closeNow()
+}
+
+/** document.title per view; an open editor names its taskbot */
+export function pageTitle(view: View, hasAnalysis: boolean, t: (key: string) => string, botName?: string): string {
+  const label = botName ?? (hasAnalysis || view === 'rules' ? t('tab.' + view) : null)
+  return label ? `${label} · Themis Review` : 'Themis Review'
+}
+
 /** the loaded analysis and the navigation over it */
 export type ShellState = { analysis: ProjectAnalysis | null; nav: NavState }
 

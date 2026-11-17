@@ -218,7 +218,7 @@ code { font-family: var(--font-mono); }
 .theme-toggle .moon { opacity:1; transform:rotate(0); }
 :root[data-theme="dark"] .theme-toggle .sun { opacity:1; transform:rotate(0); }
 :root[data-theme="dark"] .theme-toggle .moon { opacity:0; transform:rotate(90deg); }
-.btn:disabled { opacity:.5; cursor:not-allowed; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity:.5; cursor:not-allowed; }
 .btn-arrow { display:inline-flex; }
 
 /* outlined rectangular cell, feature-tag pattern */
@@ -963,7 +963,8 @@ code { font-family: var(--font-mono); }
   .rules-table, .rules-table thead, .rules-table tbody { display: block; }
   .rules-table thead tr { display: flex; flex-wrap: wrap; gap: 4px; }
   .rules-table thead th { display: block; border: 0; }
-  .rules-table thead th:not(.sortable) { display: none; }
+  /* visually hidden, not display:none, so the column headers stay in the table semantics */
+  .rules-table thead th:not(.sortable) { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .rules-table tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
   .rules-table tbody td { display: block; padding: 0; border: 0; }
   .rules-table td.rules-name { display: contents; }
