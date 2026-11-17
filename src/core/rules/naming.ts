@@ -30,14 +30,17 @@ function expectedScope(v: Variable): string {
 function suggestName(v: Variable): string {
   const token = TYPE_TOKEN[v.type] ?? 'Any'
   // strip an existing (possibly wrong) prefix before rebuilding; a prefix counts only before
-  // an upper-case letter, so "contador" keeps its "c" and "strProveedor" loses its "str"
+  // an upper-case letter, so "contador" keeps its "c". A leading lower-case type word goes only
+  // when it is an abbreviation (strProveedor) or the variable's own type (fileInput as File);
+  // fileName as String keeps "file", which is part of the name.
   const m = v.name.match(NAME_RE)
+  const ownWord = new RegExp('^(str|num|bool|' + token.toLowerCase() + ')(?=[A-Z0-9_])', 'i')
   const base = m
     ? m[3]
     : v.name
         .replace(/^(io|p|i|o|c|v)(Str|Num|Table|Dict|List|Date|Bool|File|Rec|Win|Any)(?![a-z])/, '')
         .replace(/^(io|p|i|o|c|v)(?=[A-Z])/, '')
-        .replace(/^(str|num|table|dict|list|date|bool|file|rec|win|any)(?=[A-Z0-9_])/i, '')
+        .replace(ownWord, '')
   const camel = base ? base[0].toUpperCase() + base.slice(1) : 'Variable'
   return expectedScope(v) + token + camel
 }

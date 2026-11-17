@@ -382,6 +382,13 @@ describe('synthetic taskbots', () => {
       ['vTotal', 'NUMBER', 'pNumTotal'],
       ['pNumTotal', 'STRING', 'pStrTotal'],
       ['x', 'STRING', 'pStrX'],
+      ['fileName', 'STRING', 'pStrFileName'],
+      ['filePath', 'STRING', 'pStrFilePath'],
+      ['dateFormat', 'STRING', 'pStrDateFormat'],
+      ['tableName', 'STRING', 'pStrTableName'],
+      ['recCount', 'NUMBER', 'pNumRecCount'],
+      ['fileInput', 'FILE', 'pFileInput'],
+      ['numRows', 'NUMBER', 'pNumRows'],
     ]
     const tb = parseTaskbot('Bots/x/tasks/N', 'z', wrap([], cases.map(([name, type]) => ({ name, type, description: 'd' }))))
     const suggested = Object.fromEntries(
