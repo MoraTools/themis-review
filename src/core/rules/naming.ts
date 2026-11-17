@@ -29,9 +29,15 @@ function expectedScope(v: Variable): string {
 
 function suggestName(v: Variable): string {
   const token = TYPE_TOKEN[v.type] ?? 'Any'
-  // strip an existing (possibly wrong) prefix before rebuilding
+  // strip an existing (possibly wrong) prefix before rebuilding; a prefix counts only before
+  // an upper-case letter, so "contador" keeps its "c" and "strProveedor" loses its "str"
   const m = v.name.match(NAME_RE)
-  const base = m ? m[3] : v.name.replace(/^(io|p|i|o|c|v)?(Str|Num|Table|Dict|List|Date|Bool|File|Rec|Win|Any)?/, '')
+  const base = m
+    ? m[3]
+    : v.name
+        .replace(/^(io|p|i|o|c|v)(Str|Num|Table|Dict|List|Date|Bool|File|Rec|Win|Any)(?![a-z])/, '')
+        .replace(/^(io|p|i|o|c|v)(?=[A-Z])/, '')
+        .replace(/^(str|num|table|dict|list|date|bool|file|rec|win|any)(?=[A-Z0-9_])/i, '')
   const camel = base ? base[0].toUpperCase() + base.slice(1) : 'Variable'
   return expectedScope(v) + token + camel
 }

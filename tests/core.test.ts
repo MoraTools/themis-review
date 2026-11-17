@@ -7,6 +7,7 @@ import { buildGraph, callDepth, callSequence } from '../src/core/graph'
 import { messageBoxRules } from '../src/core/rules/messagebox'
 import { structureRules } from '../src/core/rules/structure'
 import { hygieneRules } from '../src/core/rules/hygiene'
+import { namingRules } from '../src/core/rules/naming'
 import { computeMetrics } from '../src/core/metrics'
 import { isComment } from '../src/core/model'
 
@@ -367,5 +368,25 @@ describe('synthetic taskbots', () => {
 
   it('counts Bot Framework caution steps as comments', () => {
     expect(isComment({ commandName: 'documentation_caution_sequence' })).toBe(true)
+  })
+
+  it('suggests names without eating a first letter or doubling the type', () => {
+    const cases: [string, string, string][] = [
+      ['contador', 'STRING', 'pStrContador'],
+      ['viejo1', 'STRING', 'pStrViejo1'],
+      ['copia', 'STRING', 'pStrCopia'],
+      ['information', 'STRING', 'pStrInformation'],
+      ['strProveedor', 'STRING', 'pStrProveedor'],
+      ['numTotal', 'NUMBER', 'pNumTotal'],
+      ['vStrNombre', 'STRING', 'pStrNombre'],
+      ['vTotal', 'NUMBER', 'pNumTotal'],
+      ['pNumTotal', 'STRING', 'pStrTotal'],
+      ['x', 'STRING', 'pStrX'],
+    ]
+    const tb = parseTaskbot('Bots/x/tasks/N', 'z', wrap([], cases.map(([name, type]) => ({ name, type, description: 'd' }))))
+    const suggested = Object.fromEntries(
+      namingRules(tb).filter((f) => f.params?.suggestion).map((f) => [f.varName ?? f.params!.name, f.params!.suggestion]),
+    )
+    for (const [name, , expected] of cases) expect([name, suggested[name]]).toEqual([name, expected])
   })
 })
