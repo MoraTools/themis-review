@@ -43,7 +43,9 @@ Data-type tokens belong to the theme blocks. Use `var(--type-...)` from React Fl
 
 Serve Inter 4.001 and Cormorant 4.000 locally. Inter is the interface face. Cormorant sets the 22px uppercase Themis wordmark, page titles, upload headline, and large report grade. Never use Cormorant below 22px or for controls and data.
 
-The mono stack is `Consolas, "Cascadia Mono", ui-monospace, "SF Mono", Menlo, "DejaVu Sans Mono", monospace`. Do not ship Cascadia Mono. Use mono for code, paths, figures, 11px uppercase labels with 0.06em tracking, and 10px uppercase status chips with 0.04em tracking. The report score number is mono. Buttons use Inter 13px 600 and sentence case.
+The mono stack is `Consolas, "Cascadia Mono", ui-monospace, "SF Mono", Menlo, "DejaVu Sans Mono", monospace`. Do not ship Cascadia Mono. Use mono for code, paths, figures, 11px uppercase labels with 0.06em tracking, and 11px uppercase chips with 0.04em tracking. The report score number is mono. Buttons use Inter 13px 600 and sentence case.
+
+Font sizes come only from the `--fs-*` tokens in `:root`: 11, 12, 13, 14, 16, 18, 22, 26, 32, 40, 64 and 80px, plus `--fs-display` for the upload headline. The floor is 12px for all sentence text, values, hints, notes, paths, stats and table cells. Only uppercase mono labels and chips use 11px. Compact map nodes scale a token by the inverse zoom.
 
 ## Layout
 
@@ -59,7 +61,9 @@ Use tonal layers and one-pixel borders. No resting shadows on panels or buttons.
 
 ## Shapes
 
-Controls and panels have 4px corners; status chips have 3px corners. Controls are 32px high, or 44px on small screens and coarse pointers.
+Controls and panels have 4px corners; chips have 3px corners (`--radius-chip`). Controls are 32px high, or 44px on small screens and coarse pointers.
+
+There is one chip shape and type. The severity status chip is a static tag tinted by its severity. The filter chip (editor findings filter and report severity filter) is a control at control height. Its selected state has a strong fill, a text-color border and a check mark, so it is not color only. A report filter chip holds a hidden checkbox and shows the focus ring on the chip.
 
 ## Components
 
