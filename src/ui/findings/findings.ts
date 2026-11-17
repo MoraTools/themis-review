@@ -52,8 +52,10 @@ export function entrySize(e: FindingEntry): number {
   return e.kind === 'single' ? 1 : e.findings.length
 }
 
+export type Lost = { group: string; points: number; capped: boolean }
+
 /** points each rule family takes from one bot, with the same cap as scoreFindings(), largest first */
-export function lostPoints(findings: Finding[]): { group: string; points: number; capped: boolean }[] {
+export function lostPoints(findings: Finding[]): Lost[] {
   const byGroup = new Map<string, number>()
   for (const f of findings) {
     const key = capGroup(f.ruleId)
@@ -62,6 +64,42 @@ export function lostPoints(findings: Finding[]): { group: string; points: number
   return [...byGroup]
     .map(([group, sum]) => ({ group, points: Math.min(sum, RULE_CAP), capped: sum >= RULE_CAP }))
     .sort((a, b) => b.points - a.points || a.group.localeCompare(b.group))
+}
+
+/** the sum of the points lost: 100 − score, unless the score stops at 0 */
+export function lostTotal(lost: Lost[]): number {
+  return Math.round(lost.reduce((n, l) => n + l.points, 0) * 10) / 10
+}
+
+/** the biggest gains of the project: the top entries of lostPoints() over all taskbots, largest first */
+export function fixFirst(findings: Finding[], n = 3): (Lost & { botPath: string })[] {
+  const byBot = new Map<string, Finding[]>()
+  for (const f of findings) byBot.set(f.botPath, [...(byBot.get(f.botPath) ?? []), f])
+  // a stable sort: ties keep the taskbot order of the findings
+  return [...byBot]
+    .flatMap(([botPath, list]) => lostPoints(list).map((l) => ({ botPath, ...l })))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, n)
+}
+
+/** the family points for the first card of each family, so a card head says what its family costs */
+export function entryPoints(entries: FindingEntry[], lost: Lost[]): Map<number, Lost> {
+  const byGroup = new Map(lost.map((l) => [l.group, l]))
+  const out = new Map<number, Lost>()
+  const seen = new Set<string>()
+  entries.forEach((e, i) => {
+    const group = capGroup(e.kind === 'group' ? e.ruleId : e.finding.ruleId)
+    if (seen.has(group)) return
+    seen.add(group)
+    const l = byGroup.get(group)
+    if (l) out.set(i, l)
+  })
+  return out
+}
+
+/** the shown severities as "Error, Warning", for the report scope line and the Export PDF name */
+export function includedList(shown: Record<Severity, boolean>, lang: Lang): string {
+  return SEVERITIES.filter((s) => shown[s]).map((s) => translate(lang, 'report.severity.' + s)).join(', ') || translate(lang, 'report.scope.nothing')
 }
 
 export function gradeDistribution(scores: BotScore[]): Record<BotScore['grade'], number> {

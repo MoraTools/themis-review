@@ -1,25 +1,45 @@
 import { Icon, SeverityIcon } from '../Icons'
 import { useContext, useEffect, useMemo, useState } from 'react'
-import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
+import type { BotScore, Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
-import { LangContext, useT, useNumber, usePlural } from '../i18n'
+import { groupLabel } from '../findings/findings'
+import { LangContext, translate, useT, useNumber, usePlural, type Lang } from '../i18n'
 import { Name } from '../shared/Name'
 import { Grade } from '../shared/Grade'
 import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
-import { FindingCard, FindingGroupCard, PointsLost } from '../findings/FindingCard'
+import { CardLink, FindingCard, FindingGroupCard, LostPoints, PointsLost } from '../findings/FindingCard'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 import {
   compareFindings,
+  entryPoints,
   findingLine,
+  fixFirst,
   gradeDistribution,
   groupFindings,
   hiddenList,
   hiddenTotal,
+  includedList,
   lostPoints,
   scoringLines,
   SEVERITIES,
   severityCounts,
 } from '../findings/findings'
+
+/** a grade count, 'A ×7': the letter in the grade color, the count muted; the report and the map grade strip use it */
+export function GradeCount({ grade, count }: { grade: BotScore['grade']; count: number }) {
+  const number = useNumber()
+  return (
+    <span className={'grade-count grade-' + grade}>
+      {grade} <span className="grade-count-n">×{number(count)}</span>
+    </span>
+  )
+}
+
+/** a severity name per hidden severity of these findings, e.g. "Info" */
+function hiddenSeverities(findings: Finding[], shown: SeverityOn, lang: Lang): string | undefined {
+  const list = SEVERITIES.filter((s) => !shown[s] && findings.some((f) => f.severity === s))
+  return list.length ? list.map((s) => translate(lang, 'report.severity.' + s)).join(', ') : undefined
+}
 
 type SortCol = 'name' | 'lines' | 'comments' | 'logs' | 'vars' | 'findings' | 'score'
 
@@ -32,7 +52,7 @@ export default function Report({
 }: {
   analysis: ProjectAnalysis
   /** open a taskbot in the editor, optionally at a line */
-  onOpen: (path: string, line?: number) => void
+  onOpen: (path: string, line?: number, variable?: string) => void
   /** the severity filter, kept by the shell across view switches */
   sevOn: SeverityOn
   onToggleSeverity: (severity: Severity) => void
@@ -58,15 +78,29 @@ export default function Report({
   const rows = useMemo(() => {
     const list = analysis.taskbots.map((b, i) => {
       const all = byBot.get(b.path) ?? []
+      // stable anchor per taskbot for the PDF links and the Points lost targets
+      const anchor = 'bot-' + i
+      const findings = all.filter((f) => sevOn[f.severity])
+      const entries = groupFindings(findings)
+      // the first card of each rule gets an anchor; Points lost and Fix first link each family to its first card
+      const anchorAt = new Map<number, string>()
+      const families = new Map<string, string>()
+      const seen = new Set<string>()
+      entries.forEach((e, k) => {
+        const ruleId = e.kind === 'group' ? e.ruleId : e.finding.ruleId
+        if (seen.has(ruleId)) return
+        seen.add(ruleId)
+        const id = `${anchor}-${ruleId}`
+        anchorAt.set(k, id)
+        if (!families.has(capGroup(ruleId))) families.set(capGroup(ruleId), id)
+      })
+      const lost = lostPoints(all)
       return {
-        bot: b,
-        // stable anchor per taskbot for the PDF links and the Points lost targets
-        anchor: 'bot-' + i,
+        bot: b, anchor, all, findings, entries, anchorAt, families, lost,
         m: analysis.metrics[b.path],
         s: analysis.scores[b.path],
-        all,
         counts: severityCounts(all),
-        findings: all.filter((f) => sevOn[f.severity]),
+        points: entryPoints(entries, lost),
       }
     })
     const value = (r: (typeof list)[number]): string | number => {
@@ -91,14 +125,16 @@ export default function Report({
 
   const toggleSort = (col: SortCol) => setSort((s) => nextSort(s, col))
 
-  const included = SEVERITIES.filter((s) => sevOn[s]).map((s) => t('report.severity.' + s)).join(', ') || t('report.scope.nothing')
+  const included = includedList(sevOn, lang)
   const hidden = hiddenList(counts, sevOn, lang)
   const anyHidden = SEVERITIES.some((s) => !sevOn[s])
   const scoring = scoringLines(lang)
   const dist = gradeDistribution(Object.values(analysis.scores))
   const lineAction = (line: number) => t('report.finding.openLine', { line: number(line) })
   const shownRows = rows.filter((r) => r.findings.length > 0)
-  const silent = rows.filter((r) => r.findings.length === 0)
+  const rowOf = new Map(rows.map((r) => [r.bot.path, r]))
+  const hiddenOf = (r: (typeof rows)[number]) => (group: string) => hiddenSeverities(r.all.filter((f) => capGroup(f.ruleId) === group), sevOn, lang)
+  const top = fixFirst(analysis.findings)
   // pages 2+ of the PDF name the report: @page margin boxes read custom properties only from the root element
   const printId = `${analysis.zipNames.join(', ')} · ${date}`
   useEffect(() => {
@@ -130,12 +166,38 @@ export default function Report({
             <span className="report-dist">{GRADE_BANDS.map((b, i) => (
               <span key={b.grade}>
                 {i > 0 && ' · '}
-                <span className={'grade-' + b.grade}>{b.grade} {number(dist[b.grade])}</span>
+                <GradeCount grade={b.grade} count={dist[b.grade]} />
               </span>
             ))}</span>
           </p>
         </div>
       </header>
+
+      {top.length > 0 && (
+        <section className="report-fix" aria-labelledby="report-fix-title">
+          <h2 id="report-fix-title">{t('report.fixFirst')}</h2>
+          <p className="report-fix-note">{t('report.fixFirst.note')}</p>
+          <ol className="report-fix-list">
+            {top.map((l) => {
+              const r = rowOf.get(l.botPath)!
+              const target = r.families.get(l.group)
+              const hidden = target ? undefined : hiddenOf(r)(l.group)
+              const body = (
+                <>
+                  <span className="report-fix-bot">{r.bot.name}</span> · <span className="report-lost-title">{groupLabel(lang, l.group)}</span> ·{' '}
+                  <span className="report-lost-points"><LostPoints lost={l} /></span>
+                </>
+              )
+              return (
+                <li key={l.botPath + l.group}>
+                  {target ? <CardLink target={target}>{body}</CardLink> : body}
+                  {hidden && <> <span className="report-lost-hidden">{t('report.lost.hidden', { list: hidden })}</span></>}
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+      )}
 
       <div className="report-options no-print">
         <SeverityFilter label={t('report.filter.title')} counts={counts} on={sevOn} onToggle={onToggleSeverity} />
@@ -149,12 +211,12 @@ export default function Report({
           <thead role="rowgroup">
             <tr role="row">
               <SortHeader col="name" label={t('report.taskbot')} sort={sort} onSort={toggleSort} />
+              <SortHeader col="score" label={t('report.score')} sort={sort} onSort={toggleSort} className="num col-score" />
               <SortHeader col="lines" label={t('node.lines')} sort={sort} onSort={toggleSort} className="num col-detail" />
               <SortHeader col="comments" label={t('node.comments')} sort={sort} onSort={toggleSort} className="num col-detail" />
               <SortHeader col="logs" label={t('node.logs')} sort={sort} onSort={toggleSort} className="num col-detail" />
               <SortHeader col="vars" label={t('node.vars')} sort={sort} onSort={toggleSort} className="num col-detail" />
-              <SortHeader col="findings" label={anyHidden ? t('report.findings.shownTotal') : t('report.findings')} sort={sort} onSort={toggleSort} className="num" />
-              <SortHeader col="score" label={t('report.score')} sort={sort} onSort={toggleSort} className="num" />
+              <SortHeader col="findings" label={t('report.findings')} sort={sort} onSort={toggleSort} className="col-findings" />
             </tr>
           </thead>
           <tbody role="rowgroup">
@@ -170,29 +232,38 @@ export default function Report({
                   >
                     <Name text={r.bot.name} className="row-name-text" />
                   </button>
-                  {/* the PDF links each name to its section (clean taskbots to the compact list) */}
-                  <a className="print-only row-anchor" href={'#' + (r.findings.length > 0 ? r.anchor : 'report-clean')}>{r.bot.name}</a>
+                  {/* the PDF links each name to its section; a taskbot with no shown finding has none */}
+                  {r.findings.length > 0
+                    ? <a className="print-only row-anchor" href={'#' + r.anchor}>{r.bot.name}</a>
+                    : <span className="print-only row-anchor">{r.bot.name}</span>}
+                </td>
+                <td role="cell" className="num col-score">
+                  <Grade score={r.s} />
                 </td>
                 <td role="cell" className="num col-detail">{number(r.m.totalLines)}</td>
                 <td role="cell" className="num col-detail">{number(r.m.commentLines)}</td>
                 <td role="cell" className="num col-detail">{number(r.m.logMessages)}</td>
                 <td role="cell" className="num col-detail">{number(r.m.variables)}</td>
-                <td role="cell" className="num">
-                  <span className="sev-counts">
-                    {SEVERITIES.filter((s) => r.counts[s] > 0).map((s) => (
-                      <span key={s} className={'sev-count' + (sevOn[s] ? '' : ' dim')}>
-                        <SeverityIcon severity={s} />
-                        <span className="sr-only">{t('report.severity.' + s)}</span>
-                        {number(r.counts[s])}
+                <td role="cell" className="col-findings">
+                  {/* fixed slots (error, warning, info), empty for 0, so each icon sits at the same x in every row */}
+                  <span className="sev-slots">
+                    {SEVERITIES.map((s) => (
+                      <span key={s} className={'sev-slot sev-slot-' + s + (sevOn[s] ? '' : ' dim')}>
+                        {r.counts[s] > 0 && (
+                          <>
+                            <SeverityIcon severity={s} />
+                            <span className="sr-only">{t('report.severity.' + s)}</span>
+                            {number(r.counts[s])}
+                          </>
+                        )}
                       </span>
                     ))}
-                    {anyHidden
-                      ? <span className="findings-ratio">{number(r.findings.length)} / {number(r.all.length)}</span>
-                      : r.all.length === 0 && number(0)}
+                    {r.all.length === 0
+                      ? <span className="sev-shown">{t('report.noFindings')}</span>
+                      : r.findings.length === 0
+                        ? <span className="sev-shown">{plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list: hiddenList(r.counts, sevOn, lang) })}</span>
+                        : anyHidden && <span className="sev-shown">{plural('report.findings.shown', r.all.length, { shown: number(r.findings.length) })}</span>}
                   </span>
-                </td>
-                <td role="cell" className="num">
-                  <Grade score={r.s} />
                 </td>
               </tr>
             ))}
@@ -201,60 +272,36 @@ export default function Report({
       </div>
       <p className="summary-note no-print">{t('report.summary.note')}</p>
 
-      {analysis.findings.length === 0 ? (
+      {analysis.findings.length === 0 && (
         <p id="report-clean" className="empty-state report-clean">
           <Icon name="circle-check" className="empty-ok" /> {plural('report.clean', rows.length)}
         </p>
-      ) : silent.length > 0 && (
-        <div id="report-clean" className="report-silent">
-          {t('report.silent')}
-          {/* a wrap list with gaps, no separator glyph that could start a line */}
-          <ul className="report-silent-list">
-            {silent.map((r) => {
-              const list = hiddenList(r.counts, sevOn, lang)
-              return (
-                <li key={r.bot.path} className="report-silent-item">
-                  <button type="button" className="row-name" aria-label={t('report.openInEditor', { name: r.bot.name })} onClick={() => onOpen(r.bot.path)}>
-                    {r.bot.name}
-                  </button>
-                  {list && ` (${plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list })})`}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
       )}
 
       {shownRows.map((r) => {
         const lineOf = (f: Finding) => findingLine(f, r.bot)
-        const entries = groupFindings(r.findings)
-        // the first card of each rule gets an anchor; Points lost links each family to its first card
-        const anchorAt = new Map<number, string>()
-        const families = new Map<string, string>()
-        const seen = new Set<string>()
-        entries.forEach((e, i) => {
-          const ruleId = e.kind === 'group' ? e.ruleId : e.finding.ruleId
-          if (seen.has(ruleId)) return
-          seen.add(ruleId)
-          const id = `${r.anchor}-${ruleId}`
-          anchorAt.set(i, id)
-          if (!families.has(capGroup(ruleId))) families.set(capGroup(ruleId), id)
-        })
+        const onVar = (name: string) => onOpen(r.bot.path, undefined, name)
         return (
           <section key={r.bot.path} id={r.anchor} className="report-bot">
             <h2>
-              <Name text={r.bot.name} className="report-bot-name" />{' '}
+              {/* a finding without a line still leads to the editor: the name opens it */}
+              <button type="button" className="row-name report-bot-open no-print" aria-label={t('report.openInEditor', { name: r.bot.name })} onClick={() => onOpen(r.bot.path)}>
+                <Name text={r.bot.name} className="report-bot-name" />
+              </button>
+              <Name text={r.bot.name} className="report-bot-name print-only" />{' '}
               <Grade score={r.s} className="tb-grade" />
             </h2>
             <p className="report-bot-path">{r.bot.path}</p>
-            <PointsLost lost={lostPoints(r.all)} targetOf={(g) => families.get(g)} />
+            <PointsLost lost={r.lost} targetOf={(g) => r.families.get(g)} hiddenOf={hiddenOf(r)} />
             {r.findings.some((f) => f.ruleId === 'VAR_NAME_FORMAT') && <p className="name-key">{t('report.nameKey')}</p>}
-            {entries.map((e, i) => {
+            {r.entries.map((e, i) => {
               if (e.kind === 'group') {
                 return (
                   <FindingGroupCard
                     key={i}
-                    id={anchorAt.get(i)}
+                    id={r.anchorAt.get(i)}
+                    points={r.points.get(i)}
+                    onVar={onVar}
                     findings={e.findings}
                     lineOf={lineOf}
                     onLine={(line) => onOpen(r.bot.path, line)}
@@ -267,7 +314,9 @@ export default function Report({
               return (
                 <FindingCard
                   key={i}
-                  id={anchorAt.get(i)}
+                  id={r.anchorAt.get(i)}
+                  points={r.points.get(i)}
+                  onVar={onVar}
                   finding={e.finding}
                   line={line}
                   onLine={line === undefined ? undefined : () => onOpen(r.bot.path, line)}

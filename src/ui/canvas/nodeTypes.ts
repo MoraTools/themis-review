@@ -1,6 +1,7 @@
 import { createContext } from 'react'
 import type { BotScore, Severity, TaskbotMetrics } from '../../core/model'
 import type { IconName } from '../Icons'
+import { hasText, translate, type Lang } from '../i18n'
 
 export const DetailContext = createContext(true)
 /** true when the layout runs top to bottom (narrow panes): call handles sit on the top and bottom */
@@ -58,6 +59,11 @@ const TYPE_TAGS: Record<string, string> = {
 
 export function typeTag(t: string): string {
   return TYPE_TAGS[t] ?? t.charAt(0) + t.slice(1).toLowerCase()
+}
+
+/** the short tag and the readable name, e.g. "Dict · Dictionary"; for the Variables table and the legend */
+export function typeLabel(t: string, lang: Lang): string {
+  return hasText('type.' + t) ? `${typeTag(t)} · ${translate(lang, 'type.' + t)}` : typeTag(t)
 }
 
 /** node stat glyphs, shared by the node and the legend; keys are `node.*` labels */

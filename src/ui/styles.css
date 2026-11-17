@@ -773,11 +773,17 @@ code { font-family: var(--font-mono); }
   color: var(--text-muted);
   font: 400 var(--fs-12)/var(--lh-body) var(--font-ui);
 }
-.drawer-lost { max-height: 88px; overflow-y: auto; padding: 10px 20px; border-bottom: 1px solid var(--border); }
-/* in the editor the list always flows inline and scrolls in its own box, so the tabs stay near the top */
-.drawer-lost .report-lost { max-width: none; margin: 0; }
-.drawer-lost .report-lost-list.stacked { display: inline; margin: 0; }
-.drawer-lost .report-lost-list.stacked li { display: inline-block; white-space: nowrap; }
+.drawer-lost { flex: none; padding: 0 20px; border-bottom: 1px solid var(--border); }
+/* a native disclosure: the summary names the total, the open list shows every rule, one per line, with no inner scroll */
+/* a list item keeps the native disclosure marker; the padding makes the 24/44 px target */
+.drawer-lost-summary { display: list-item; padding-block: max(6px, calc((var(--target-min) - 18px) / 2)); color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); cursor: pointer; }
+.drawer-lost[open] .drawer-lost-summary { padding-bottom: 0; }
+.drawer-lost .report-lost { max-width: none; margin: 0 0 10px; }
+/* on desktop the rules fill columns, so a long list stays a few lines high */
+@media (min-width: 761px) {
+  .drawer-lost .report-lost-list.stacked { display: block; columns: 3 32ch; column-gap: 32px; }
+  .drawer-lost .report-lost-list.stacked li { break-inside: avoid; }
+}
 .tabs.small { gap: 20px; padding: 12px 20px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
 .tabs.small .tab { flex: none; min-height: max(40px, var(--control-h)); padding-bottom: 12px; font: 600 var(--fs-13)/1 var(--font-ui); white-space: nowrap; }
 
@@ -860,6 +866,7 @@ code { font-family: var(--font-mono); }
   color: var(--text-muted);
 }
 .var-table tbody tr:hover { background: var(--surface-raised); color: var(--text); }
+.var-table tbody tr.flash td { background: var(--selected-bg); color: var(--text); }
 .drawer .var-table th:first-child, .drawer .var-table td:first-child { padding-left: 20px; }
 
 .var-desc { color: var(--text-muted); }
@@ -883,6 +890,10 @@ code { font-family: var(--font-mono); }
 .finding-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .finding-where { color: var(--text-muted); font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; }
 .finding-rule { color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-mono); }
+.finding-points { color: var(--text); font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.finding-var { border: 0; background: transparent; color: var(--accent-text); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.finding-var code { font: inherit; }
+.finding-var:hover { color: var(--text); }
 .finding-msg, .finding-fix { max-width: 60ch; margin: 8px 0 0; }
 .finding-fix { color: var(--text-muted); }
 .finding-fix strong { color: var(--text); font-weight: 600; }
@@ -1037,7 +1048,6 @@ code { font-family: var(--font-mono); }
 .report-bot-path { margin: 0 0 16px; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-12); overflow-wrap: anywhere; }
 .report-bot .finding-card { max-width: 100%; }
 .report-lost { max-width: 68ch; margin: 0 0 12px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); overflow-wrap: anywhere; }
-.report-silent { margin: 0 0 12px; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-body) var(--font-ui); overflow-wrap: anywhere; }
 .report-lost-list { display: inline; margin: 0; padding: 0; list-style: none; }
 /* inline items are atomic, so a line breaks between them; the separator trails its item, never starts a line */
 .report-lost-list li { display: inline-block; white-space: nowrap; }
@@ -1045,9 +1055,8 @@ code { font-family: var(--font-mono); }
 .report-lost-list.stacked { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 4px; }
 .report-lost-list.stacked li { display: block; }
 .report-lost-list.stacked li::after { content: none; }
-.drawer-lost .report-lost-list.stacked li:not(:last-child)::after { content: "·"; }
 .report-lost-title, .report-lost-points { color: var(--text); }
-.report-lost-points { font-family: var(--font-mono); }
+.report-lost-points { font-family: var(--font-mono); white-space: nowrap; }
 .report-lost-id { color: var(--text-subtle); font: 400 var(--fs-12)/var(--lh-snug) var(--font-mono); }
 .report-lost-link { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: inherit; }
 /* a flex target drops the spaces between its parts: a column gap puts them back, and long items wrap */
@@ -1056,15 +1065,27 @@ code { font-family: var(--font-mono); }
 .report-lost-list.stacked .report-lost-link { margin-block: 0; }
 .report-lost-link .report-lost-title { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 .report-lost-link:hover .report-lost-title { color: var(--accent-text); text-decoration-color: currentColor; }
-.report-silent-list { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 0 0; padding: 0; list-style: none; }
-.report-silent-item { white-space: nowrap; }
-.sev-counts { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.sev-count { display: inline-flex; align-items: center; gap: 3px; }
-.sev-count .icon { width: 12px; height: 12px; }
+.report-lost-hidden { color: var(--text-subtle); font-size: var(--fs-12); }
+.report-lost-total { color: var(--text); font-weight: 600; }
+.report-lost-total .report-lost-points { font-weight: 600; }
+/* Fix first: the three biggest losses of the project, right after the head */
+.report-fix { max-width: 68ch; margin: 0 0 32px; }
+.report-fix h2 { margin: 0 0 4px; }
+.report-fix-note { margin: 0 0 8px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); }
+.report-fix-list { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0; padding-left: 1.5em; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
+.report-fix-list li::marker { font-family: var(--font-mono); }
+/* a block target keeps the spaces around the separators and wraps like text */
+.report-fix-list .report-lost-link { display: block; margin: 0; padding: 4px 0; }
+.report-fix-bot { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+/* summary findings: fixed slots (error, warning, info, then shown), so each icon has the same x in every row */
+.summary-table .col-findings { white-space: nowrap; }
+.sev-slots { display: inline-flex; align-items: center; gap: 10px; }
+.sev-slot { display: inline-flex; align-items: center; justify-content: space-between; gap: 3px; width: calc(15px + 3ch); }
+.sev-slot .icon { width: 12px; height: 12px; }
 /* a hidden severity stays readable but steps back */
-.sev-count.dim { color: var(--text-subtle); }
-.sev-count.dim .icon { color: var(--text-subtle); }
-.findings-ratio { color: var(--text-muted); }
+.sev-slot.dim { color: var(--text-subtle); }
+.sev-slot.dim .icon { color: var(--text-subtle); }
+.sev-shown { color: var(--text-muted); font-size: var(--fs-12); }
 .summary-note { display: none; margin: 8px 0 0; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 .rules-sort-by { display: none; }
 .finding-rule-link { border: 0; background: transparent; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
@@ -1074,6 +1095,9 @@ code { font-family: var(--font-mono); }
 /* the scope line reads as text; formula, bands and distribution stay muted */
 .report-facts .report-facts-scope { color: var(--text); }
 .report-dist { font: 600 var(--fs-12)/var(--lh-body) var(--font-mono); white-space: nowrap; }
+/* a grade count, 'A ×7': the letter in the grade color, the count muted, so it does not read as a score */
+.grade-count { font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.grade-count-n { color: var(--text-muted); font-weight: 400; }
 .print-only { display: none; }
 .report-foot {
   margin-top: 56px;
@@ -1106,7 +1130,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 .row-name { border:0; background:transparent; color:var(--text); font:inherit; text-align:left; text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
 .row-name:hover { color:var(--accent-text); text-decoration-color:currentColor; }
 /* inline text targets: the padding grows the hit box and the matching negative margin keeps the text in place */
-.finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
+.finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
 .report-bot h2 { overflow-wrap:anywhere; }
 .tb-stats .icon { width:13px; height:13px; }
 /* One chip shape and type. .severity-chip is the static status tag; .chip (editor filter) and .sev-toggle (report filter) are the filter chip. */
@@ -1189,14 +1213,20 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .summary-table tr { display:grid; grid-column:1/-1; grid-template-columns:subgrid; align-items:center; border-bottom:1px solid var(--border); }
   .summary-table th, .summary-table td { border-bottom:0; }
   .summary-table tbody td:first-child { grid-column:1/-1; padding-bottom:0; }
-  .summary-table tbody td:nth-last-child(2) { grid-column:2; }
-  .summary-table tbody td:last-child { grid-column:3; }
-  /* finding card head: chip, place and rule id on row 1, the title at full width on row 2 */
-  .finding-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:6px 12px; }
+  /* line 2: findings, then the score at the right */
+  .summary-table thead .col-findings { grid-area:1/2; }
+  .summary-table thead .col-score { grid-area:1/3; }
+  .summary-table tbody .col-findings { grid-area:2/2; }
+  .summary-table tbody .col-score { grid-area:2/3; }
+  /* only the error count (and the shown part) fits beside the score */
+  .sev-slot-warn, .sev-slot-info { display:none; }
+  /* finding card head: chip, place and rule id on row 1, the title and the points on row 2 */
+  .finding-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; gap:6px 12px; }
   .finding-head > .severity-chip { grid-area:1/1; justify-self:start; }
   .finding-head > .finding-where { grid-area:1/2; justify-self:start; }
-  .finding-head > .finding-rule { grid-area:1/3; justify-self:end; }
-  .finding-head > .finding-title { grid-row:2; grid-column:1/-1; }
+  .finding-head > .finding-rule { grid-area:1/3/2/5; justify-self:end; }
+  .finding-head > .finding-title { grid-row:2; grid-column:1/4; }
+  .finding-head > .finding-points { grid-area:2/4; justify-self:end; align-self:start; }
   .summary-note { display:block; }
   /* the header row becomes a labelled row of sort chips */
   .rules-table caption.rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); text-align:left; }
@@ -1279,7 +1309,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   /* the footer joins the last card, so no page holds only the footer */
   .report-foot { margin-top:24px; padding-top:12px; break-before:avoid; break-inside:avoid; }
   /* print has no touch targets: inline targets go back to plain inline text */
-  .finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link { display:inline; min-width:0; min-height:0; padding:0; margin:0; }
+  .finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var { display:inline; min-width:0; min-height:0; padding:0; margin:0; }
   .finding-card { box-sizing:border-box; max-width:100%; }
   .report-table th.sorted { color:var(--text-muted); }
   .report-table tbody tr:hover { background:transparent; color:inherit; }
@@ -1288,7 +1318,9 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .finding-line { color:var(--text); text-decoration:none; }
   .print-only { display:block; }
   a.print-only, code.print-only { display:inline; }
-  .row-anchor { color:var(--text); text-decoration:none; }
+  .row-anchor, .card-anchor { color:var(--text); text-decoration:none; }
+  span.print-only { display:inline; }
+  .report-fix { break-inside:avoid; }
   .report-lost-link .report-lost-title { text-decoration:none; }
   @page {
     /* --print-id (files and date) is set on the root by the report */

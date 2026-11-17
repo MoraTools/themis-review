@@ -14,6 +14,7 @@ import {
 } from './shared/selection'
 import { Grade } from './shared/Grade'
 import { DEFAULT_SEVERITY_ON, severityFilterReducer } from './findings/SeverityFilter'
+import { includedList } from './findings/findings'
 
 function Shell() {
   const t = useT()
@@ -176,7 +177,8 @@ function Shell() {
             </span>
             {/* at 480px and below these show only their icon */}
             <div className="header-tools">
-              <button className="btn primary" aria-label={t('header.export')} title={t('header.export')} onClick={() => window.print()}>
+              {/* one click from every view; the name says which severities the PDF includes */}
+              <button className="btn primary" aria-label={t('header.exportScope', { list: includedList(sevOn, lang) })} title={t('header.exportScope', { list: includedList(sevOn, lang) })} onClick={() => window.print()}>
                 <Icon name="download" /><span className="btn-label">{t('header.export')}</span>
               </button>
               <button
@@ -223,7 +225,7 @@ function Shell() {
       {analysis && view === 'report' && (
         <Report
           analysis={analysis}
-          onOpen={(path, line) => open({ path, from: 'report', line })}
+          onOpen={(path, line, variable) => open({ path, from: 'report', line, variable })}
           sevOn={sevOn}
           onToggleSeverity={(severity) => dispatchSeverity({ type: 'severity', severity })}
           onRule={(ruleId) => {
@@ -252,10 +254,11 @@ function Shell() {
       {analysis && selection && (
         <EditorDrawer
           // a new open (other bot, other line) starts a fresh editor
-          key={selection.path + ':' + (selection.line ?? '')}
+          key={selection.path + ':' + (selection.line ?? '') + ':' + (selection.variable ?? '')}
           analysis={analysis}
           botPath={selection.path}
           line={selection.line}
+          variable={selection.variable}
           onClose={() => closeEditor(history, closeNow)}
           onShowOnMap={() => {
             // the map centers and selects the node from nav.mapFocus; focus goes to the node

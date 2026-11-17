@@ -6,12 +6,12 @@ import { isComment, type Action, type Finding, type ProjectAnalysis } from '../.
 import { isMessageBox } from '../../core/rules/messagebox'
 import { capGroup } from '../../core/score'
 import { LangContext, useT, useNumber, usePlural } from '../i18n'
-import { typeColor } from '../canvas/nodeTypes'
+import { typeColor, typeLabel } from '../canvas/nodeTypes'
 import { describeAction, glyphFor, GLYPH_PATH } from './describe'
 import { Name } from '../shared/Name'
 import { Grade } from '../shared/Grade'
 import { FindingCard, FindingGroupCard, PointsLost } from '../findings/FindingCard'
-import { compareFindings, findingLine, groupFindings, lostPoints, severityCounts as countSeverities } from '../findings/findings'
+import { compareFindings, entryPoints, findingLine, groupFindings, lostPoints, lostTotal, severityCounts as countSeverities } from '../findings/findings'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 
 type Tab = 'code' | 'vars' | 'findings'
@@ -19,10 +19,14 @@ const TABS: Tab[] = ['code', 'vars', 'findings']
 /** the editor filter is its own: it starts with every severity on */
 const ALL_ON: SeverityOn = { error: true, warn: true, info: true }
 
-/** the tab the editor opens on: the findings, unless a line is asked for or there is nothing to show */
-export function initialTab(line: number | undefined, findingCount: number): Tab {
+/** the tab the editor opens on: a variable on Variables, else the findings, unless a line is asked for or there is nothing to show */
+export function initialTab(line: number | undefined, findingCount: number, variable?: string): Tab {
+  if (variable !== undefined) return 'vars'
   return line === undefined && findingCount > 0 ? 'findings' : 'code'
 }
+
+/** the Points lost box is open above 760 px and closed at 760 px and under, where it would push the tabs down */
+const LOST_CLOSED = '(max-width: 760px)'
 
 function ActionGlyph({ action }: { action: Action }) {
   return (
@@ -36,6 +40,7 @@ export default function EditorDrawer({
   analysis,
   botPath,
   line,
+  variable,
   onClose,
   onShowOnMap,
 }: {
@@ -43,6 +48,8 @@ export default function EditorDrawer({
   botPath: string
   /** open the Code tab at this line */
   line?: number
+  /** open the Variables tab at this variable */
+  variable?: string
   onClose: () => void
   /** close the editor and show this taskbot's node on the map */
   onShowOnMap: () => void
@@ -56,7 +63,10 @@ export default function EditorDrawer({
     () => analysis.findings.filter((f) => f.botPath === botPath).sort(compareFindings),
     [analysis, botPath],
   )
-  const [tab, setTab] = useState<Tab>(() => initialTab(line, findings.length))
+  const [tab, setTab] = useState<Tab>(() => initialTab(line, findings.length, variable))
+  const [lostOpen, setLostOpen] = useState(() => typeof matchMedia === 'undefined' || !matchMedia(LOST_CLOSED).matches)
+  const [flashVar, setFlashVar] = useState<string | null>(variable ?? null)
+  const varsRef = useRef<HTMLDivElement>(null)
   const [sevOn, setSevOn] = useState<SeverityOn>(ALL_ON)
   const [flashLine, setFlashLine] = useState<number | null>(line ?? null)
   // index (in `findings`) of the card to show after a Variables flag opens the Findings tab
@@ -92,6 +102,13 @@ export default function EditorDrawer({
     const timer = setTimeout(() => setFlashLine(null), 1600)
     return () => clearTimeout(timer)
   }, [tab, flashLine])
+
+  useEffect(() => {
+    if (tab !== 'vars' || flashVar === null) return
+    varsRef.current?.querySelector(`[data-var="${CSS.escape(flashVar)}"]`)?.scrollIntoView({ block: 'center' })
+    const timer = setTimeout(() => setFlashVar(null), 1600)
+    return () => clearTimeout(timer)
+  }, [tab, flashVar])
 
   useEffect(() => {
     if (tab !== 'findings' || focusFinding === null) return
@@ -169,11 +186,14 @@ export default function EditorDrawer({
   const cardId = (f: Finding) => 'editor-finding-' + findings.indexOf(f)
   const entries = groupFindings(visible)
   const lost = lostPoints(findings)
+  const points = entryPoints(entries, lost)
   const firstOfFamily = (group: string) => findings.find((f) => capGroup(f.ruleId) === group)
   // a Points lost item opens the Findings tab (with its severity on) before PointsLost scrolls to the card
   const openLost = (event: MouseEvent) => {
     const li = (event.target as Element).closest('.report-lost-list > li')
-    const first = li && firstOfFamily(lost[[...li.parentElement!.children].indexOf(li)].group)
+    // the last item is the total, which has no family
+    const item = li && lost[[...li.parentElement!.children].indexOf(li)]
+    const first = item && firstOfFamily(item.group)
     if (!first) return
     flushSync(() => {
       setSevOn((on) => ({ ...on, [first.severity]: true }))
@@ -182,6 +202,11 @@ export default function EditorDrawer({
   }
   const lastLine = bot.actions.at(-1)?.line ?? 1
   const lineAction = (at: number) => t('editor.showLine', { line: number(at) })
+  // a variable finding without a line shows its row on the Variables tab
+  const showVar = (name: string) => {
+    setFlashVar(name)
+    setTab('vars')
+  }
   // the opener (map node or report button) gets focus back in App once the view is restored
   const close = () => {
     dialogRef.current?.close()
@@ -230,9 +255,11 @@ export default function EditorDrawer({
         <span>{plural('node.packages', bot.packages.length)}</span>
       </div>
       {lost.length > 0 && (
-        <div className="drawer-lost" onClickCapture={openLost}>
-          <PointsLost lost={lost} targetOf={(g) => { const f = firstOfFamily(g); return f && cardId(f) }} />
-        </div>
+        // every rule shows when open: no inner scroll box
+        <details className="drawer-lost" open={lostOpen} onToggle={(event) => setLostOpen(event.currentTarget.open)} onClickCapture={openLost}>
+          <summary className="drawer-lost-summary">{plural('editor.lost.summary', lost.length, { points: number(lostTotal(lost)) })}</summary>
+          <PointsLost lost={lost} stacked label={false} targetOf={(g) => { const f = firstOfFamily(g); return f && cardId(f) }} />
+        </details>
       )}
       <div className="tabs small" role="tablist" aria-labelledby="editor-title" onKeyDown={onTabKey}>
         <button {...tabProps('code')}>
@@ -320,7 +347,7 @@ export default function EditorDrawer({
         )}
       </div>
 
-      <div className="drawer-scroll" {...panelProps('vars')}>
+      <div className="drawer-scroll" ref={varsRef} {...panelProps('vars')}>
         <table className="var-table">
           <thead>
             <tr>
@@ -335,10 +362,10 @@ export default function EditorDrawer({
             {bot.variables.map((v) => {
               const fs = byVar.get(v.name) ?? []
               return (
-                <tr key={v.name} className={fs.length ? 'has-findings' : ''}>
+                <tr key={v.name} data-var={v.name} className={[fs.length ? 'has-findings' : '', v.name === flashVar ? 'flash' : ''].filter(Boolean).join(' ') || undefined}>
                   <td>{v.name}</td>
                   <td>
-                    <span className="tb-var-dot" style={{ background: typeColor(v.type) }} aria-hidden="true" /> {v.type}
+                    <span className="tb-var-dot" style={{ background: typeColor(v.type) }} aria-hidden="true" /> {typeLabel(v.type, lang)}
                   </td>
                   <td>{v.input && v.output ? t('editor.var.both') : v.input ? t('editor.var.in') : v.output ? t('editor.var.out') : v.readOnly ? t('editor.var.const') : '—'}</td>
                   <td className="var-desc">{v.description || '—'}</td>
@@ -381,17 +408,19 @@ export default function EditorDrawer({
             ) : (
               <div className="finding-list">
                 {hasNameFindings && <p className="name-key">{t('report.nameKey')}</p>}
-                {entries.map((e) => {
+                {entries.map((e, k) => {
                   const list = e.kind === 'group' ? e.findings : [e.finding]
                   const at = lineOf(list[0])
                   // data-finding lists every finding of the card, so a Variables flag finds its card inside a group
                   return (
                     <div key={cardId(list[0])} data-finding={list.map((f) => findings.indexOf(f)).join(' ')}>
                       {e.kind === 'group' ? (
-                        <FindingGroupCard id={cardId(list[0])} findings={list} lineOf={lineOf} onLine={jumpTo} lineAction={lineAction} />
+                        <FindingGroupCard id={cardId(list[0])} points={points.get(k)} onVar={showVar} findings={list} lineOf={lineOf} onLine={jumpTo} lineAction={lineAction} />
                       ) : (
                         <FindingCard
                           id={cardId(e.finding)}
+                          points={points.get(k)}
+                          onVar={showVar}
                           finding={e.finding}
                           line={at}
                           onLine={at === undefined ? undefined : () => jumpTo(at)}

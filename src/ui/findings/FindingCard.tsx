@@ -2,13 +2,28 @@ import { useContext, type ReactNode } from 'react'
 import type { Finding, Severity } from '../../core/model'
 import { SeverityIcon } from '../Icons'
 import { LangContext, useNumber, usePlural, useT } from '../i18n'
-import { groupLabel, groupTexts } from './findings'
+import { groupLabel, groupTexts, lostTotal, type Lost } from './findings'
+
+/** a variable name; with onVar a screen-only button that opens the editor on the Variables tab, plain text in print */
+function VarName({ name, onVar, className }: { name: string; onVar?: (name: string) => void; className?: string }) {
+  const t = useT()
+  if (!onVar) return <code className={className}>{name}</code>
+  const label = t('report.finding.openVar', { name })
+  return (
+    <>
+      <button type="button" className={(className ? className + ' ' : '') + 'finding-var no-print'} aria-label={label} title={label} onClick={() => onVar(name)}>
+        <code>{name}</code>
+      </button>
+      <code className={(className ? className + ' ' : '') + 'print-only'}>{name}</code>
+    </>
+  )
+}
 
 /** the place a finding cites: "Line N" (a button when it can be opened), else the variable name */
-function Where({ line, varName, onLine, lineAction }: { line?: number; varName?: string; onLine?: () => void; lineAction?: string }) {
+function Where({ line, varName, onLine, lineAction, onVar }: { line?: number; varName?: string; onLine?: () => void; lineAction?: string; onVar?: (name: string) => void }) {
   const t = useT()
   const number = useNumber()
-  if (line === undefined) return varName ? <code className="finding-where">{varName}</code> : null
+  if (line === undefined) return varName ? <VarName name={varName} onVar={onVar} className="finding-where" /> : null
   const label = `${t('report.finding.line')} ${number(line)}`
   return onLine ? (
     <button type="button" className="finding-where finding-line" aria-label={lineAction} title={lineAction} onClick={onLine}>
@@ -34,7 +49,21 @@ function RuleId({ ruleId, onRule }: { ruleId: string; onRule?: (ruleId: string) 
   )
 }
 
-function Head({ severity, ruleId, onRule, children }: { severity: Severity; ruleId: string; onRule?: (ruleId: string) => void; children?: ReactNode }) {
+/** what a rule family costs, '−15 (cap)'; the card heads and Fix first use it */
+export function LostPoints({ lost }: { lost: Lost }) {
+  const t = useT()
+  const number = useNumber()
+  return <>−{number(lost.points)}{lost.capped && ` (${t('report.lost.cap')})`}</>
+}
+
+function Head({ severity, ruleId, onRule, points, children }: {
+  severity: Severity
+  ruleId: string
+  onRule?: (ruleId: string) => void
+  /** the family's points, on the first card of the family */
+  points?: Lost
+  children?: ReactNode
+}) {
   const t = useT()
   return (
     <div className="finding-head">
@@ -43,14 +72,22 @@ function Head({ severity, ruleId, onRule, children }: { severity: Severity; rule
       </span>
       <span className="finding-title">{t(`rule.${ruleId}.title`)}</span>
       {children}
+      {points && (
+        <span className="finding-points">
+          <span className="sr-only">{t('report.lost.points')}: </span><LostPoints lost={points} />
+        </span>
+      )}
       <RuleId ruleId={ruleId} onRule={onRule} />
     </div>
   )
 }
 
 /** one finding: severity chip, where, rule id, message and a labelled fix. Shared by the editor and the report. */
-export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, index, id, onRule }: {
+export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, index, id, onRule, points, onVar }: {
   finding: Finding
+  points?: Lost
+  /** open the editor on the Variables tab at this variable, for a finding without a line */
+  onVar?: (name: string) => void
   line?: number
   onLine?: () => void
   lineAction?: string
@@ -63,8 +100,8 @@ export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, in
   const t = useT()
   return (
     <article id={id} className={'finding-card sev-' + f.severity} tabIndex={tabIndex ?? (id ? -1 : undefined)} data-finding={index}>
-      <Head severity={f.severity} ruleId={f.ruleId} onRule={onRule}>
-        <Where line={line} varName={f.varName} onLine={onLine} lineAction={lineAction} />
+      <Head severity={f.severity} ruleId={f.ruleId} onRule={onRule} points={points}>
+        <Where line={line} varName={f.varName} onLine={onLine} lineAction={lineAction} onVar={onVar} />
       </Head>
       <p className="finding-msg">{t(`rule.${f.ruleId}.msg`, f.params)}</p>
       <p className="finding-fix">
@@ -89,8 +126,12 @@ export function FindingGroupCard({
   lineAction,
   id,
   onRule,
+  points,
+  onVar,
 }: {
   findings: Finding[]
+  points?: Lost
+  onVar?: (name: string) => void
   lineOf: (f: Finding) => number | undefined
   onLine?: (line: number) => void
   lineAction?: (line: number) => string
@@ -111,7 +152,7 @@ export function FindingGroupCard({
   const sameText = items.every((i) => i.text === items[0].text)
   return (
     <article id={id} tabIndex={id ? -1 : undefined} className={'finding-card finding-group sev-' + first.severity}>
-      <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule}>
+      <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule} points={points}>
         <span className="finding-where">{plural('report.group.count', findings.length)}</span>
       </Head>
       <p className="finding-msg">{msg}</p>
@@ -119,7 +160,7 @@ export function FindingGroupCard({
         <strong>{t('report.finding.fix')}:</strong> {fix}
       </p>
       <ul className="finding-items">
-        {items.map(({ line, text }, i) => {
+        {items.map(({ f, line, text }, i) => {
           return (
             <li key={i}>
               {line !== undefined &&
@@ -130,7 +171,8 @@ export function FindingGroupCard({
                 ) : (
                   <span>L{number(line)}</span>
                 ))}{' '}
-              {!sameText && <code>{text}</code>}
+              {/* an item without a line names a variable: it opens the editor at that variable */}
+              {!sameText && (line === undefined && f.varName && onVar && text === f.varName ? <VarName name={text} onVar={onVar} /> : <code>{text}</code>)}
             </li>
           )
         })}
@@ -139,40 +181,64 @@ export function FindingGroupCard({
   )
 }
 
-/** points each rule family took from one taskbot, largest first; an item with a target scrolls to and focuses its card */
-export function PointsLost({ lost, targetOf }: {
-  lost: { group: string; points: number; capped: boolean }[]
+/** points each rule family took from one taskbot, largest first, then their total; an item with a target scrolls
+ *  to and focuses its card, an item whose cards the filter hides says so */
+export function PointsLost({ lost, targetOf, hiddenOf, stacked, label = true }: {
+  lost: Lost[]
   /** id of the card or group of that family, when one is shown */
   targetOf?: (group: string) => string | undefined
+  /** the severity names of a family's findings that the filter hides, e.g. "Info" */
+  hiddenOf?: (group: string) => string | undefined
+  /** one rule per line; else inline up to 4 items */
+  stacked?: boolean
+  /** false when a <summary> already says "Points lost" */
+  label?: boolean
 }) {
   const t = useT()
   const number = useNumber()
   const { lang } = useContext(LangContext)
   if (lost.length === 0) return null
-  const go = (id: string) => {
-    const el = document.getElementById(id)
-    el?.scrollIntoView({ block: 'start' })
-    el?.focus({ preventScroll: true })
-  }
   return (
     <div className="report-lost">
-      <span className="report-lost-label">{t('report.lost')}</span>{' '}
-      <ul className={'report-lost-list' + (lost.length > 4 ? ' stacked' : '')}>
+      {label && <><span className="report-lost-label">{t('report.lost')}</span>{' '}</>}
+      <ul className={'report-lost-list' + (stacked || lost.length > 4 ? ' stacked' : '')}>
         {lost.map((l) => {
           const target = targetOf?.(l.group)
+          const hidden = target ? undefined : hiddenOf?.(l.group)
           const body = (
             <>
-              <span className="report-lost-title">{groupLabel(lang, l.group)}</span> <code className="report-lost-id">{l.group}</code>{' '}
-              <span className="report-lost-points">−{number(l.points)}{l.capped && ` (${t('report.lost.cap')})`}</span>
+              <span className="report-lost-title">{groupLabel(lang, l.group)}</span>{' '}
+              <span className="report-lost-points"><LostPoints lost={l} /></span>
             </>
           )
           return (
             <li key={l.group}>
-              {target ? <button type="button" className="report-lost-link" onClick={() => go(target)}>{body}</button> : body}
+              {target ? <button type="button" className="report-lost-link" onClick={() => goToCard(target)}>{body}</button> : body}
+              {hidden && <> <span className="report-lost-hidden">{t('report.lost.hidden', { list: hidden })}</span></>}
             </li>
           )
         })}
+        <li className="report-lost-total">
+          {t('report.lost.total')} <span className="report-lost-points">−{number(lostTotal(lost))}</span>
+        </li>
       </ul>
     </div>
+  )
+}
+
+/** scroll to a card and focus it */
+export function goToCard(id: string) {
+  const el = document.getElementById(id)
+  el?.scrollIntoView({ block: 'start' })
+  el?.focus({ preventScroll: true })
+}
+
+/** a link to a card: a button on screen, an anchor in the PDF */
+export function CardLink({ target, children }: { target: string; children: ReactNode }) {
+  return (
+    <>
+      <button type="button" className="report-lost-link no-print" onClick={() => goToCard(target)}>{children}</button>
+      <a className="print-only card-anchor" href={'#' + target}>{children}</a>
+    </>
   )
 }

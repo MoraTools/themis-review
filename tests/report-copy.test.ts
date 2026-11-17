@@ -105,7 +105,7 @@ describe('points lost', () => {
     f('UNUSED_VAR', 'info', 10, {}),
   ]
 
-  it('lists titles in point order, with the id after each, and links the shown ones', () => {
+  it('lists titles in point order, without the id, and links the shown ones', () => {
     const lost = lostPoints(findings)
     const targets: Record<string, string> = { MSGBOX_BLOCKING: 'bot-0-MSGBOX_BLOCKING', VAR_NO_DESCRIPTION: 'bot-0-VAR_NO_DESCRIPTION' }
     const html = render('en', createElement(PointsLost, { lost, targetOf: (g: string) => targets[g] }))
@@ -117,7 +117,8 @@ describe('points lost', () => {
       translate('en', 'rule.DISABLED_CODE.title'),
       translate('en', 'rule.UNUSED_VAR.title'),
     ])
-    expect([...html.matchAll(/report-lost-id">([^<]+)</g)].map((m) => m[1])).toEqual(lost.map((l) => l.group))
+    // the title is the link text; the id stays on the card head only
+    expect(html).not.toContain('report-lost-id')
     expect((html.match(/<button/g) ?? []).length).toBe(2)
     expect(html).toContain('(cap)')
     // more than four items: one per line
