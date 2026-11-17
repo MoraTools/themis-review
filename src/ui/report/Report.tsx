@@ -1,11 +1,11 @@
 import { Icon, SeverityIcon } from '../Icons'
 import { useContext, useEffect, useMemo, useState } from 'react'
-import type { BotScore, Finding, ProjectAnalysis, Severity } from '../../core/model'
+import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
 import { groupLabel } from '../findings/findings'
 import { LangContext, translate, useT, useNumber, usePlural, type Lang } from '../i18n'
 import { Name } from '../shared/Name'
-import { Grade } from '../shared/Grade'
+import { Grade, GradeCount } from '../shared/Grade'
 import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
 import { CardLink, FindingCard, FindingGroupCard, LostPoints, PointsLost } from '../findings/FindingCard'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
@@ -25,15 +25,7 @@ import {
   severityCounts,
 } from '../findings/findings'
 
-/** a grade count, 'A ×7': the letter in the grade color, the count muted; the report and the map grade strip use it */
-export function GradeCount({ grade, count }: { grade: BotScore['grade']; count: number }) {
-  const number = useNumber()
-  return (
-    <span className={'grade-count grade-' + grade}>
-      {grade} <span className="grade-count-n">×{number(count)}</span>
-    </span>
-  )
-}
+export { GradeCount }
 
 /** a severity name per hidden severity of these findings, e.g. "Info" */
 function hiddenSeverities(findings: Finding[], shown: SeverityOn, lang: Lang): string | undefined {

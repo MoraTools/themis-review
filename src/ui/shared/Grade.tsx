@@ -13,3 +13,13 @@ export function Grade({ score, className = '' }: { score: BotScore; className?: 
     </span>
   )
 }
+
+/** a grade count, 'A ×7': the letter in the grade color, the count muted; the report and the map grade strip use it */
+export function GradeCount({ grade, count }: { grade: BotScore['grade']; count: number }) {
+  const number = useNumber()
+  return (
+    <span className={'grade-count grade-' + grade}>
+      {grade} <span className="grade-count-n">×{number(count)}</span>
+    </span>
+  )
+}

@@ -90,9 +90,11 @@ for (const theme of ['light', 'dark']) {
         expect(ratio, `${theme} grade ${grade} on its tint`).toBeGreaterThanOrEqual(4.5)
       }
     })
-    it('draws the call handle and the legend call swatch with the call edge token', () => {
-      expect(css).toMatch(/\.call-handle \{[^}]*background: var\(--edge-call\)/)
-      expect(css).toMatch(/\.leg-call \{[^}]*background: var\(--edge-call\)/)
+    it('draws the call handle and the legend call swatch like a call edge at rest, gold only when active', () => {
+      expect(css).toMatch(/\.react-flow__edge\.edge-call path \{ stroke: var\(--border-strong\); stroke-width: 1\.5; \}/)
+      expect(css).toMatch(/\.react-flow__edge\.edge-call\.active path \{ stroke: var\(--edge-call\); stroke-width: 2\.5; \}/)
+      expect(css).toMatch(/\.call-handle \{[^}]*background: var\(--border-strong\)/)
+      expect(css).toMatch(/\.leg-call \{[^}]*background: var\(--border-strong\)/)
     })
     it('keeps the system dark block equal to the explicit dark block', () => {
       if (theme !== 'dark') return

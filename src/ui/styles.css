@@ -434,7 +434,9 @@ code { font-family: var(--font-mono); }
 }
 .react-flow { --xy-background-color:var(--bg); --xy-background-pattern-dots-color:var(--border-strong); --xy-node-color:var(--text); --xy-node-background-color:var(--surface); --xy-edge-stroke:var(--border-strong); --xy-edge-stroke-selected:var(--accent-edge); --xy-minimap-background-color:var(--surface); --xy-minimap-mask-background-color:var(--minimap-mask); background: var(--bg); }
 .react-flow__background-pattern { color: var(--border); }
-.react-flow__edge.edge-call path { stroke: var(--edge-call); stroke-width: 2.5; }
+.react-flow__edge.edge-call path { stroke: var(--border-strong); stroke-width: 1.5; }
+/* gold only for the calls of the hovered, focused or selected taskbot: the grades stay the strongest ink */
+.react-flow__edge.edge-call.active path { stroke: var(--edge-call); stroke-width: 2.5; }
 /* wires stay in the background until their taskbot is hovered or selected */
 .react-flow__edge.edge-wire path { stroke-width: 1; opacity: 0.35; }
 .react-flow__edge.edge-wire.active path { stroke-width: 2; opacity: 1; }
@@ -477,8 +479,6 @@ code { font-family: var(--font-mono); }
   margin: 0 0 12px 212px;
 }
 .react-flow.no-minimap .react-flow__panel.react-flow__controls.bottom.left { margin-left: 12px; }
-/* narrow panes: the controls are a row under the grade strip (the strip is one control high) */
-.react-flow__panel.react-flow__controls.top.left { margin: calc(12px + max(var(--control-h), var(--target-min) + 8px) + 8px) 0 0 12px; }
 .react-flow__controls.horizontal .react-flow__controls-button { border-bottom: 1px solid var(--border-strong); border-right: 0; }
 .react-flow__controls.horizontal .react-flow__controls-button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
 .react-flow__controls.horizontal .react-flow__controls-button:last-child { border-right: 1px solid var(--border-strong); border-radius: 0 var(--radius) var(--radius) 0; }
@@ -486,6 +486,8 @@ code { font-family: var(--font-mono); }
 .react-flow__minimap-mask { fill: var(--minimap-mask); }
 .react-flow__minimap-node { fill: var(--border-strong); }
 .react-flow__minimap-node.mm-ghost { stroke-dasharray: 16 10; }
+/* F: a second channel besides the hue, a 2 px stroke in the text color (!important: the minimap sets stroke inline) */
+.react-flow__minimap-node.mm-F { stroke: var(--text) !important; stroke-width: 2px !important; vector-effect: non-scaling-stroke; }
 .react-flow__attribution { display: none; }
 
 .legend {
@@ -534,6 +536,8 @@ code { font-family: var(--font-mono); }
 .legend-grid { display: grid; grid-template-columns: 1fr 1fr; }
 .legend-row li, .legend-grid li { display: inline-flex; align-items: center; gap: 6px; }
 .legend-row li[class^="grade-"] { font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); }
+.legend-band { color: var(--text-muted); font-weight: 400; }
+.legend-note { margin: 0; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 .legend-grid .icon { width: 14px; height: 14px; }
 .legend-grid .icon:not(.severity-icon) { color: var(--text-muted); }
 .legend .leg-swatch { width: 12px; height: 12px; margin: 0; border-radius: 2px; background: currentColor; }
@@ -558,7 +562,7 @@ code { font-family: var(--font-mono); }
   .legend-item dd { display: none; }
 }
 .legend-body:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.leg-call { background: var(--edge-call); height: 3px; }
+.leg-call { background: var(--border-strong); height: 2px; }
 
 /* grade strip (top-left): each grade jumps to its next taskbot, worst first */
 .grade-strip.react-flow__panel {
@@ -569,7 +573,7 @@ code { font-family: var(--font-mono); }
   min-height: max(var(--control-h), var(--target-min) + 8px);
   gap: 4px;
   margin: 12px;
-  padding: 3px;
+  padding: 3px 3px 3px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
@@ -582,16 +586,27 @@ code { font-family: var(--font-mono); }
   min-width: var(--target-min);
   min-height: var(--target-min);
   padding: 0 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-chip);
   background: transparent;
+  color: var(--text);
   font-size: var(--fs-13);
   cursor: pointer;
 }
-.grade-strip button:hover { border-color: currentColor; }
+.grade-strip button:hover { border-color: var(--border-strong); background: var(--surface-raised); }
+.grade-strip-label { margin-right: 4px; color: var(--text-muted); font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+/* narrow panes: the strip and the legend toggle share the top row; the label wraps to two lines */
+@media screen and (max-width: 760px) {
+  .grade-strip.react-flow__panel { max-width: calc(100% - 120px); overflow-x: auto; gap: 2px; padding-left: 6px; }
+  .grade-strip-label { max-width: 9ch; margin-right: 2px; white-space: normal; }
+  .grade-strip button { padding: 0 5px; font-size: var(--fs-12); }
+  .legend-toggle { gap: 6px; padding: 0 8px; }
+}
 .grade-strip button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .leg-wire { background: var(--info); }
-.leg-ghost { background: transparent; border-top: 2px dashed var(--border-strong); height: 0; }
+.legend i.leg-ghost, .legend i.leg-file { width: 16px; height: 10px; box-sizing: border-box; background: transparent; }
+.leg-ghost { border: 1px dashed var(--border-strong); }
+.leg-file { border: 1px dotted var(--border-strong); }
 
 /* ---------- taskbot node ---------- */
 .tb-node {
@@ -607,7 +622,7 @@ code { font-family: var(--font-mono); }
 /* salience grows with the grade: a grade bar for C, D and F, a tinted head only for D and F */
 .tb-node.g-C { border-left: 4px solid var(--grade-c); }
 .tb-node.g-D { border-left: 4px solid var(--grade-d); }
-.tb-node.g-F { border-left: 4px solid var(--grade-f); }
+.tb-node.g-F { border-left: 6px solid var(--grade-f); }
 .tb-node.g-D .tb-head, .tb-node.compact.g-D { background: color-mix(in oklab, var(--grade-d) 10%, var(--surface-raised)); }
 .tb-node.g-F .tb-head, .tb-node.compact.g-F { background: color-mix(in oklab, var(--grade-f) 14%, var(--surface-raised)); }
 .react-flow .react-flow__node.selectable:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius); }
@@ -631,7 +646,11 @@ code { font-family: var(--font-mono); }
   gap: calc(4px * var(--s));
   padding: calc(6px * var(--s)) calc(8px * var(--s));
 }
-.tb-node.compact.g-C, .tb-node.compact.g-D, .tb-node.compact.g-F { border-left-width: calc(4px * var(--s)); }
+.react-flow__node.selected .tb-node.g-C { border-left-color: var(--grade-c); }
+.react-flow__node.selected .tb-node.g-D { border-left-color: var(--grade-d); }
+.react-flow__node.selected .tb-node.g-F { border-left-color: var(--grade-f); }
+.tb-node.compact.g-C, .tb-node.compact.g-D { border-left-width: calc(4px * var(--s)); }
+.tb-node.compact.g-F { border-left-width: calc(6px * var(--s)); }
 .tb-node.compact .tb-title {
   /* the whole name: it wraps only at the <wbr> word points */
   font-size: calc(var(--fs-12) * var(--s));
@@ -642,6 +661,7 @@ code { font-family: var(--font-mono); }
 .tb-node.compact .tb-sevs > span { gap: calc(4px * var(--s)); }
 .tb-node.compact .tb-sevs .icon { width: calc(13px * var(--s)); height: calc(13px * var(--s)); }
 .tb-node.ghost { border: 1px dashed var(--border-strong); padding: 12px; }
+.tb-node.compact .tb-ghost-tag { margin: 0; font-size: calc(var(--fs-12) * var(--s)); line-height: 1.2; letter-spacing: 0; text-transform: none; }
 .tb-ghost-tag { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-12); letter-spacing: var(--track-label); text-transform: uppercase; }
 .tb-head {
   display: flex;
@@ -670,15 +690,19 @@ code { font-family: var(--font-mono); }
 .tb-stats > span { display: inline-flex; align-items: center; gap: 4px; }
 .tb-sev { color: var(--tone); }
 .tb-vars { display: flex; justify-content: space-between; padding: 8px 0; }
-.tb-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tb-col { display: flex; flex: 1 1 auto; flex-direction: column; gap: 4px; min-width: 0; }
+.tb-col:empty { display: none; }
 .tb-col-out { align-items: flex-end; margin-left: auto; }
-.tb-var { position: relative; display: flex; align-items: center; padding: 0 12px; height: 18px; }
-.tb-var-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.tb-var.out .tb-var-label { flex-direction: row-reverse; }
+.tb-var { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 12px; height: 18px; }
+.tb-var.out { flex-direction: row-reverse; }
+/* name and type share the row; the type tag wraps to a second, clipped line when the name needs the room */
+.tb-var-label { display: flex; flex-flow: row-reverse wrap; justify-content: flex-end; align-content: flex-start; column-gap: 6px; height: 18px; min-width: 0; overflow: hidden; line-height: 18px; }
+.tb-var.out .tb-var-label { flex-direction: row; }
 /* the short type tag shows from zoom 0.9 (set by the canvas) */
 .tb-var-type { display: none; color: var(--text-subtle); }
 .react-flow[data-type-tags="true"] .tb-var-type { display: inline; }
-.tb-var-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-var-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-var-type { flex: none; white-space: nowrap; }
 .tb-var-dot { display: inline-block; width: 7px; height: 7px; flex: none; vertical-align: middle; }
 .var-handle { width: 7px !important; height: 7px !important; border: 1px solid var(--bg) !important; border-radius: 0 !important; }
 .call-handle {
@@ -686,7 +710,7 @@ code { font-family: var(--font-mono); }
   height: 10px !important;
   border: 1px solid var(--bg) !important;
   border-radius: 0 !important;
-  background: var(--edge-call) !important;
+  background: var(--border-strong) !important;
 }
 /* no wire on this handle: kept for React Flow, not drawn */
 .call-handle.idle { opacity: 0; pointer-events: none; }
@@ -710,7 +734,6 @@ code { font-family: var(--font-mono); }
 .file-kind { font-size: var(--fs-11); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--text-muted); }
 .file-handle { width: 7px !important; height: 7px !important; border-radius: 0 !important; border: 1px solid var(--bg) !important; background: var(--border-strong) !important; }
 .react-flow__edge.edge-file path { stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 4 4; }
-.leg-file { background: transparent; border-top: 2px dotted var(--border-strong); height: 0; }
 
 /* ---------- editor drawer ---------- */
 .drawer {

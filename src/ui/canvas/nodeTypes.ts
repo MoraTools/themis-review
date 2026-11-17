@@ -111,8 +111,10 @@ export function compactHeight(d: TBNodeData, zoom: number): number {
     lines += Math.floor(Math.max(0, used + part.length - 1) / perLine)
     used = ((used + part.length - 1) % perLine) + 1
   }
+  // a ghost has its tag ('No está en los zips', up to 19 characters) where the grade chip is
+  const head = d.ghost ? 4 + Math.ceil(19 / perLine) * 14.4 : 22
   // padding 12, grade chip 18 and gap 4, title lines of 14.4, severity row 4 + 16
-  return s * (12 + (d.ghost ? 0 : 22) + lines * 14.4 + (d.findingsCount > 0 ? 20 : 0)) + 2
+  return s * (12 + head + lines * 14.4 + (d.findingsCount > 0 ? 20 : 0)) + 2
 }
 
 export interface FileNodeData {

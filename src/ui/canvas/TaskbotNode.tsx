@@ -13,11 +13,12 @@ function Var({ name, type, out }: { name: string; type: string; out?: boolean })
   return (
     <div className={'tb-var' + (out ? ' out' : '')} title={text}>
       <span className="sr-only">{text}</span>
-      {/* dot, type tag (zoom >= 0.9 only), name; outputs mirror it with row-reverse */}
+      {/* dot, type tag (zoom >= 0.9 only), name; outputs mirror it. The name comes first in the
+          wrapping label, so a type tag with no room left wraps to the hidden second line */}
+      <span className="tb-var-dot" aria-hidden="true" style={{ background: typeColor(type) }} />
       <span className="tb-var-label" aria-hidden="true">
-        <span className="tb-var-dot" style={{ background: typeColor(type) }} />
-        <span className="tb-var-type">{typeTag(type)}</span>
         <span className="tb-var-name">{name}</span>
+        <span className="tb-var-type">{typeTag(type)}</span>
       </span>
       <Handle
         type={out ? 'source' : 'target'}
@@ -48,7 +49,7 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
       <div className={'tb-node ghost' + mode}>
         {callIn}
         <Name text={data.label} />
-        {detailed && <div className="tb-ghost-tag">{t('node.ghost')}</div>}
+        <div className="tb-ghost-tag">{t('node.ghost')}</div>
       </div>
     )
   }
