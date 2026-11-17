@@ -6,6 +6,9 @@ import { extractVarRefs, parseTaskbot } from '../src/core/parse'
 import { buildGraph, callDepth, callSequence } from '../src/core/graph'
 import { messageBoxRules } from '../src/core/rules/messagebox'
 import { structureRules } from '../src/core/rules/structure'
+import { hygieneRules } from '../src/core/rules/hygiene'
+import { computeMetrics } from '../src/core/metrics'
+import { isComment } from '../src/core/model'
 
 const DATA = join(__dirname, '..', '.data')
 
@@ -186,6 +189,20 @@ describe('synthetic taskbots', () => {
     attributes: [{ name: 'isChecked', value: { type: 'BOOLEAN', boolean: closes } }],
   })
   const log = (uid: string) => ({ uid, commandName: 'log_message', packageName: 'A360BotFramework', attributes: [] })
+  const call = (uid: string, target: string) => ({
+    uid,
+    commandName: 'runTask',
+    packageName: 'TaskBot',
+    attributes: [
+      {
+        name: 'taskbot',
+        value: { type: 'TASKBOT', taskbotFile: { type: 'FILE', string: 'repository:///' + target } },
+      },
+    ],
+  })
+  const p = (n: string) => 'Bots/x/tasks/' + n
+  const bot = (name: string, ...targets: string[]) =>
+    parseTaskbot(p(name), 'z', wrap(targets.map((t, i) => call(name + i, p(t)))))
 
   it('recognizes Automation Anywhere variable reference forms', () => {
     expect(extractVarRefs('$direct$')).toEqual(['direct'])
@@ -262,20 +279,6 @@ describe('synthetic taskbots', () => {
   })
 
   it('measures call depth: any taskbot at 1-2, only util* at 3, none at 4+', () => {
-    const call = (uid: string, target: string) => ({
-      uid,
-      commandName: 'runTask',
-      packageName: 'TaskBot',
-      attributes: [
-        {
-          name: 'taskbot',
-          value: { type: 'TASKBOT', taskbotFile: { type: 'FILE', string: 'repository:///' + target } },
-        },
-      ],
-    })
-    const p = (n: string) => 'Bots/x/tasks/' + n
-    const bot = (name: string, ...targets: string[]) =>
-      parseTaskbot(p(name), 'z', wrap(targets.map((t, i) => call(name + i, p(t)))))
     const bots = [
       bot('000_Master', '001_Step', 'util_atLevel2'),
       bot('001_Step', 'util_mensajeria', 'Utilidad_Config', '002_Deep'),
@@ -305,5 +308,64 @@ describe('synthetic taskbots', () => {
       [p('002_Deep'), 'util_atLevel4', '4', 'error'],
       [p('002_Deep'), '003_Deeper', '4', 'error'],
     ])
+  })
+
+  it('judges call depth by the level of each call, not the callee minimum depth', () => {
+    const levelOf = (bots: ReturnType<typeof bot>[]) =>
+      buildGraph(bots).findings
+        .filter((f) => f.ruleId === 'CALL_DEPTH')
+        .map((f) => [f.botPath, f.params?.callee, f.params?.depth])
+
+    // 200 is also called from the master, but 100 -> 200 is a level-3 call
+    expect(levelOf([bot('000', '100', '200'), bot('100', '200'), bot('200')])).toEqual([[p('100'), '200', '3']])
+    // util* at level 3 is allowed, also when the master calls it at level 2
+    expect(levelOf([bot('000', '100'), bot('100', 'utilidad_x'), bot('utilidad_x')])).toEqual([])
+    expect(levelOf([bot('000', '100', 'utilidad_x'), bot('100', 'utilidad_x'), bot('utilidad_x')])).toEqual([])
+    expect(levelOf([bot('000', '100'), bot('100', 'utilidad_x'), bot('utilidad_x', 'utilidad_y'), bot('utilidad_y')]))
+      .toEqual([[p('utilidad_x'), 'utilidad_y', '4']])
+  })
+
+  it('reads catch returns as variable references', () => {
+    const errVar = (name: string) => ({ type: 'VARIABLE', variableName: name })
+    const tb = parseTaskbot('Bots/x/tasks/Catch', 'z', wrap([
+      { uid: 'try', commandName: 'try', packageName: 'ErrorHandler', children: [log('l')], branches: [
+        { uid: 'catch', commandName: 'catch', packageName: 'ErrorHandler', children: [log('l2')],
+          returns: { errorMessage: errVar('pStrErr'), errorLineNumber: errVar('pNumLine') } },
+      ] },
+    ], [{ name: 'pStrErr', type: 'STRING' }, { name: 'pNumLine', type: 'NUMBER' }]))
+    const catchLine = tb.actions.find((x) => x.commandName === 'catch')!.line
+    expect(tb.varRefs.pStrErr).toEqual([catchLine])
+    expect(tb.varRefs.pNumLine).toEqual([catchLine])
+    const unused = hygieneRules(tb, computeMetrics(tb)).filter((f) => f.ruleId === 'UNUSED_VAR')
+    expect(unused).toEqual([])
+  })
+
+  it('counts Log to file as a log', () => {
+    const logFile = (uid: string) => ({ uid, commandName: 'logToFile', packageName: 'LogToFile', attributes: [] })
+    const quiet = parseTaskbot('Bots/x/tasks/Quiet', 'z', wrap([msgBox('a', true), logFile('b')]))
+    expect(messageBoxRules(quiet).some((f) => f.ruleId === 'MSGBOX_OVER_LOGS')).toBe(false)
+    const logged = parseTaskbot('Bots/x/tasks/Logged', 'z', wrap(Array.from({ length: 10 }, (_, i) => logFile('n' + i))))
+    expect(hygieneRules(logged, computeMetrics(logged)).some((f) => f.ruleId === 'NO_LOGS')).toBe(false)
+  })
+
+  it('finds drive, URL-file and UNC paths, not web URLs or variable paths', () => {
+    const pathOf = (text: string) => {
+      const tb = parseTaskbot('Bots/x/tasks/P', 'z', wrap([
+        { uid: 'a', commandName: 'assign', packageName: 'String', attributes: [{ name: 'source', value: { type: 'STRING', string: text } }] },
+      ]))
+      return structureRules(tb).find((f) => f.ruleId === 'HARDCODED_PATH')?.params.path
+    }
+    expect(pathOf('C:\\RPA\\x')).toBe('C:\\RPA\\x')
+    expect(pathOf('D:\\data')).toBe('D:\\data')
+    expect(pathOf('C:/RPA/x')).toBe('C:/RPA/x')
+    expect(pathOf('file:///C:/RPA/x')).toBe('file:///C:/RPA/x')
+    expect(pathOf('\\\\server\\share\\x')).toBe('\\\\server\\share\\x')
+    for (const text of ['https://x.com/a:\\b', 'https://x.com/page', '$pStrBase$\\sub\\file.txt', '$pDictConfig{BaseLocal}$\\Logs', '$pStrBase$\\\\x']) {
+      expect(pathOf(text)).toBeUndefined()
+    }
+  })
+
+  it('counts Bot Framework caution steps as comments', () => {
+    expect(isComment({ commandName: 'documentation_caution_sequence' })).toBe(true)
   })
 })

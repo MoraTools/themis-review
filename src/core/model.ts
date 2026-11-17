@@ -145,8 +145,14 @@ export const COMMENT_COMMANDS = new Set([
   'documentation_comment',
   'documentation_about',
   'documentation_sequence',
+  'documentation_caution_sequence',
 ])
 
 export function isComment(a: { commandName: string }): boolean {
   return COMMENT_COMMANDS.has(a.commandName)
+}
+
+/** Bot Framework Log Message and the official LogToFile package. */
+export function isLog(a: { commandName: string }): boolean {
+  return a.commandName === 'log_message' || a.commandName === 'logToFile'
 }

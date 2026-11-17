@@ -9,6 +9,7 @@ interface RawNode {
   children?: RawNode[]
   branches?: RawNode[]
   returnTo?: AAValue
+  returns?: AAValue
 }
 
 interface RawTaskbot {
@@ -122,6 +123,8 @@ export function parseTaskbot(path: string, sourceZip: string, json: string): Tas
     }
     walkValueStrings({ attributes: node.attributes }, visit)
     walkValueStrings(node.returnTo, visit)
+    // A catch stores its error variables in returns (errorMessage, errorLineNumber).
+    walkValueStrings(node.returns, visit)
 
     if (node.commandName === 'runTask') {
       const call = parseCall(node, myLine, reachable)

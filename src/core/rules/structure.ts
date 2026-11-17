@@ -1,6 +1,7 @@
 import { isComment, type Action, type Finding, type Taskbot } from '../model'
 
-const WIN_PATH_RE = /[A-Za-z]:\\[^\s"'<>|]+/
+// Drive paths (C:\x, C:/x, file:///C:/x) not inside a URL, and UNC paths (\\server\share) not after a variable.
+const WIN_PATH_RE = /(?:file:\/\/\/|(?<![\w/]))[A-Za-z]:[\\/][^\s"'<>|]+|(?<![\w$\\])\\\\[^\s"'<>|\\]+\\[^\s"'<>|]+/
 
 export function structureRules(bot: Taskbot): Finding[] {
   const out: Finding[] = []
@@ -86,5 +87,5 @@ export function structureRules(bot: Taskbot): Finding[] {
   return out
 }
 
-/** Framework limit: past this size a taskbot must be split into modules. */
+/** Themis limit (the Core Framework guide sets none): past this size a taskbot must be split into modules. */
 export const MAX_LINES = 250

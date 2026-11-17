@@ -1,9 +1,10 @@
 import type { Finding, Taskbot, TaskbotMetrics } from '../model'
+import { isLog } from '../model'
 
 export function hygieneRules(bot: Taskbot, m: TaskbotMetrics): Finding[] {
   const out: Finding[] = []
 
-  const reachableLogs = bot.actions.filter((a) => a.commandName === 'log_message' && a.reachable).length
+  const reachableLogs = bot.actions.filter((a) => isLog(a) && a.reachable).length
   if (reachableLogs === 0 && m.totalLines >= 10) {
     out.push({ ruleId: 'NO_LOGS', severity: 'warn', botPath: bot.path, params: {} })
   }

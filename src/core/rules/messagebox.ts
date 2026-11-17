@@ -1,4 +1,5 @@
 import type { Action, Finding, Taskbot } from '../model'
+import { isLog } from '../model'
 
 /** MessageBox package and the MessageBoxPlus variants (ShowDictionary, ShowNumber, ...). */
 export function isMessageBox(a: Action): boolean {
@@ -41,7 +42,7 @@ export function messageBoxRules(bot: Taskbot): Finding[] {
   }
 
   const activeBoxes = boxes.filter((a) => a.reachable).length
-  const activeLogs = bot.actions.filter((a) => a.commandName === 'log_message' && a.reachable).length
+  const activeLogs = bot.actions.filter((a) => isLog(a) && a.reachable).length
   if (activeBoxes > activeLogs) {
     out.push({
       ruleId: 'MSGBOX_OVER_LOGS',

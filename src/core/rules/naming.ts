@@ -1,6 +1,6 @@
 import type { Finding, Taskbot, Variable } from '../model'
 
-// <scope><Type><CamelName> — from guia_implementacion_core_framework.html
+// <scope><Type><CamelName> — from guia-core-framework.md (aa-code repo, docs/)
 const NAME_RE = /^(io|p|i|o|c)(Str|Num|Table|Dict|List|Date|Bool|File|Rec|Win|Any)([A-Z][A-Za-z0-9]*)$/
 
 const TYPE_TOKEN: Record<string, string> = {

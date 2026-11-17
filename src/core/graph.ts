@@ -134,8 +134,10 @@ function callDepthFindings(edges: GraphEdge[], taskbots: Taskbot[]): Finding[] {
   const nameOf = new Map(taskbots.map((t) => [t.path, t.name]))
   const out: Finding[] = []
   for (const e of edges) {
-    const d = depth.get(e.to)
-    if (d === undefined) continue
+    // The level of this call: the caller's shortest path from an entry point, plus one.
+    const from = depth.get(e.from)
+    if (from === undefined) continue
+    const d = from + 1
     const calleeName = nameOf.get(e.to) ?? e.to.split('/').pop() ?? e.to
     if (callDepthAllowed(calleeName, d)) continue
     for (const call of e.calls) {
