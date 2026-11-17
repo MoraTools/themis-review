@@ -1,24 +1,11 @@
 import { Icon, SeverityIcon } from '../Icons'
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
-import { Fragment, useContext } from 'react'
+import { useContext } from 'react'
+import { Name } from '../shared/Name'
 import { useT, useNumber } from '../i18n'
 import { DetailContext, SEVERITIES, STAT_ICONS, typeColor, type TBNodeData } from './nodeTypes'
 
 const SEVERITY_LABEL = { error: 'node.errors', warn: 'node.warnings', info: 'node.infos' } as const
-
-/** allow line breaks after underscores and at camelCase boundaries, so long names wrap between words */
-function Name({ text }: { text: string }) {
-  return (
-    <span className="tb-title">
-      {text.split(/(?<=_)|(?<=[a-z0-9])(?=[A-Z])/).map((part, i) => (
-        <Fragment key={i}>
-          {i > 0 && <wbr />}
-          {part}
-        </Fragment>
-      ))}
-    </span>
-  )
-}
 
 export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
   const t = useT()

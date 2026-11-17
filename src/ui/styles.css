@@ -675,8 +675,11 @@ button, input, select, textarea { font: inherit; }
   font-weight: 600;
   font-variation-settings: 'wght' 600;
   line-height: 1.05;
-  overflow-wrap: anywhere;
+  /* breaks come from <wbr> at "_" and camelCase; inside a word only when it alone is too wide */
+  overflow-wrap: break-word;
 }
+/* Cormorant's default old-style figures make "000_" read as "ooo_"; after the font shorthand below, which resets it */
+.drawer-name { font-variant-numeric: lining-nums; }
 .drawer-title .tb-grade { font-family: var(--font-mono); font-size: var(--fs-13); letter-spacing: 0.08em; }
 .drawer-sub {
   margin-top: 6px;
@@ -759,7 +762,8 @@ button, input, select, textarea { font: inherit; }
 .code-line.disabled .code-card { color: var(--text-subtle); }
 .code-line.msgbox .code-card { border-color: var(--error); }
 .code-off { flex: none; color: var(--warn); font-size: var(--fs-11); letter-spacing: 0.08em; text-transform: uppercase; }
-.code-flag { order: 3; flex: none; cursor: help; align-self: center; }
+.code-flag { order: 3; flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; padding: 0; border: 1px solid transparent; border-radius: var(--radius); background: transparent; cursor: pointer; }
+.code-flag:hover { border-color: var(--border-strong); background: var(--surface-raised); }
 
 .var-table { width: 100%; margin: 0; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--fs-13); }
 .var-table th, .var-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -778,18 +782,35 @@ button, input, select, textarea { font: inherit; }
 
 .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 20px 0; }
 
-.finding-list { list-style: none; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; margin: 0; }
-.finding.jumpable { cursor: pointer; }
-.finding.jumpable:hover { border-color: var(--accent-text); }
-.finding {
+.finding-list { display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; margin: 0; }
+
+/* ---------- finding card (editor and report) ---------- */
+.finding-card {
+  margin: 10px 0;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  background: var(--surface-1);
-  font-family: var(--font-mono);
-  font-size: var(--fs-14);
-  line-height: var(--lh-body);
+  border-left: 3px solid var(--tone, var(--border));
+  border-radius: var(--radius);
+  background: var(--surface);
+  font: 400 var(--fs-14)/var(--lh-body) var(--font-ui);
+  overflow-wrap: anywhere;
 }
-.finding-fix { margin-top: 6px; color: var(--text-muted); }
+.finding-list .finding-card { margin: 0; }
+.finding-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.finding-where { color: var(--text-muted); font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; }
+.finding-rule { margin-left: auto; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-mono); }
+.finding-msg, .finding-fix { max-width: 72ch; margin: 8px 0 0; }
+.finding-fix { color: var(--text-muted); }
+.finding-fix strong { color: var(--text); font-weight: 600; }
+.finding-line { padding: 0; border: 0; background: transparent; color: var(--accent-text); font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.finding-line:hover { color: var(--text); }
+.finding-items { display: flex; flex-wrap: wrap; gap: 4px 20px; max-width: 100%; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border); list-style: none; font: 400 var(--fs-12)/var(--lh-body) var(--font-mono); }
+.finding-items li { display: inline-flex; gap: 6px; min-width: 0; }
+.finding-items code { overflow-wrap: anywhere; }
+.name-key { max-width: 72ch; margin: 0 0 4px; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
+.empty-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; padding: 16px 20px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
+.report .empty-state { padding: 0; }
+.empty-ok { color: var(--ok); }
 
 /* ---------- report ---------- */
 .report {
@@ -906,16 +927,13 @@ button, input, select, textarea { font: inherit; }
 }
 .report-bot .tb-grade { font-family: var(--font-mono); font-size: var(--fs-14); letter-spacing: 0.08em; }
 .report-bot-path { margin: 0 0 16px; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-12); }
-.report-finding {
-  margin: 10px 0;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  font-family: var(--font-mono);
-  font-size: var(--fs-14);
-  line-height: var(--lh-body);
-}
-.report-finding code { color: var(--accent-text); }
+.report-bot .finding-card { max-width: 100%; }
+.report-lost, .report-silent { margin: 0 0 12px; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-body) var(--font-ui); overflow-wrap: anywhere; }
+.report-lost code { color: var(--text); }
+.report-facts { margin: -16px 0 32px; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-body) var(--font-ui); }
+.report-facts p { max-width: 96ch; margin: 0 0 2px; }
+.report-dist { font: 600 var(--fs-12)/var(--lh-body) var(--font-mono); white-space: nowrap; }
+.print-only { display: none; }
 .report-foot {
   margin-top: 56px;
   padding-top: 20px;
@@ -961,13 +979,20 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 .report-table td:last-child,.report-bot-path,code { font-family:var(--font-mono); }
 .report-table td.rules-msg,.report-table td.rules-text { font-family:var(--font-ui); }
 .report-table th button { border:0; padding:0; background:transparent; color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; text-align:left; cursor:pointer; }
-.report-table tr.row-link:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
-.rules-model-block,.report-options,.finding,.report-finding,.tb-node,.file-node,.legend { border-radius:var(--radius); background:var(--surface); }
+/* the sort button fills its header cell */
+.report-table th.sortable { padding:0; }
+.report-table th.sortable button { display:flex; align-items:center; gap:4px; width:100%; min-height:32px; padding:8px 12px; }
+.report-table th.sortable button:focus-visible { outline-offset:-2px; }
+.report-table th.num button { justify-content:flex-end; text-align:right; }
+.report-table .sort-icon { width:12px; height:12px; }
+.report-table .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.row-name { padding:0; border:0; background:transparent; color:var(--text); font:inherit; text-align:left; text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
+.row-name:hover { color:var(--accent-text); text-decoration-color:currentColor; }
+.rules-model-block,.report-options,.tb-node,.file-node,.legend { border-radius:var(--radius); background:var(--surface); }
 .rules-model-block { font:400 var(--fs-13)/var(--lh-body) var(--font-ui); }
 .rules-model-label { display:block; background:transparent; }
 .rules-model-value { font-family:var(--font-mono); }
 .rules-model-note,.rules-note,.report-options-hint { font:400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
-.finding,.report-finding { font:400 var(--fs-14)/var(--lh-body) var(--font-ui); overflow-wrap:anywhere; }
 .report-bot h2 { overflow-wrap:anywhere; }
 .tb-title { font:600 var(--fs-13)/var(--lh-snug) var(--font-ui); letter-spacing:0; text-transform:none; }
 .tb-stats { gap:8px; }
@@ -1024,12 +1049,23 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .report-score { min-width:84px; padding:8px 12px; }
   .report-score-grade { font-size:var(--fs-64); }
   .report-score-num { font-size:var(--fs-18); }
-  .drawer-head { padding:12px 15px; }
-  .drawer-head > .btn { min-width:44px; }
+  .drawer-head { display:grid; grid-template-columns:1fr auto; gap:8px 12px; padding:12px 15px; }
+  .drawer-head > .header-toggles { grid-row:1; grid-column:1; justify-self:end; }
+  .drawer-head > .btn { grid-row:1; grid-column:2; min-width:44px; }
+  .drawer-heading { grid-row:2; grid-column:1/-1; }
+  .drawer-sub { white-space:normal; overflow-wrap:anywhere; }
+  .finding-rule { margin-left:0; }
   .var-table { min-width:620px; }
+  .report-table th.sortable button { min-height:44px; }
+  .code-flag { min-width:44px; min-height:44px; }
   .react-flow__minimap { width:110px !important; height:80px !important; }
   .react-flow__panel.react-flow__controls.bottom.left { margin-left:132px; }
   .legend { bottom:auto; top:12px; }
+}
+/* under 760px the summary keeps Taskbot, Findings and Score; the editor shows the rest */
+@media screen and (max-width:760px) {
+  .summary-table { min-width:0; }
+  .summary-table .col-detail { display:none; }
 }
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
@@ -1089,9 +1125,18 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .no-print, .dropzone::before, .dropzone::after { display:none !important; }
   .app { height:auto; }
   .report { max-width:none; padding:0; overflow:visible; }
-  .report-bot { content-visibility:visible; contain-intrinsic-size:none; break-inside:avoid-page; }
+  /* no forced page break per taskbot; the head stays with its first finding */
+  .report-bot { content-visibility:visible; contain-intrinsic-size:none; margin-top:28px; }
+  .report-bot h2, .report-bot-path, .report-lost, .name-key { break-after:avoid; }
   .table-scroll { overflow:visible; }
   .report-table { min-width:0; }
-  .report-finding { break-inside:avoid; }
+  .report-table tr, .finding-card, .report-facts, .name-key, .report-lost { break-inside:avoid; }
   .report-table tbody tr:hover { background:transparent; color:inherit; }
+  .report-table .sort-icon { display:none; }
+  .row-name { text-decoration:none; }
+  .finding-line { color:var(--text); text-decoration:none; }
+  .print-only { display:block; }
+  @page {
+    @bottom-right { content:counter(page) " / " counter(pages); color:var(--text-muted); font:400 var(--fs-11)/1 var(--font-mono); }
+  }
 }

@@ -1,13 +1,17 @@
 import { ThemeToggles } from '../ThemeToggles'
 import { Icon, SeverityIcon } from '../Icons'
-import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { isComment, type Action, type Finding, type ProjectAnalysis, type Severity } from '../../core/model'
 import { isMessageBox } from '../../core/rules/messagebox'
 import { LangContext, useT, useNumber } from '../i18n'
 import { typeColor } from '../canvas/nodeTypes'
 import { describeAction, glyphFor, GLYPH_PATH } from './describe'
+import { Name } from '../shared/Name'
+import { FindingCard } from '../findings/FindingCard'
+import { compareFindings, findingLine, SEVERITIES, severityCounts as countSeverities } from '../findings/findings'
 
 type Tab = 'code' | 'vars' | 'findings'
+const TABS: Tab[] = ['code', 'vars', 'findings']
 
 function ActionGlyph({ action }: { action: Action }) {
   return (
@@ -17,42 +21,56 @@ function ActionGlyph({ action }: { action: Action }) {
   )
 }
 
-const SEVERITIES: Severity[] = ['error', 'warn', 'info']
-
 export default function EditorDrawer({
   analysis,
   botPath,
+  from,
+  line,
   onClose,
 }: {
   analysis: ProjectAnalysis
   botPath: string
+  /** opened from the report: start on the Findings tab when there are findings */
+  from: 'map' | 'report'
+  /** open the Code tab at this line */
+  line?: number
   onClose: () => void
 }) {
   const t = useT()
   const { lang } = useContext(LangContext)
   const number = useNumber()
-  const [tab, setTab] = useState<Tab>('code')
+  const bot = analysis.taskbots.find((b) => b.path === botPath)
+  const findings = useMemo(
+    () => analysis.findings.filter((f) => f.botPath === botPath).sort(compareFindings),
+    [analysis, botPath],
+  )
+  const [tab, setTab] = useState<Tab>(() =>
+    line === undefined && from === 'report' && findings.length ? 'findings' : 'code',
+  )
   const [filterSev, setFilterSev] = useState<Severity | null>(null)
-  const [flashLine, setFlashLine] = useState<number | null>(null)
+  const [flashLine, setFlashLine] = useState<number | null>(line ?? null)
+  // index (in `findings`) of the card to show after a code flag opens the Findings tab
+  const [focusFinding, setFocusFinding] = useState<number | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const codeListRef = useRef<HTMLOListElement>(null)
-  const bot = analysis.taskbots.find((b) => b.path === botPath)
-  const findings = useMemo(() => analysis.findings.filter((f) => f.botPath === botPath), [analysis, botPath])
+  const findingsRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ code: null, vars: null, findings: null })
+  // every finding flags the line it cites, variable findings at their first reference
   const byLine = useMemo(() => {
-    const m = new Map<number, Finding[]>()
-    for (const f of findings) if (f.line) (m.get(f.line) ?? m.set(f.line, []).get(f.line)!).push(f)
+    const m = new Map<number, number[]>()
+    if (!bot) return m
+    findings.forEach((f, i) => {
+      const at = findingLine(f, bot)
+      if (at !== undefined) m.set(at, [...(m.get(at) ?? []), i])
+    })
     return m
-  }, [findings])
+  }, [findings, bot])
   const byVar = useMemo(() => {
     const m = new Map<string, Finding[]>()
     for (const f of findings) if (f.varName) (m.get(f.varName) ?? m.set(f.varName, []).get(f.varName)!).push(f)
     return m
   }, [findings])
-  const severityCounts = useMemo(() => {
-    const counts: Record<Severity, number> = { error: 0, warn: 0, info: 0 }
-    for (const finding of findings) counts[finding.severity]++
-    return counts
-  }, [findings])
+  const severityCounts = useMemo(() => countSeverities(findings), [findings])
 
   // scroll the code list to a line after a finding click switches tabs
   useEffect(() => {
@@ -62,6 +80,14 @@ export default function EditorDrawer({
     const timer = setTimeout(() => setFlashLine(null), 1600)
     return () => clearTimeout(timer)
   }, [tab, flashLine])
+
+  useEffect(() => {
+    if (tab !== 'findings' || focusFinding === null) return
+    const el = findingsRef.current?.querySelector<HTMLElement>(`[data-finding="${focusFinding}"]`)
+    el?.scrollIntoView({ block: 'center' })
+    el?.focus()
+    setFocusFinding(null)
+  }, [tab, focusFinding])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -76,42 +102,68 @@ export default function EditorDrawer({
   const metrics = analysis.metrics[botPath]
   const score = analysis.scores[botPath]
 
-  /** line a finding points at: its own line, else the first reference of its variable */
-  const findingLine = (f: Finding): number | undefined => f.line ?? (f.varName ? bot.varRefs[f.varName]?.[0] : undefined)
+  const lineOf = (f: Finding) => findingLine(f, bot)
 
-  const jumpTo = (f: Finding) => {
-    const line = findingLine(f)
-    if (line === undefined) return
-    setFlashLine(line)
+  const jumpTo = (at: number) => {
+    setFlashLine(at)
     setTab('code')
   }
 
-  const visibleFindings = filterSev ? findings.filter((f) => f.severity === filterSev) : findings
+  const showFinding = (index: number) => {
+    if (filterSev && findings[index].severity !== filterSev) setFilterSev(null)
+    setFocusFinding(index)
+    setTab('findings')
+  }
+
+  const onTabKey = (event: KeyboardEvent) => {
+    const i = TABS.indexOf(tab)
+    const next =
+      event.key === 'ArrowRight' ? TABS[(i + 1) % TABS.length]
+      : event.key === 'ArrowLeft' ? TABS[(i + TABS.length - 1) % TABS.length]
+      : event.key === 'Home' ? TABS[0]
+      : event.key === 'End' ? TABS[TABS.length - 1]
+      : null
+    if (!next) return
+    event.preventDefault()
+    setTab(next)
+    tabRefs.current[next]?.focus()
+  }
+
+  const tabProps = (id: Tab) => ({
+    ref: (el: HTMLButtonElement | null) => { tabRefs.current[id] = el },
+    id: 'editor-tab-' + id,
+    role: 'tab',
+    'aria-selected': tab === id,
+    'aria-controls': 'editor-panel-' + id,
+    tabIndex: tab === id ? 0 : -1,
+    className: tab === id ? 'tab active' : 'tab',
+    onClick: () => setTab(id),
+  })
+  const panelProps = (id: Tab) => ({ id: 'editor-panel-' + id, role: 'tabpanel', 'aria-labelledby': 'editor-tab-' + id })
+
+  const visible = findings.map((f, i) => ({ f, i })).filter(({ f }) => !filterSev || f.severity === filterSev)
+  const hasNameFindings = visible.some(({ f }) => f.ruleId === 'VAR_NAME_FORMAT')
+  // the opener (map node or report button) gets focus back in App once the view is restored
   const close = () => {
-    const dialog = dialogRef.current
-    dialog?.close()
-    // opened from a report row, the opener is gone with the report: return focus to the bot's map node
-    const focused = document.activeElement
-    if (!focused || focused === document.body || dialog?.contains(focused)) {
-      document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(botPath)}"]`)?.focus()
-    }
+    dialogRef.current?.close()
     onClose()
   }
 
   return (
     <dialog
       ref={dialogRef}
-      className="drawer"
-      aria-label={bot.name}
+      className="drawer no-print"
+      aria-labelledby="editor-title"
       onCancel={(event) => {
         event.preventDefault()
         close()
       }}
     >
       <div className="drawer-head">
-        <div>
+        <div className="drawer-heading">
           <h1 className="drawer-title">
-            {bot.name} <span className={'tb-grade grade-' + score.grade}>{number(score.score)} · {score.grade}</span>
+            <Name text={bot.name} className="drawer-name" id="editor-title" />{' '}
+            <span className={'tb-grade grade-' + score.grade}>{number(score.score)} · {score.grade}</span>
           </h1>
           <div className="drawer-sub">{bot.path}</div>
         </div>
@@ -130,20 +182,20 @@ export default function EditorDrawer({
         <span>{number(metrics.variables)} {t('node.vars')}</span>
         <span>{t('editor.packages')}: {number(bot.packages.length)}</span>
       </div>
-      <nav className="tabs small">
-        <button className={tab === 'code' ? 'tab active' : 'tab'} onClick={() => setTab('code')}>
+      <div className="tabs small" role="tablist" aria-labelledby="editor-title" onKeyDown={onTabKey}>
+        <button {...tabProps('code')}>
           {t('editor.actions')} ({number(metrics.totalLines)})
         </button>
-        <button className={tab === 'vars' ? 'tab active' : 'tab'} onClick={() => setTab('vars')}>
+        <button {...tabProps('vars')}>
           {t('editor.variables')} ({number(bot.variables.length)})
         </button>
-        <button className={tab === 'findings' ? 'tab active' : 'tab'} onClick={() => setTab('findings')}>
+        <button {...tabProps('findings')}>
           {t('editor.findings')} ({number(findings.length)})
         </button>
-      </nav>
+      </div>
 
       {tab === 'code' && (
-        <ol className="code-list" ref={codeListRef}>
+        <ol className="code-list" ref={codeListRef} {...panelProps('code')}>
           {bot.actions.map((a) => {
             const fs = byLine.get(a.line) ?? []
             const cls = [
@@ -168,11 +220,15 @@ export default function EditorDrawer({
                   <span className="code-label">{describeAction(a, lang)}</span>
                   {(a.disabled || !a.reachable) && <span className="code-off">{t('editor.disabled')}</span>}
                 </span>
-                {fs.map((f, i) => (
-                  <span key={i} className="code-flag" title={t(`rule.${f.ruleId}.msg`, f.params)}>
-                    <SeverityIcon severity={f.severity} />
-                  </span>
-                ))}
+                {fs.map((i) => {
+                  const f = findings[i]
+                  const msg = t(`rule.${f.ruleId}.msg`, f.params)
+                  return (
+                    <button key={i} type="button" className="code-flag" aria-label={msg} title={msg} onClick={() => showFinding(i)}>
+                      <SeverityIcon severity={f.severity} />
+                    </button>
+                  )
+                })}
               </li>
             )
           })}
@@ -180,7 +236,7 @@ export default function EditorDrawer({
       )}
 
       {tab === 'vars' && (
-        <div className="drawer-scroll">
+        <div className="drawer-scroll" {...panelProps('vars')}>
         <table className="var-table">
           <thead>
             <tr>
@@ -218,44 +274,53 @@ export default function EditorDrawer({
       )}
 
       {tab === 'findings' && (
-        <div className="drawer-scroll">
-          <div className="filter-chips">
-            <button className={filterSev === null ? 'chip active' : 'chip'} onClick={() => setFilterSev(null)}>
-              {t('editor.filter.all')} ({number(findings.length)})
-            </button>
-            {SEVERITIES.map((sev) => (
-              <button
-                key={sev}
-                className={'chip sev-' + sev + (filterSev === sev ? ' active' : '')}
-                onClick={() => setFilterSev(filterSev === sev ? null : sev)}
-              >
-                <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(severityCounts[sev])})
-              </button>
-            ))}
-          </div>
-          <ul className="finding-list">
-            {visibleFindings.map((f, i) => {
-              const line = findingLine(f)
-              return (
-                <li
-                  key={i}
-                  className={'finding sev-' + f.severity + (line !== undefined ? ' jumpable' : '')}
-                  tabIndex={line !== undefined ? 0 : undefined}
-                  role={line !== undefined ? 'button' : undefined}
-                  onKeyDown={(event) => {
-                    if (line !== undefined && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); jumpTo(f) }
-                  }}
-                  onClick={() => jumpTo(f)}
-                >
-                  <div className="finding-msg">
-                    <SeverityIcon severity={f.severity} /> {line !== undefined ? `L${number(line)} · ` : ''}
-                    {t(`rule.${f.ruleId}.msg`, f.params)}
-                  </div>
-                  <div className="finding-fix"><Icon name="info" /> {t(`rule.${f.ruleId}.fix`, f.params)}</div>
-                </li>
-              )
-            })}
-          </ul>
+        <div className="drawer-scroll" ref={findingsRef} {...panelProps('findings')}>
+          {findings.length === 0 ? (
+            <p className="empty-state"><Icon name="circle-check" className="empty-ok" /> {t('editor.noFindings')}</p>
+          ) : (
+            <>
+              <div className="filter-chips" role="group" aria-label={t('editor.filter.label')}>
+                <button type="button" aria-pressed={filterSev === null} className={filterSev === null ? 'chip active' : 'chip'} onClick={() => setFilterSev(null)}>
+                  {t('editor.filter.all')} ({number(findings.length)})
+                </button>
+                {SEVERITIES.map((sev) => (
+                  <button
+                    key={sev}
+                    type="button"
+                    aria-pressed={filterSev === sev}
+                    className={'chip sev-' + sev + (filterSev === sev ? ' active' : '')}
+                    onClick={() => setFilterSev(filterSev === sev ? null : sev)}
+                  >
+                    <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(severityCounts[sev])})
+                  </button>
+                ))}
+              </div>
+              {visible.length === 0 ? (
+                <p className="empty-state">
+                  {t('editor.filter.none', { severity: t('report.severity.' + filterSev) })}{' '}
+                  <button type="button" className="btn" onClick={() => setFilterSev(null)}>{t('editor.filter.showAll')}</button>
+                </p>
+              ) : (
+                <div className="finding-list">
+                  {hasNameFindings && <p className="name-key">{t('report.nameKey')}</p>}
+                  {visible.map(({ f, i }) => {
+                    const at = lineOf(f)
+                    return (
+                      <FindingCard
+                        key={i}
+                        index={i}
+                        tabIndex={-1}
+                        finding={f}
+                        line={at}
+                        onLine={at === undefined ? undefined : () => jumpTo(at)}
+                        lineAction={at === undefined ? undefined : t('editor.showLine', { line: number(at) })}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </dialog>

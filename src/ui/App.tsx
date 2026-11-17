@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useReducer, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { ProjectAnalysis } from '../core/model'
 import { LangContext, useT, useNumber, type Lang } from './i18n'
 import { ThemeToggles } from './ThemeToggles'
@@ -7,28 +8,46 @@ import Canvas from './canvas/Canvas'
 import EditorDrawer from './editor/EditorDrawer'
 import Report from './report/Report'
 import Rules from './rules/Rules'
-
-type View = 'map' | 'report' | 'rules'
+import { initialNav, navReducer } from './shared/selection'
 
 function Shell() {
   const t = useT()
   const number = useNumber()
   const [analysis, setAnalysis] = useState<ProjectAnalysis | null>(null)
-  const [view, setView] = useState<View>('map')
-  const [selected, setSelected] = useState<string | null>(null)
-  // bumped on every jump so clicking the same row twice re-centers the node
-  const [focus, setFocus] = useState<{ path: string; nonce: number } | null>(null)
+  const [{ view, selection }, dispatch] = useReducer(navReducer, initialNav)
+  const setView = (next: typeof view) => dispatch({ type: 'view', view: next })
+  // where focus goes back after the editor closes: the opener in the view it came from
+  const [returnTo, setReturnTo] = useState<{ path: string; from: 'map' | 'report' } | null>(null)
 
-  const openOnMap = (path: string) => {
-    setSelected(path)
-    setFocus((f) => ({ path, nonce: (f?.nonce ?? 0) + 1 }))
-    setView('map')
-  }
+  useEffect(() => {
+    if (!returnTo) return
+    const selector = returnTo.from === 'report'
+      ? `.report [data-bot="${CSS.escape(returnTo.path)}"]`
+      : `.react-flow__node[data-id="${CSS.escape(returnTo.path)}"]`
+    // the report keeps its own focus (the dialog restores it to the opener); only fill in when focus was lost
+    const focused = document.activeElement
+    if (!focused || focused === document.body) document.querySelector<HTMLElement>(selector)?.focus()
+    setReturnTo(null)
+  }, [returnTo])
 
-  const exportPdf = () => {
-    setView('report')
-    setTimeout(() => window.print(), 100)
-  }
+  // Export PDF and Ctrl+P from any view print the report, with the zip names and date as the PDF file name
+  useEffect(() => {
+    if (!analysis) return
+    let title = document.title
+    const before = () => {
+      title = document.title
+      flushSync(() => dispatch({ type: 'view', view: 'report' }))
+      const names = analysis.zipNames.map((n) => n.replace(/\.zip$/i, '')).join(', ')
+      document.title = `Themis - ${names} - ${new Date().toISOString().slice(0, 10)}`
+    }
+    const after = () => { document.title = title }
+    window.addEventListener('beforeprint', before)
+    window.addEventListener('afterprint', after)
+    return () => {
+      window.removeEventListener('beforeprint', before)
+      window.removeEventListener('afterprint', after)
+    }
+  }, [analysis])
 
   return (
     <div className="app">
@@ -69,11 +88,10 @@ function Shell() {
                 {number(analysis.projectScore.score)} · {analysis.projectScore.grade}
               </span>
             </span>
-            <button className="btn primary" onClick={exportPdf}>{t('header.export')}</button>
+            <button className="btn primary" onClick={() => window.print()}>{t('header.export')}</button>
             <button className="btn" onClick={() => {
               setAnalysis(null)
-              setSelected(null)
-              setView('map')
+              dispatch({ type: 'reset' })
             }}>{t('header.reset')}</button>
           </div>
         )}
@@ -84,13 +102,26 @@ function Shell() {
       {view === 'rules' && <Rules analysis={analysis} />}
       {analysis && (
         <div className="canvas-wrap no-print" hidden={view !== 'map'}>
-          <Canvas analysis={analysis} onSelect={setSelected} focus={focus} />
-          {view === 'map' && selected && (
-            <EditorDrawer analysis={analysis} botPath={selected} onClose={() => setSelected(null)} />
-          )}
+          <Canvas analysis={analysis} onSelect={(path) => dispatch({ type: 'open', path, from: 'map' })} />
         </div>
       )}
-      {analysis && view === 'report' && <Report analysis={analysis} onSelectBot={openOnMap} />}
+      {analysis && view === 'report' && (
+        <Report analysis={analysis} onOpen={(path, line) => dispatch({ type: 'open', path, from: 'report', line })} />
+      )}
+      {analysis && selection && (
+        <EditorDrawer
+          // a new open (other bot, other line) starts a fresh editor
+          key={selection.path + ':' + (selection.line ?? '')}
+          analysis={analysis}
+          botPath={selection.path}
+          from={selection.from}
+          line={selection.line}
+          onClose={() => {
+            setReturnTo({ path: selection.path, from: selection.from })
+            dispatch({ type: 'close' })
+          }}
+        />
+      )}
     </div>
   )
 }
