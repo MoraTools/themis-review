@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { LangContext, useT, useNumber, type Lang } from './i18n'
 import { ThemeToggles } from './ThemeToggles'
+import { Icon, SeverityIcon } from './Icons'
 import DropZone, { useBusyText, useUpload } from './DropZone'
 import Canvas from './canvas/Canvas'
 import EditorDrawer from './editor/EditorDrawer'
@@ -103,14 +104,21 @@ function Shell() {
                 {number(analysis.projectScore.score)} · {analysis.projectScore.grade}
               </span>
             </span>
-            <button className="btn primary" onClick={() => window.print()}>{t('header.export')}</button>
-            <button
-              ref={newButton}
-              className="btn"
-              disabled={upload.busy > 0}
-              aria-busy={upload.busy > 0}
-              onClick={() => fileInput.current?.click()}
-            >{t('header.reset')}</button>
+            {/* at 480px and below these show only their icon */}
+            <div className="header-tools">
+              <button className="btn primary" aria-label={t('header.export')} title={t('header.export')} onClick={() => window.print()}>
+                <Icon name="download" /><span className="btn-label">{t('header.export')}</span>
+              </button>
+              <button
+                ref={newButton}
+                className="btn"
+                aria-label={t('header.reset')}
+                title={t('header.reset')}
+                disabled={upload.busy > 0}
+                aria-busy={upload.busy > 0}
+                onClick={() => fileInput.current?.click()}
+              ><Icon name="plus" /><span className="btn-label">{t('header.reset')}</span></button>
+            </div>
           </div>
         )}
         <ThemeToggles />
@@ -119,9 +127,10 @@ function Shell() {
       {analysis && (
         <div className="upload-bar no-print">
           <div className="upload-status" role="status">{upload.busy > 0 && <p>{busyText(upload.busy)}</p>}</div>
-          {upload.error && (
-            <p className="error" role="alert">{t('drop.error.' + upload.error.kind, { name: upload.error.name })}</p>
-          )}
+          {/* always rendered, so the alert region exists before the message */}
+          <p className="error" role="alert">
+            {upload.error && <><SeverityIcon severity="error" />{t('drop.error.' + upload.error.kind, { name: upload.error.name })}</>}
+          </p>
         </div>
       )}
 

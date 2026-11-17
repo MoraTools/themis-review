@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState, type RefObject } from 'react'
 import type { ProjectAnalysis } from '../core/model'
 import { HERO_PHRASES, LangContext, useT } from './i18n'
+import { SeverityIcon } from './Icons'
 import heroArt from './assets/themis-dither-square.png'
 
 export function analyzeInWorker(
@@ -168,7 +169,10 @@ export default function DropZone({ busy, error, onPick, onFiles, buttonRef }: {
           </div>
       </div>
       <div className="upload-status" role="status">{busy > 0 && <p>{busyText(busy)}</p>}</div>
-      {error && <p className="error" role="alert">{t('drop.error.' + error.kind, { name: error.name })}</p>}
+      {/* the line is reserved even when empty, so the hero does not move when an error appears */}
+      <p className="error drop-error" role="alert">
+        {error && <><SeverityIcon severity="error" />{t('drop.error.' + error.kind, { name: error.name })}</>}
+      </p>
       <footer className="credit">{t('credit')}</footer>
     </div>
   )

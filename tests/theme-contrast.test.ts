@@ -66,17 +66,38 @@ for (const theme of ['light', 'dark']) {
       }
     })
     it('keeps map lines, node borders and rail text readable', () => {
+      const surfaces = ['--rail', '--bg', '--surface', '--surface-raised', '--surface-strong', '--field-bg']
       const pairs: [string, string[], number][] = [
         ['--edge-call', ['--bg', '--surface', '--surface-raised'], 3],
-        ['--border-strong', ['--bg', '--surface'], 3],
+        ['--border-strong', surfaces, 3],
         ['--warn', ['--rail', '--bg', '--surface'], 4.5],
+        ['--grade-b', ['--rail', '--surface-strong'], 4.5],
         ['--grade-d', ['--rail'], 4.5],
-        ['--grade-f', ['--rail'], 4.5],
+        ['--grade-f', ['--rail', '--surface-strong'], 4.5],
       ]
+      const rows = []
       for (const [fg, grounds, min] of pairs) for (const bg of grounds) {
         const ratio = contrast(resolve(values[fg], values), resolve(values[bg], values))
+        rows.push({ fg, bg, ratio: ratio.toFixed(2) })
         expect(ratio, `${theme} ${fg} on ${bg}`).toBeGreaterThanOrEqual(min)
       }
+      console.table(rows)
+    })
+    it('keeps the D and F grade chips readable on their tinted node heads', () => {
+      for (const grade of ['D', 'F']) {
+        const tint = css.match(new RegExp(`\\.tb-node\\.g-${grade} \\.tb-head, \\.tb-node\\.compact\\.g-${grade} \\{ background: ([^;]+); \\}`))![1]
+        const ratio = contrast(resolve(values[`--grade-${grade.toLowerCase()}`], values), resolve(tint, values))
+        expect(ratio, `${theme} grade ${grade} on its tint`).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+    it('draws the call handle and the legend call swatch with the call edge token', () => {
+      expect(css).toMatch(/\.call-handle \{[^}]*background: var\(--edge-call\)/)
+      expect(css).toMatch(/\.leg-call \{[^}]*background: var\(--edge-call\)/)
+    })
+    it('keeps the system dark block equal to the explicit dark block', () => {
+      if (theme !== 'dark') return
+      const system = tokens(css.match(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme\]\) \{([^}]+)\}/)![1])
+      expect(system).toEqual(values)
     })
     it('draws F at least as strong as D: not lighter, and in dark not less saturated', () => {
       const [, , , d, f] = colors.map(toLab)
