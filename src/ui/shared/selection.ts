@@ -5,11 +5,15 @@ export type View = 'map' | 'report' | 'rules'
 /** the taskbot open in the editor, where it was opened from, and an optional line to show */
 export type Selection = { path: string; from: 'map' | 'report'; line?: number }
 
-export type NavState = { view: View; selection: Selection | null }
+/** a request for the map to center and select a node; a new nonce asks again for the same path */
+export type MapFocus = { path: string; nonce: number }
+
+export type NavState = { view: View; selection: Selection | null; mapFocus?: MapFocus }
 
 export type NavAction =
   | { type: 'open'; path: string; from: Selection['from']; line?: number }
   | { type: 'close' }
+  | { type: 'showOnMap'; path: string }
   | { type: 'view'; view: View }
   | { type: 'reset' }
 
@@ -18,10 +22,12 @@ export const initialNav: NavState = { view: 'map', selection: null }
 export function navReducer(state: NavState, action: NavAction): NavState {
   switch (action.type) {
     case 'open':
-      return { view: action.from, selection: { path: action.path, from: action.from, line: action.line } }
+      return { ...state, view: action.from, selection: { path: action.path, from: action.from, line: action.line } }
     case 'close':
       // the editor returns to the view it was opened from
-      return state.selection ? { view: state.selection.from, selection: null } : state
+      return state.selection ? { ...state, view: state.selection.from, selection: null } : state
+    case 'showOnMap':
+      return { view: 'map', selection: null, mapFocus: { path: action.path, nonce: (state.mapFocus?.nonce ?? 0) + 1 } }
     case 'view':
       return { ...state, view: action.view }
     case 'reset':

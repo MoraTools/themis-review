@@ -186,11 +186,15 @@ function Shell() {
           key={selection.path + ':' + (selection.line ?? '')}
           analysis={analysis}
           botPath={selection.path}
-          from={selection.from}
           line={selection.line}
           onClose={() => {
             setReturnTo({ path: selection.path, from: selection.from })
             dispatch({ type: 'close' })
+          }}
+          onShowOnMap={() => {
+            // the map centers and selects the node from nav.mapFocus; focus goes to the node
+            setReturnTo({ path: selection.path, from: 'map' })
+            dispatch({ type: 'showOnMap', path: selection.path })
           }}
         />
       )}

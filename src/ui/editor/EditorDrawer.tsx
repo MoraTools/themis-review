@@ -1,17 +1,28 @@
 import { ThemeToggles } from '../ThemeToggles'
 import { Icon, SeverityIcon } from '../Icons'
-import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
-import { isComment, type Action, type Finding, type ProjectAnalysis, type Severity } from '../../core/model'
+import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react'
+import { flushSync } from 'react-dom'
+import { isComment, type Action, type Finding, type ProjectAnalysis } from '../../core/model'
 import { isMessageBox } from '../../core/rules/messagebox'
-import { LangContext, useT, useNumber } from '../i18n'
+import { capGroup } from '../../core/score'
+import { LangContext, useT, useNumber, usePlural } from '../i18n'
 import { typeColor } from '../canvas/nodeTypes'
 import { describeAction, glyphFor, GLYPH_PATH } from './describe'
 import { Name } from '../shared/Name'
-import { FindingCard } from '../findings/FindingCard'
-import { compareFindings, findingLine, SEVERITIES, severityCounts as countSeverities } from '../findings/findings'
+import { Grade } from '../shared/Grade'
+import { FindingCard, FindingGroupCard, PointsLost } from '../findings/FindingCard'
+import { compareFindings, findingLine, groupFindings, lostPoints, severityCounts as countSeverities } from '../findings/findings'
+import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 
 type Tab = 'code' | 'vars' | 'findings'
 const TABS: Tab[] = ['code', 'vars', 'findings']
+/** the editor filter is its own: it starts with every severity on */
+const ALL_ON: SeverityOn = { error: true, warn: true, info: true }
+
+/** the tab the editor opens on: the findings, unless a line is asked for or there is nothing to show */
+export function initialTab(line: number | undefined, findingCount: number): Tab {
+  return line === undefined && findingCount > 0 ? 'findings' : 'code'
+}
 
 function ActionGlyph({ action }: { action: Action }) {
   return (
@@ -24,19 +35,20 @@ function ActionGlyph({ action }: { action: Action }) {
 export default function EditorDrawer({
   analysis,
   botPath,
-  from,
   line,
   onClose,
+  onShowOnMap,
 }: {
   analysis: ProjectAnalysis
   botPath: string
-  /** opened from the report: start on the Findings tab when there are findings */
-  from: 'map' | 'report'
   /** open the Code tab at this line */
   line?: number
   onClose: () => void
+  /** close the editor and show this taskbot's node on the map */
+  onShowOnMap: () => void
 }) {
   const t = useT()
+  const plural = usePlural()
   const { lang } = useContext(LangContext)
   const number = useNumber()
   const bot = analysis.taskbots.find((b) => b.path === botPath)
@@ -44,13 +56,13 @@ export default function EditorDrawer({
     () => analysis.findings.filter((f) => f.botPath === botPath).sort(compareFindings),
     [analysis, botPath],
   )
-  const [tab, setTab] = useState<Tab>(() =>
-    line === undefined && from === 'report' && findings.length ? 'findings' : 'code',
-  )
-  const [filterSev, setFilterSev] = useState<Severity | null>(null)
+  const [tab, setTab] = useState<Tab>(() => initialTab(line, findings.length))
+  const [sevOn, setSevOn] = useState<SeverityOn>(ALL_ON)
   const [flashLine, setFlashLine] = useState<number | null>(line ?? null)
-  // index (in `findings`) of the card to show after a code flag opens the Findings tab
+  // index (in `findings`) of the card to show after a Variables flag opens the Findings tab
   const [focusFinding, setFocusFinding] = useState<number | null>(null)
+  // the code line whose findings show inline under it
+  const [openLine, setOpenLine] = useState<number | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const codeListRef = useRef<HTMLOListElement>(null)
   const findingsRef = useRef<HTMLDivElement>(null)
@@ -83,7 +95,7 @@ export default function EditorDrawer({
 
   useEffect(() => {
     if (tab !== 'findings' || focusFinding === null) return
-    const el = findingsRef.current?.querySelector<HTMLElement>(`[data-finding="${focusFinding}"]`)
+    const el = findingsRef.current?.querySelector<HTMLElement>(`[data-finding~="${focusFinding}"] > article`)
     el?.scrollIntoView({ block: 'center' })
     el?.focus()
     setFocusFinding(null)
@@ -93,6 +105,8 @@ export default function EditorDrawer({
     const dialog = dialogRef.current
     if (!dialog) return
     dialog.showModal()
+    // focus starts on the selected tab, so the arrow keys work at once
+    tabRefs.current[tab]?.focus()
     return () => {
       if (dialog.open) dialog.close()
     }
@@ -110,7 +124,8 @@ export default function EditorDrawer({
   }
 
   const showFinding = (index: number) => {
-    if (filterSev && findings[index].severity !== filterSev) setFilterSev(null)
+    const sev = findings[index].severity
+    setSevOn((on) => (on[sev] ? on : { ...on, [sev]: true }))
     setFocusFinding(index)
     setTab('findings')
   }
@@ -139,10 +154,34 @@ export default function EditorDrawer({
     className: tab === id ? 'tab active' : 'tab',
     onClick: () => setTab(id),
   })
-  const panelProps = (id: Tab) => ({ id: 'editor-panel-' + id, role: 'tabpanel', 'aria-labelledby': 'editor-tab-' + id })
+  // always rendered, so every tab's aria-controls has its panel
+  const panelProps = (id: Tab) => ({
+    id: 'editor-panel-' + id,
+    role: 'tabpanel',
+    tabIndex: 0,
+    hidden: tab !== id,
+    'aria-labelledby': 'editor-tab-' + id,
+  })
 
-  const visible = findings.map((f, i) => ({ f, i })).filter(({ f }) => !filterSev || f.severity === filterSev)
-  const hasNameFindings = visible.some(({ f }) => f.ruleId === 'VAR_NAME_FORMAT')
+  const visible = findings.filter((f) => sevOn[f.severity])
+  const hasNameFindings = visible.some((f) => f.ruleId === 'VAR_NAME_FORMAT')
+  // a card's id comes from its first finding, so it stays the same when the filter changes
+  const cardId = (f: Finding) => 'editor-finding-' + findings.indexOf(f)
+  const entries = groupFindings(visible)
+  const lost = lostPoints(findings)
+  const firstOfFamily = (group: string) => findings.find((f) => capGroup(f.ruleId) === group)
+  // a Points lost item opens the Findings tab (with its severity on) before PointsLost scrolls to the card
+  const openLost = (event: MouseEvent) => {
+    const li = (event.target as Element).closest('.report-lost-list > li')
+    const first = li && firstOfFamily(lost[[...li.parentElement!.children].indexOf(li)].group)
+    if (!first) return
+    flushSync(() => {
+      setSevOn((on) => ({ ...on, [first.severity]: true }))
+      setTab('findings')
+    })
+  }
+  const lastLine = bot.actions.at(-1)?.line ?? 1
+  const lineAction = (at: number) => t('editor.showLine', { line: number(at) })
   // the opener (map node or report button) gets focus back in App once the view is restored
   const close = () => {
     dialogRef.current?.close()
@@ -156,18 +195,23 @@ export default function EditorDrawer({
       aria-labelledby="editor-title"
       onCancel={(event) => {
         event.preventDefault()
-        close()
+        // Escape first folds an inline finding, then closes the editor
+        if (openLine !== null) setOpenLine(null)
+        else close()
       }}
     >
       <div className="drawer-head">
         <div className="drawer-heading">
           <h1 className="drawer-title">
             <Name text={bot.name} className="drawer-name" id="editor-title" />{' '}
-            <span className={'tb-grade grade-' + score.grade}>{number(score.score)} · {score.grade}</span>
+            <Grade score={score} className="tb-grade" />
           </h1>
           <div className="drawer-sub">{bot.path}</div>
         </div>
         <ThemeToggles />
+        <button type="button" className="btn ghost drawer-map" onClick={onShowOnMap}>
+          {t('editor.showOnMap')}
+        </button>
         <button className="btn ghost" onClick={close}>
           <svg className="drawer-close-icon" viewBox="0 0 16 16" aria-hidden="true">
             <path d="m3 3 10 10M13 3 3 13" />
@@ -176,12 +220,17 @@ export default function EditorDrawer({
         </button>
       </div>
       <div className="drawer-stats">
-        <span>{number(metrics.totalLines)} {t('node.lines')}</span>
-        <span>{number(metrics.commentLines)} {t('node.comments')}</span>
-        <span>{number(metrics.logMessages)} {t('node.logs')}</span>
-        <span>{number(metrics.variables)} {t('node.vars')}</span>
-        <span>{t('editor.packages')}: {number(bot.packages.length)}</span>
+        <span>{plural('node.lines', metrics.totalLines)}</span>
+        <span>{plural('node.comments', metrics.commentLines)}</span>
+        <span>{plural('node.logs', metrics.logMessages)}</span>
+        <span>{plural('node.vars', metrics.variables)}</span>
+        <span>{plural('node.packages', bot.packages.length)}</span>
       </div>
+      {lost.length > 0 && (
+        <div className="drawer-lost" onClickCapture={openLost}>
+          <PointsLost lost={lost} targetOf={(g) => { const f = firstOfFamily(g); return f && cardId(f) }} />
+        </div>
+      )}
       <div className="tabs small" role="tablist" aria-labelledby="editor-title" onKeyDown={onTabKey}>
         <button {...tabProps('code')}>
           {t('editor.actions')} ({number(metrics.totalLines)})
@@ -194,10 +243,14 @@ export default function EditorDrawer({
         </button>
       </div>
 
-      {tab === 'code' && (
-        <ol className="code-list" ref={codeListRef} {...panelProps('code')}>
+      <div className="code-panel" {...panelProps('code')}>
+        <ol className="code-list" ref={codeListRef}>
           {bot.actions.map((a) => {
             const fs = byLine.get(a.line) ?? []
+            // findings are sorted severity first, so the first one is the worst of the line
+            const worst = fs.length ? findings[fs[0]] : undefined
+            const open = openLine === a.line && worst !== undefined
+            const msgs = fs.map((i) => t(`rule.${findings[i].ruleId}.msg`, findings[i].params)).join(' · ')
             const cls = [
               'code-line',
               isComment(a) ? 'comment' : '',
@@ -220,23 +273,51 @@ export default function EditorDrawer({
                   <span className="code-label">{describeAction(a, lang)}</span>
                   {(a.disabled || !a.reachable) && <span className="code-off">{t('editor.disabled')}</span>}
                 </span>
-                {fs.map((i) => {
-                  const f = findings[i]
-                  const msg = t(`rule.${f.ruleId}.msg`, f.params)
-                  return (
-                    <button key={i} type="button" className="code-flag" aria-label={msg} title={msg} onClick={() => showFinding(i)}>
-                      <SeverityIcon severity={f.severity} />
+                {/* every row keeps the flag cell, so all rows end at the same x */}
+                <span className="code-flag-cell">
+                  {worst && (
+                    <button
+                      type="button"
+                      className="code-flag"
+                      aria-label={msgs}
+                      title={msgs}
+                      aria-expanded={open}
+                      onClick={() => setOpenLine(open ? null : a.line)}
+                    >
+                      <SeverityIcon severity={worst.severity} />
                     </button>
-                  )
-                })}
+                  )}
+                </span>
+                {open && (
+                  <div className="code-inline">
+                    {fs.map((i) => (
+                      <FindingCard key={i} finding={findings[i]} />
+                    ))}
+                  </div>
+                )}
               </li>
             )
           })}
         </ol>
-      )}
+        {byLine.size > 0 && (
+          // a pointer overview only: keyboard and screen-reader users have the full-size flags in each row
+          <div className="code-rail no-print" aria-hidden="true">
+            {[...byLine].map(([at, fs]) => (
+              <button
+                key={at}
+                type="button"
+                tabIndex={-1}
+                className={'code-tick sev-' + findings[fs[0]].severity}
+                style={{ top: ((at - 1) / lastLine) * 100 + '%' }}
+                title={lineAction(at)}
+                onClick={() => jumpTo(at)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-      {tab === 'vars' && (
-        <div className="drawer-scroll" {...panelProps('vars')}>
+      <div className="drawer-scroll" {...panelProps('vars')}>
         <table className="var-table">
           <thead>
             <tr>
@@ -244,7 +325,7 @@ export default function EditorDrawer({
               <th>{t('editor.var.type')}</th>
               <th>{t('editor.var.io')}</th>
               <th>{t('editor.var.desc')}</th>
-              <th />
+              <th>{t('editor.findings')}</th>
             </tr>
           </thead>
           <tbody>
@@ -252,77 +333,76 @@ export default function EditorDrawer({
               const fs = byVar.get(v.name) ?? []
               return (
                 <tr key={v.name} className={fs.length ? 'has-findings' : ''}>
+                  <td>{v.name}</td>
                   <td>
-                    <span className="tb-var-dot" style={{ background: typeColor(v.type) }} /> {v.name}
+                    <span className="tb-var-dot" style={{ background: typeColor(v.type) }} aria-hidden="true" /> {v.type}
                   </td>
-                  <td>{v.type}</td>
                   <td>{v.input && v.output ? t('editor.var.both') : v.input ? t('editor.var.in') : v.output ? t('editor.var.out') : v.readOnly ? t('editor.var.const') : '—'}</td>
                   <td className="var-desc">{v.description || '—'}</td>
                   <td>
-                    {fs.map((f, i) => (
-                      <span key={i} title={t(`rule.${f.ruleId}.msg`, f.params)}>
-                        <SeverityIcon severity={f.severity} />
-                      </span>
-                    ))}
+                    {fs.map((f) => {
+                      const msg = t(`rule.${f.ruleId}.msg`, f.params)
+                      const index = findings.indexOf(f)
+                      return (
+                        <button key={index} type="button" className="code-flag" aria-label={msg} title={msg} onClick={() => showFinding(index)}>
+                          <SeverityIcon severity={f.severity} />
+                        </button>
+                      )
+                    })}
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
-        </div>
-      )}
+      </div>
 
-      {tab === 'findings' && (
-        <div className="drawer-scroll" ref={findingsRef} {...panelProps('findings')}>
-          {findings.length === 0 ? (
-            <p className="empty-state"><Icon name="circle-check" className="empty-ok" /> {t('editor.noFindings')}</p>
-          ) : (
-            <>
-              <div className="filter-chips" role="group" aria-label={t('editor.filter.label')}>
-                <button type="button" aria-pressed={filterSev === null} className={filterSev === null ? 'chip active' : 'chip'} onClick={() => setFilterSev(null)}>
-                  {t('editor.filter.all')} ({number(findings.length)})
-                </button>
-                {SEVERITIES.map((sev) => (
-                  <button
-                    key={sev}
-                    type="button"
-                    aria-pressed={filterSev === sev}
-                    className={'chip sev-' + sev + (filterSev === sev ? ' active' : '')}
-                    onClick={() => setFilterSev(filterSev === sev ? null : sev)}
-                  >
-                    <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(severityCounts[sev])})
-                  </button>
-                ))}
+      <div className="drawer-scroll" ref={findingsRef} {...panelProps('findings')}>
+        {findings.length === 0 ? (
+          <p className="empty-state"><Icon name="circle-check" className="empty-ok" /> {t('editor.noFindings')}</p>
+        ) : (
+          <>
+            <div className="report-options editor-filter" role="group" aria-label={t('editor.filter.label')}>
+              <SeverityFilter
+                label={t('editor.filter.title')}
+                counts={severityCounts}
+                on={sevOn}
+                onToggle={(sev) => setSevOn((on) => ({ ...on, [sev]: !on[sev] }))}
+              />
+            </div>
+            {visible.length === 0 ? (
+              <p className="empty-state">
+                {t('editor.filter.empty')}{' '}
+                <button type="button" className="btn" onClick={() => setSevOn(ALL_ON)}>{t('editor.filter.showAll')}</button>
+              </p>
+            ) : (
+              <div className="finding-list">
+                {hasNameFindings && <p className="name-key">{t('report.nameKey')}</p>}
+                {entries.map((e) => {
+                  const list = e.kind === 'group' ? e.findings : [e.finding]
+                  const at = lineOf(list[0])
+                  // data-finding lists every finding of the card, so a Variables flag finds its card inside a group
+                  return (
+                    <div key={cardId(list[0])} data-finding={list.map((f) => findings.indexOf(f)).join(' ')}>
+                      {e.kind === 'group' ? (
+                        <FindingGroupCard id={cardId(list[0])} findings={list} lineOf={lineOf} onLine={jumpTo} lineAction={lineAction} />
+                      ) : (
+                        <FindingCard
+                          id={cardId(e.finding)}
+                          finding={e.finding}
+                          line={at}
+                          onLine={at === undefined ? undefined : () => jumpTo(at)}
+                          lineAction={at === undefined ? undefined : lineAction(at)}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-              {visible.length === 0 ? (
-                <p className="empty-state">
-                  {t('editor.filter.none', { severity: t('report.severity.' + filterSev) })}{' '}
-                  <button type="button" className="btn" onClick={() => setFilterSev(null)}>{t('editor.filter.showAll')}</button>
-                </p>
-              ) : (
-                <div className="finding-list">
-                  {hasNameFindings && <p className="name-key">{t('report.nameKey')}</p>}
-                  {visible.map(({ f, i }) => {
-                    const at = lineOf(f)
-                    return (
-                      <FindingCard
-                        key={i}
-                        index={i}
-                        tabIndex={-1}
-                        finding={f}
-                        line={at}
-                        onLine={at === undefined ? undefined : () => jumpTo(at)}
-                        lineAction={at === undefined ? undefined : t('editor.showLine', { line: number(at) })}
-                      />
-                    )
-                  })}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+            )}
+          </>
+        )}
+      </div>
     </dialog>
   )
 }
