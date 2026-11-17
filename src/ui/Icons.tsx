@@ -62,9 +62,16 @@ const paths = {
   'arrow-up': <><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></>,
   'arrow-down': <><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></>,
   'x': <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>,
+  'message-square': <><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></>,
+  'scroll-text': <><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></>,
+  'braces': <><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></>,
+  'app-window': <><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></>,
+  'minimize-2': <><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></>,
 }
 
-export function Icon({ name, className = '' }: { name: keyof typeof paths; className?: string }) {
+export type IconName = keyof typeof paths
+
+export function Icon({ name, className = '' }: { name: IconName; className?: string }) {
   return <svg className={'icon ' + className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
 

@@ -65,6 +65,25 @@ for (const theme of ['light', 'dark']) {
         expect(distance, `${theme} grades ${grades[i]}/${grades[j]}`).toBeGreaterThan(0.04)
       }
     })
+    it('keeps map lines, node borders and rail text readable', () => {
+      const pairs: [string, string[], number][] = [
+        ['--edge-call', ['--bg', '--surface', '--surface-raised'], 3],
+        ['--border-strong', ['--bg', '--surface'], 3],
+        ['--warn', ['--rail', '--bg', '--surface'], 4.5],
+        ['--grade-d', ['--rail'], 4.5],
+        ['--grade-f', ['--rail'], 4.5],
+      ]
+      for (const [fg, grounds, min] of pairs) for (const bg of grounds) {
+        const ratio = contrast(resolve(values[fg], values), resolve(values[bg], values))
+        expect(ratio, `${theme} ${fg} on ${bg}`).toBeGreaterThanOrEqual(min)
+      }
+    })
+    it('draws F at least as strong as D: not lighter, and in dark not less saturated', () => {
+      const [, , , d, f] = colors.map(toLab)
+      expect(f[0], `${theme} F lightness`).toBeLessThanOrEqual(d[0])
+      // light F is darker than D at the same chroma; dark F was the pale one
+      if (theme === 'dark') expect(Math.hypot(f[1], f[2]), `${theme} F chroma`).toBeGreaterThanOrEqual(Math.hypot(d[1], d[2]))
+    })
     it('uses the light tokens for print, on a white page', () => {
       if (theme !== 'light') return
       const print = tokens(css.match(/@media print \{\s*:root, :root\[data-theme\] \{([^}]+)\}/)![1])
