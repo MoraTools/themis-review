@@ -25,6 +25,7 @@ function Head({ severity, ruleId, children }: { severity: Severity; ruleId: stri
       <span className={'severity-chip sev-' + severity}>
         <SeverityIcon severity={severity} /> {t('report.severity.' + severity)}
       </span>
+      <span className="finding-title">{t(`rule.${ruleId}.title`)}</span>
       {children}
       <code className="finding-rule">{ruleId}</code>
     </div>

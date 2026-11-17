@@ -55,7 +55,8 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
     }))
     const value = (r: (typeof list)[number]): string | number => {
       switch (sort.col) {
-        case 'id': return r.id
+        // the Rule column shows the title first, so it sorts by title
+        case 'id': return t(`rule.${r.id}.title`)
         case 'severity': return SEV_ORDER[r.severity]
         case 'category': return r.category
         case 'fired': return r.fired
@@ -68,7 +69,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
       const cmp = typeof x === 'string' ? x.localeCompare(String(y)) : (x as number) - (y as number)
       return cmp * sort.dir || a.id.localeCompare(b.id)
     })
-  }, [sort, stats])
+  }, [sort, stats, t])
 
   const toggleSort = (col: SortCol) => setSort((s) => ({ col, dir: s.col === col && s.dir === 1 ? -1 : 1 }))
   const categories = [...new Set(RULES.map((r) => r.category))] as RuleCategory[]
@@ -81,9 +82,9 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
 
   return (
     <div className="report rules-view">
-      <header className="report-head">
+      <div className="report-head">
         <h1>{t('rules.title')}</h1>
-      </header>
+      </div>
       <p className="report-meta">
         {number(RULES.length)} {t('rules.count')}
         {analysis ? ` · ${t('rules.onUpload')}: ${analysis.zipNames.join(', ')}` : ` · ${t('rules.noUpload')}`}
@@ -143,16 +144,23 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td><code>{r.id}</code></td>
-                <td><SeverityIcon severity={r.severity} /> −{number(DEDUCTION[r.severity])}</td>
+                <td className="rules-name">
+                  <span className="rules-title">{t(`rule.${r.id}.title`)}</span> <code className="rules-id">{r.id}</code>
+                </td>
+                <td className="rules-sev"><SeverityIcon severity={r.severity} /> −{number(DEDUCTION[r.severity])}</td>
                 <td className="rules-text">{t('rules.cat.' + r.category)}</td>
-                <td>{r.fired ? number(r.fired) : '—'}</td>
-                <td title={sharedFamilies.has(r.capGroup) ? t('rules.sharedCap', { group: r.capGroup }) : undefined}>
+                <td className="rules-times" data-label={t('rules.col.fired')}>{r.fired ? number(r.fired) : '—'}</td>
+                <td className="rules-points" data-label={t('rules.col.deducted')}
+                  title={sharedFamilies.has(r.capGroup) ? t('rules.sharedCap', { group: r.capGroup }) : undefined}>
                   {r.deducted ? '−' + number(Math.round(r.deducted * 10) / 10) : '—'}
                   {sharedFamilies.has(r.capGroup) && r.deducted ? <span className="rules-shared">∑</span> : null}
                 </td>
-                <td className="rules-msg">{t(`rule.${r.id}.msg`, placeholders)}</td>
-                <td className="rules-msg">{t(`rule.${r.id}.fix`, placeholders)}</td>
+                <td className="rules-msg" data-label={t('rules.col.detects')}>{t(`rule.${r.id}.msg`, placeholders)}</td>
+                <td className="rules-msg" data-label={t('rules.col.fix')}>
+                  {t(`rule.${r.id}.fix`, placeholders)}
+                  {/* findings show only the rename, so the naming key lives here */}
+                  {r.id === 'VAR_NAME_FORMAT' && <span className="rules-key">{t('report.nameKey')}</span>}
+                </td>
               </tr>
             ))}
           </tbody>

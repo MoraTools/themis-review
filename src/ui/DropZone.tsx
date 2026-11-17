@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState, type RefObject } from 'react'
 import type { ProjectAnalysis } from '../core/model'
 import { HERO_PHRASES, LangContext, useT } from './i18n'
 import heroArt from './assets/themis-dither-square.png'
@@ -37,44 +37,91 @@ export function analyzeInWorker(
   })
 }
 
-export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalysis) => void }) {
+/** why an upload failed, with the file name(s) to show; translated as `drop.error.<kind>` */
+export type UploadError = { kind: 'notZip' | 'damaged' | 'noTaskbot' | 'failed'; name: string }
+
+/** read, check and analyze the chosen files; null when a newer upload aborted this one */
+export async function analyzeFiles(
+  files: File[],
+  signal?: AbortSignal,
+): Promise<{ analysis: ProjectAnalysis } | { error: UploadError } | null> {
+  const names = files.map((f) => f.name).join(', ')
+  try {
+    const zips: { name: string; data: Uint8Array }[] = []
+    for (const f of files) {
+      const data = new Uint8Array(await f.arrayBuffer())
+      // every ZIP starts with the "PK" signature
+      if (data[0] !== 0x50 || data[1] !== 0x4b) return { error: { kind: 'notZip', name: f.name } }
+      zips.push({ name: f.name, data })
+    }
+    if (signal?.aborted) return null
+    const analysis = await analyzeInWorker(zips, signal)
+    if (analysis.taskbots.length === 0) return { error: { kind: 'noTaskbot', name: names } }
+    return { analysis }
+  } catch {
+    if (signal?.aborted) return null
+    // the worker reports only the parser message: find the archive the parser rejects
+    try {
+      const { readZip } = await import('../core/zip')
+      for (const f of files) {
+        try {
+          readZip(f.name, new Uint8Array(await f.arrayBuffer()))
+        } catch {
+          return { error: { kind: 'damaged', name: f.name } }
+        }
+      }
+    } catch {
+      // the files cannot be read again: fall through to the general message
+    }
+    return { error: { kind: 'failed', name: names } }
+  }
+}
+
+/** one upload at a time: the number of files in progress (0 when idle) and the last error */
+export function useUpload(onAnalyzed: (a: ProjectAnalysis) => void) {
+  const [busy, setBusy] = useState(0)
+  const [error, setError] = useState<UploadError | null>(null)
+  const active = useRef<AbortController | null>(null)
+  useEffect(() => () => active.current?.abort(), [])
+
+  const run = async (files: File[]) => {
+    if (files.length === 0) return
+    active.current?.abort()
+    const controller = new AbortController()
+    active.current = controller
+    setError(null)
+    setBusy(files.length)
+    const result = await analyzeFiles(files, controller.signal)
+    if (controller.signal.aborted || !result) return
+    active.current = null
+    setBusy(0)
+    if ('analysis' in result) onAnalyzed(result.analysis)
+    else setError(result.error)
+  }
+  return { busy, error, run }
+}
+
+/** the "Analyzing N files…" text for a busy upload */
+export function useBusyText() {
   const t = useT()
+  return (n: number) => (n === 1 ? t('drop.busy.one') : t('drop.busy', { n: String(n) }))
+}
+
+export default function DropZone({ busy, error, onPick, onFiles, buttonRef }: {
+  busy: number
+  error: UploadError | null
+  onPick: () => void
+  onFiles: (files: File[]) => void
+  buttonRef: RefObject<HTMLButtonElement | null>
+}) {
+  const t = useT()
+  const busyText = useBusyText()
   const { lang } = useContext(LangContext)
   const [phraseIdx] = useState(() => Math.floor(Math.random() * HERO_PHRASES.en.length))
   const [drag, setDrag] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const activeAnalysis = useRef<AbortController | null>(null)
-
-  useEffect(() => () => activeAnalysis.current?.abort(), [])
-
-  const handleFiles = async (files: FileList | File[]) => {
-    activeAnalysis.current?.abort()
-    const controller = new AbortController()
-    activeAnalysis.current = controller
-    setError(null)
-    try {
-      const zips = await Promise.all(
-        [...files]
-          .filter((f) => f.name.toLowerCase().endsWith('.zip'))
-          .map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })),
-      )
-      if (controller.signal.aborted || zips.length === 0) return
-      const a = await analyzeInWorker(zips, controller.signal)
-      if (a.taskbots.length === 0) {
-        setError(t('drop.error'))
-        return
-      }
-      onAnalyzed(a)
-    } catch (e) {
-      if (!controller.signal.aborted) setError(String(e))
-    } finally {
-      if (activeAnalysis.current === controller) activeAnalysis.current = null
-    }
-  }
 
   return (
-    <main className="hero">
+    <div className="hero">
       <div className="hero-visual" aria-hidden="true">
         <img src={heroArt} alt="" />
       </div>
@@ -91,9 +138,9 @@ export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalys
         onDrop={(e) => {
           e.preventDefault()
           setDrag(false)
-          void handleFiles(e.dataTransfer.files)
+          if (!busy) onFiles([...e.dataTransfer.files])
         }}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => !busy && onPick()}
       >
           <div className="dropzone-tabs">
             <span className="dropzone-tab active">{t('drop.tab')}</span>
@@ -102,10 +149,13 @@ export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalys
             <span className="prompt" aria-hidden="true">$</span>
             <span className="dropzone-cmd">{t('drop.title')}</span>
             <button
+              ref={buttonRef}
               className="btn primary"
+              disabled={busy > 0}
+              aria-busy={busy > 0}
               onClick={(e) => {
                 e.stopPropagation()
-                inputRef.current?.click()
+                onPick()
               }}
             >
               <span className="btn-label">{t('drop.button')}</span>
@@ -117,16 +167,9 @@ export default function DropZone({ onAnalyzed }: { onAnalyzed: (a: ProjectAnalys
             </button>
           </div>
       </div>
-      {error && <p className="error">{error}</p>}
+      <div className="upload-status" role="status">{busy > 0 && <p>{busyText(busy)}</p>}</div>
+      {error && <p className="error" role="alert">{t('drop.error.' + error.kind, { name: error.name })}</p>}
       <footer className="credit">{t('credit')}</footer>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".zip"
-        multiple
-        hidden
-        onChange={(e) => e.target.files && void handleFiles(e.target.files)}
-      />
-    </main>
+    </div>
   )
 }

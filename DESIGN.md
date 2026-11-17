@@ -35,7 +35,7 @@ One gold is the approved suite theme. Preserve the existing upload, map, editor,
 
 `src/ui/styles.css` owns the palette. Warm graphite and marble grounds have separate rail, panel, raised, strong, and field surfaces. Use gold fill for primary actions, but `--accent-text` for readable links and text. Status colors indicate success, warning, error, and information. Use the shared named tokens, not inline colors.
 
-Grades use `color-mix(in oklab, ...)` tokens in both theme blocks. A is green, B blue, C bronze or amber, D orange, and F red or salmon. Each token passes 4.5:1 against the canvas and both report surfaces. The tests compute actual mixed colors and check separation. Print uses the light block on a white page, with distinct grades.
+Grades A to D use `color-mix(in oklab, ...)` tokens in both theme blocks: A is `--ok` 90% with `--text`, B `--info` 90%, C `--warn` 90%, and D `--crit` with `--warn` (dark 75%, light 55%, so light D stays orange). F is a literal hex in both blocks, not a color-mix: dark `#f0605a`, light `#a61b1b`. A is green, B blue, C bronze or amber, D orange, and F red. F is never lighter than D. Each token passes 4.5:1 against the canvas, both report surfaces, and `--rail`. The tests compute actual mixed colors and check separation. Print uses the light block on a white page, with distinct grades.
 
 Data-type tokens belong to the theme blocks. Use `var(--type-...)` from React Flow nodes, variables, and edges. Type labels remain present; do not use color alone to identify data.
 

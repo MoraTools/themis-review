@@ -1,23 +1,35 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import type { ProjectAnalysis } from '../core/model'
 import { LangContext, useT, useNumber, type Lang } from './i18n'
 import { ThemeToggles } from './ThemeToggles'
-import DropZone from './DropZone'
+import DropZone, { useBusyText, useUpload } from './DropZone'
 import Canvas from './canvas/Canvas'
 import EditorDrawer from './editor/EditorDrawer'
 import Report from './report/Report'
 import Rules from './rules/Rules'
-import { initialNav, navReducer } from './shared/selection'
+import { initialShell, shellReducer } from './shared/selection'
 
 function Shell() {
   const t = useT()
   const number = useNumber()
-  const [analysis, setAnalysis] = useState<ProjectAnalysis | null>(null)
-  const [{ view, selection }, dispatch] = useReducer(navReducer, initialNav)
+  const busyText = useBusyText()
+  const [{ analysis, nav: { view, selection } }, dispatch] = useReducer(shellReducer, initialShell)
   const setView = (next: typeof view) => dispatch({ type: 'view', view: next })
   // where focus goes back after the editor closes: the opener in the view it came from
   const [returnTo, setReturnTo] = useState<{ path: string; from: 'map' | 'report' } | null>(null)
+
+  // one file picker for "Choose files" and "New analysis"; the old analysis stays until a new one succeeds
+  const fileInput = useRef<HTMLInputElement>(null)
+  const chooseButton = useRef<HTMLButtonElement>(null)
+  const newButton = useRef<HTMLButtonElement>(null)
+  const upload = useUpload((next) => {
+    setReturnTo(null)
+    dispatch({ type: 'loaded', analysis: next })
+  })
+  // after a failed upload, focus goes back to the button that chooses files
+  useEffect(() => {
+    if (upload.error) (newButton.current ?? chooseButton.current)?.focus()
+  }, [upload.error])
 
   useEffect(() => {
     if (!returnTo) return
@@ -51,20 +63,22 @@ function Shell() {
 
   return (
     <div className="app">
+      <a className="skip-link no-print" href="#main">{t('skip.main')}</a>
       <header className="header no-print">
         <div className="brand">
           <span className="brand-name">Themis</span>
           <span className="brand-sub">Review</span>
         </div>
         <div className="header-zone header-left">
-          <nav className="tabs">
+          <nav className="tabs" aria-label={t('nav.views')}>
             {/* without an upload the map tab is the way back to the drop zone */}
-            <button className={view === 'map' ? 'tab active' : 'tab'} onClick={() => setView('map')}>
+            <button className={view === 'map' ? 'tab active' : 'tab'} aria-current={view === 'map' ? 'page' : undefined} onClick={() => setView('map')}>
               {analysis ? t('tab.map') : t('tab.upload')}
             </button>
             {analysis && (
               <button
                 className={view === 'report' ? 'tab active' : 'tab'}
+                aria-current={view === 'report' ? 'page' : undefined}
                 onClick={() => setView('report')}
               >
                 {t('tab.report')}
@@ -73,6 +87,7 @@ function Shell() {
             {/* the rule reference stands on its own, with or without an upload */}
             <button
               className={view === 'rules' ? 'tab active' : 'tab'}
+              aria-current={view === 'rules' ? 'page' : undefined}
               onClick={() => setView('rules')}
             >
               {t('tab.rules')}
@@ -89,25 +104,60 @@ function Shell() {
               </span>
             </span>
             <button className="btn primary" onClick={() => window.print()}>{t('header.export')}</button>
-            <button className="btn" onClick={() => {
-              setAnalysis(null)
-              dispatch({ type: 'reset' })
-            }}>{t('header.reset')}</button>
+            <button
+              ref={newButton}
+              className="btn"
+              disabled={upload.busy > 0}
+              aria-busy={upload.busy > 0}
+              onClick={() => fileInput.current?.click()}
+            >{t('header.reset')}</button>
           </div>
         )}
         <ThemeToggles />
       </header>
 
-      {!analysis && view !== 'rules' && <DropZone onAnalyzed={setAnalysis} />}
+      {analysis && (
+        <div className="upload-bar no-print">
+          <div className="upload-status" role="status">{upload.busy > 0 && <p>{busyText(upload.busy)}</p>}</div>
+          {upload.error && (
+            <p className="error" role="alert">{t('drop.error.' + upload.error.kind, { name: upload.error.name })}</p>
+          )}
+        </div>
+      )}
+
+      <main id="main" className="app-main" tabIndex={-1}>
+      {!analysis && view !== 'rules' && (
+        <DropZone
+          busy={upload.busy}
+          error={upload.error}
+          onPick={() => fileInput.current?.click()}
+          onFiles={(files) => void upload.run(files)}
+          buttonRef={chooseButton}
+        />
+      )}
       {view === 'rules' && <Rules analysis={analysis} />}
       {analysis && (
         <div className="canvas-wrap no-print" hidden={view !== 'map'}>
+          <h1 className="sr-only">{t('tab.map')}</h1>
           <Canvas analysis={analysis} onSelect={(path) => dispatch({ type: 'open', path, from: 'map' })} />
         </div>
       )}
       {analysis && view === 'report' && (
         <Report analysis={analysis} onOpen={(path, line) => dispatch({ type: 'open', path, from: 'report', line })} />
       )}
+      </main>
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".zip"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])]
+          e.target.value = '' // choosing the same file again still fires change
+          void upload.run(files)
+        }}
+      />
       {analysis && selection && (
         <EditorDrawer
           // a new open (other bot, other line) starts a fresh editor
