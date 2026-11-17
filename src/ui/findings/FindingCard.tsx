@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { useContext, type ReactNode } from 'react'
 import type { Finding, Severity } from '../../core/model'
 import { SeverityIcon } from '../Icons'
-import { useNumber, useT } from '../i18n'
+import { LangContext, useNumber, usePlural, useT } from '../i18n'
+import { groupLabel, groupTexts } from './findings'
 
 /** the place a finding cites: "Line N" (a button when it can be opened), else the variable name */
 function Where({ line, varName, onLine, lineAction }: { line?: number; varName?: string; onLine?: () => void; lineAction?: string }) {
@@ -18,7 +19,22 @@ function Where({ line, varName, onLine, lineAction }: { line?: number; varName?:
   )
 }
 
-function Head({ severity, ruleId, children }: { severity: Severity; ruleId: string; children?: ReactNode }) {
+/** the rule id; with onRule a screen-only button to the rule's row in the Rules view, plain text in print */
+function RuleId({ ruleId, onRule }: { ruleId: string; onRule?: (ruleId: string) => void }) {
+  const t = useT()
+  if (!onRule) return <code className="finding-rule">{ruleId}</code>
+  return (
+    <>
+      <button type="button" className="finding-rule finding-rule-link no-print" title={t('report.finding.openRule', { id: ruleId })}
+        aria-label={t('report.finding.openRule', { id: ruleId })} onClick={() => onRule(ruleId)}>
+        {ruleId}
+      </button>
+      <code className="finding-rule print-only">{ruleId}</code>
+    </>
+  )
+}
+
+function Head({ severity, ruleId, onRule, children }: { severity: Severity; ruleId: string; onRule?: (ruleId: string) => void; children?: ReactNode }) {
   const t = useT()
   return (
     <div className="finding-head">
@@ -27,24 +43,27 @@ function Head({ severity, ruleId, children }: { severity: Severity; ruleId: stri
       </span>
       <span className="finding-title">{t(`rule.${ruleId}.title`)}</span>
       {children}
-      <code className="finding-rule">{ruleId}</code>
+      <RuleId ruleId={ruleId} onRule={onRule} />
     </div>
   )
 }
 
 /** one finding: severity chip, where, rule id, message and a labelled fix. Shared by the editor and the report. */
-export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, index }: {
+export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, index, id, onRule }: {
   finding: Finding
   line?: number
   onLine?: () => void
   lineAction?: string
   tabIndex?: number
   index?: number
+  /** anchor for the Points lost links */
+  id?: string
+  onRule?: (ruleId: string) => void
 }) {
   const t = useT()
   return (
-    <article className={'finding-card sev-' + f.severity} tabIndex={tabIndex} data-finding={index}>
-      <Head severity={f.severity} ruleId={f.ruleId}>
+    <article id={id} className={'finding-card sev-' + f.severity} tabIndex={tabIndex ?? (id ? -1 : undefined)} data-finding={index}>
+      <Head severity={f.severity} ruleId={f.ruleId} onRule={onRule}>
         <Where line={line} varName={f.varName} onLine={onLine} lineAction={lineAction} />
       </Head>
       <p className="finding-msg">{t(`rule.${f.ruleId}.msg`, f.params)}</p>
@@ -53,16 +72,6 @@ export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, in
       </p>
     </article>
   )
-}
-
-/** params that are equal in every finding stay; the others read "…" in the shared message */
-function commonParams(findings: Finding[]): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const key of Object.keys(findings[0].params)) {
-    const value = findings[0].params[key]
-    out[key] = findings.every((f) => f.params[key] === value) ? value : '…'
-  }
-  return out
 }
 
 /** what one item of a group names: its variable, path, command or call target, plus the rename when there is one */
@@ -78,29 +87,34 @@ export function FindingGroupCard({
   lineOf,
   onLine,
   lineAction,
+  id,
+  onRule,
 }: {
   findings: Finding[]
   lineOf: (f: Finding) => number | undefined
   onLine?: (line: number) => void
   lineAction?: (line: number) => string
+  id?: string
+  onRule?: (ruleId: string) => void
 }) {
   const t = useT()
   const number = useNumber()
+  const plural = usePlural()
+  const { lang } = useContext(LangContext)
   const first = findings[0]
-  const params = commonParams(findings)
-  // the list shows each rename, so the fix needs no "…" placeholder
-  const fix = first.ruleId === 'VAR_NAME_FORMAT' ? t('report.group.rename') : t(`rule.${first.ruleId}.fix`, params)
+  // a group sentence and fix per rule: the list carries each name, line and rename
+  const { msg, fix } = groupTexts(lang, first.ruleId, findings.length)
   const items = findings
     .map((f) => ({ f, line: lineOf(f), text: itemText(f) }))
     .sort((a, b) => (a.line ?? Infinity) - (b.line ?? Infinity))
   // a subject that is the same in every item (e.g. the command) says nothing in the list
   const sameText = items.every((i) => i.text === items[0].text)
   return (
-    <article className={'finding-card finding-group sev-' + first.severity}>
-      <Head severity={first.severity} ruleId={first.ruleId}>
-        <span className="finding-where">{t('report.group.count', { n: number(findings.length) })}</span>
+    <article id={id} tabIndex={id ? -1 : undefined} className={'finding-card finding-group sev-' + first.severity}>
+      <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule}>
+        <span className="finding-where">{plural('report.group.count', findings.length)}</span>
       </Head>
-      <p className="finding-msg">{t(`rule.${first.ruleId}.msg`, params)}</p>
+      <p className="finding-msg">{msg}</p>
       <p className="finding-fix">
         <strong>{t('report.finding.fix')}:</strong> {fix}
       </p>
@@ -122,5 +136,43 @@ export function FindingGroupCard({
         })}
       </ul>
     </article>
+  )
+}
+
+/** points each rule family took from one taskbot, largest first; an item with a target scrolls to and focuses its card */
+export function PointsLost({ lost, targetOf }: {
+  lost: { group: string; points: number; capped: boolean }[]
+  /** id of the card or group of that family, when one is shown */
+  targetOf?: (group: string) => string | undefined
+}) {
+  const t = useT()
+  const number = useNumber()
+  const { lang } = useContext(LangContext)
+  if (lost.length === 0) return null
+  const go = (id: string) => {
+    const el = document.getElementById(id)
+    el?.scrollIntoView({ block: 'start' })
+    el?.focus({ preventScroll: true })
+  }
+  return (
+    <div className="report-lost">
+      <span className="report-lost-label">{t('report.lost')}</span>{' '}
+      <ul className={'report-lost-list' + (lost.length > 4 ? ' stacked' : '')}>
+        {lost.map((l) => {
+          const target = targetOf?.(l.group)
+          const body = (
+            <>
+              <span className="report-lost-title">{groupLabel(lang, l.group)}</span> <code className="report-lost-id">{l.group}</code>{' '}
+              <span className="report-lost-points">−{number(l.points)}{l.capped && ` (${t('report.lost.cap')})`}</span>
+            </>
+          )
+          return (
+            <li key={l.group}>
+              {target ? <button type="button" className="report-lost-link" onClick={() => go(target)}>{body}</button> : body}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }

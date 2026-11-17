@@ -1,31 +1,23 @@
-import { Icon, SeverityIcon } from '../Icons'
-import { useMemo, useState } from 'react'
+import { SeverityIcon } from '../Icons'
+import { useContext, useMemo, useState } from 'react'
 import { CALL_DEPTH_UTILITY_PREFIX } from '../../core/graph'
 import type { ProjectAnalysis, Severity } from '../../core/model'
 import { RULES, type RuleCategory } from '../../core/rulesInfo'
-import { DEDUCTION, GRADE_BANDS, RULE_CAP } from '../../core/score'
-import { useT, useNumber } from '../i18n'
+import { DEDUCTION, RULE_CAP } from '../../core/score'
+import { LangContext, useT, useNumber, usePlural, type Lang } from '../i18n'
+import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
+import { gradeBands, groupLabel } from '../findings/findings'
 
 const SEV_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 }
 
 type SortCol = 'id' | 'severity' | 'category' | 'fired' | 'deducted'
-type Sort = { col: SortCol; dir: 1 | -1 }
-
-// module scope: defining this inside Rules would remount every <th> on each render
-function Th({ col, label, sort, onSort }: { col: SortCol; label: string; sort: Sort; onSort: (c: SortCol) => void }) {
-  const active = sort.col === col
-  return (
-    <th className={'sortable' + (active ? ' sorted' : '')} aria-sort={active ? sort.dir === 1 ? 'ascending' : 'descending' : 'none'}>
-      <button onClick={() => onSort(col)}>{label}
-      {active && <Icon name={sort.dir === 1 ? 'arrow-up' : 'arrow-down'} />}</button>
-    </th>
-  )
-}
 
 export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }) {
   const t = useT()
   const number = useNumber()
-  const [sort, setSort] = useState<Sort>({ col: 'severity', dir: 1 })
+  const plural = usePlural()
+  const { lang } = useContext(LangContext)
+  const [sort, setSort] = useState<Sort<SortCol>>({ col: 'severity', dir: 1 })
 
   /** how much each rule family actually cost on the loaded upload, cap included */
   const stats = useMemo(() => {
@@ -71,7 +63,8 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
     })
   }, [sort, stats, t])
 
-  const toggleSort = (col: SortCol) => setSort((s) => ({ col, dir: s.col === col && s.dir === 1 ? -1 : 1 }))
+  const toggleSort = (col: SortCol) => setSort((s) => nextSort(s, col))
+  const slots = placeholders[lang]
   const categories = [...new Set(RULES.map((r) => r.category))] as RuleCategory[]
   /** cap families with more than one rule share a single points total */
   const sharedFamilies = new Set(
@@ -86,7 +79,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
         <h1>{t('rules.title')}</h1>
       </div>
       <p className="report-meta">
-        {number(RULES.length)} {t('rules.count')}
+        {plural('rules.count', RULES.length)}
         {analysis ? ` · ${t('rules.onUpload')}: ${analysis.zipNames.join(', ')}` : ` · ${t('rules.noUpload')}`}
       </p>
 
@@ -110,9 +103,9 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
         <div className="rules-model-block">
           <span className="rules-model-label">{t('rules.bands')}</span>
           <ul>
-            {GRADE_BANDS.map((b) => (
+            {gradeBands(lang).map((b) => (
               <li key={b.grade}>
-                <span className={'grade-' + b.grade}>{b.grade}</span> ≥ {number(b.min)}
+                <span className={'grade-' + b.grade}>{b.grade}</span> {b.text}
               </li>
             ))}
           </ul>
@@ -130,20 +123,22 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
       <h2>{t('rules.table')}</h2>
       <div className="table-scroll">
         <table className="report-table rules-table">
+          {/* shown under 760px, where the header row becomes a row of sort chips */}
+          <caption className="rules-sort-by">{t('rules.sortBy')}</caption>
           <thead>
             <tr>
-              <Th col="id" label={t('rules.col.id')} sort={sort} onSort={toggleSort} />
-              <Th col="severity" label={t('rules.col.severity')} sort={sort} onSort={toggleSort} />
-              <Th col="category" label={t('rules.col.category')} sort={sort} onSort={toggleSort} />
-              <Th col="fired" label={t('rules.col.fired')} sort={sort} onSort={toggleSort} />
-              <Th col="deducted" label={t('rules.col.deducted')} sort={sort} onSort={toggleSort} />
+              <SortHeader col="id" label={t('rules.col.id')} sort={sort} onSort={toggleSort} />
+              <SortHeader col="severity" label={t('rules.col.severity')} sort={sort} onSort={toggleSort} />
+              <SortHeader col="category" label={t('rules.col.category')} sort={sort} onSort={toggleSort} />
+              <SortHeader col="fired" label={t('rules.col.fired')} sort={sort} onSort={toggleSort} />
+              <SortHeader col="deducted" label={t('rules.col.deducted')} sort={sort} onSort={toggleSort} />
               <th>{t('rules.col.detects')}</th>
               <th>{t('rules.col.fix')}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id}>
+              <tr key={r.id} id={'rule-' + r.id} tabIndex={-1}>
                 <td className="rules-name">
                   <span className="rules-title">{t(`rule.${r.id}.title`)}</span> <code className="rules-id">{r.id}</code>
                 </td>
@@ -151,13 +146,13 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
                 <td className="rules-text">{t('rules.cat.' + r.category)}</td>
                 <td className="rules-times" data-label={t('rules.col.fired')}>{r.fired ? number(r.fired) : '—'}</td>
                 <td className="rules-points" data-label={t('rules.col.deducted')}
-                  title={sharedFamilies.has(r.capGroup) ? t('rules.sharedCap', { group: r.capGroup }) : undefined}>
+                  title={sharedFamilies.has(r.capGroup) ? t('rules.sharedCap', { group: `${groupLabel(lang, r.capGroup)} (${r.capGroup})` }) : undefined}>
                   {r.deducted ? '−' + number(Math.round(r.deducted * 10) / 10) : '—'}
                   {sharedFamilies.has(r.capGroup) && r.deducted ? <span className="rules-shared">∑</span> : null}
                 </td>
-                <td className="rules-msg" data-label={t('rules.col.detects')}>{t(`rule.${r.id}.msg`, placeholders)}</td>
+                <td className="rules-msg" data-label={t('rules.col.detects')}>{t(`rule.${r.id}.msg`, slots)}</td>
                 <td className="rules-msg" data-label={t('rules.col.fix')}>
-                  {t(`rule.${r.id}.fix`, placeholders)}
+                  {t(`rule.${r.id}.fix`, slots)}
                   {/* findings show only the rename, so the naming key lives here */}
                   {r.id === 'VAR_NAME_FORMAT' && <span className="rules-key">{t('report.nameKey')}</span>}
                 </td>
@@ -166,6 +161,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
           </tbody>
         </table>
       </div>
+      <p className="rules-note">{t('rules.scope')}</p>
 
       <p className="rules-note">
         {t('rules.categories')}: {categories.map((c) => t('rules.cat.' + c)).join(' · ')}
@@ -179,24 +175,46 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
   )
 }
 
-/** rule texts are templates; fill the slots with readable stand-ins for the reference table */
-const placeholders: Record<string, string> = {
-  name: 'nombreVariable',
-  suggestion: 'pStrEjemplo',
-  scope: 'p',
-  expected: 'i',
-  token: 'Str',
-  line: 'N',
-  command: 'acción',
-  path: 'C:\\ruta\\fija',
-  depth: '3',
-  lines: '300',
-  max: '250',
-  pct: '5.0',
-  comments: '10',
-  boxes: '3',
-  logs: '1',
-  target: 'utilidad_x',
-  callee: 'taskbot_llamado',
-  var: 'iStrDato',
+/** rule texts are templates; fill the slots with readable stand-ins for the reference table, in the page language */
+const placeholders: Record<Lang, Record<string, string>> = {
+  en: {
+    name: 'variableName',
+    suggestion: 'pStrExample',
+    scope: 'p',
+    expected: 'i',
+    token: 'Str',
+    line: 'N',
+    command: 'messageBox',
+    path: 'C:\\fixed\\path',
+    depth: '3',
+    lines: '300',
+    max: '250',
+    pct: '5.0',
+    comments: '10',
+    boxes: '3',
+    logs: '1',
+    target: 'utility_x',
+    callee: 'called_taskbot',
+    var: 'iStrData',
+  },
+  es: {
+    name: 'nombreVariable',
+    suggestion: 'pStrEjemplo',
+    scope: 'p',
+    expected: 'i',
+    token: 'Str',
+    line: 'N',
+    command: 'acción',
+    path: 'C:\\ruta\\fija',
+    depth: '3',
+    lines: '300',
+    max: '250',
+    pct: '5.0',
+    comments: '10',
+    boxes: '3',
+    logs: '1',
+    target: 'utilidad_x',
+    callee: 'taskbot_llamado',
+    var: 'iStrDato',
+  },
 }

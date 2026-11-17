@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { LangContext, useT, useNumber, type Lang } from './i18n'
+import { LangContext, useT, type Lang } from './i18n'
 import { ThemeToggles } from './ThemeToggles'
 import { Icon, SeverityIcon } from './Icons'
 import DropZone, { useBusyText, useUpload } from './DropZone'
@@ -9,12 +9,15 @@ import EditorDrawer from './editor/EditorDrawer'
 import Report from './report/Report'
 import Rules from './rules/Rules'
 import { initialShell, shellReducer } from './shared/selection'
+import { Grade } from './shared/Grade'
+import { DEFAULT_SEVERITY_ON, severityFilterReducer } from './findings/SeverityFilter'
 
 function Shell() {
   const t = useT()
-  const number = useNumber()
   const busyText = useBusyText()
   const [{ analysis, nav: { view, selection } }, dispatch] = useReducer(shellReducer, initialShell)
+  // the report filter lives here, so view switches keep it and Export PDF from any view prints with it
+  const [sevOn, dispatchSeverity] = useReducer(severityFilterReducer, DEFAULT_SEVERITY_ON)
   const setView = (next: typeof view) => dispatch({ type: 'view', view: next })
   // where focus goes back after the editor closes: the opener in the view it came from
   const [returnTo, setReturnTo] = useState<{ path: string; from: 'map' | 'report' } | null>(null)
@@ -26,6 +29,7 @@ function Shell() {
   const upload = useUpload((next) => {
     setReturnTo(null)
     dispatch({ type: 'loaded', analysis: next })
+    dispatchSeverity({ type: 'loaded', analysis: next })
   })
   // after a failed upload, focus goes back to the button that chooses files
   useEffect(() => {
@@ -100,9 +104,7 @@ function Shell() {
           <div className="header-zone header-right">
             <span className="score-badge">
               <span className="score-badge-label">{t('score.project')}</span>
-              <span className={'score-badge-value grade-' + analysis.projectScore.grade}>
-                {number(analysis.projectScore.score)} · {analysis.projectScore.grade}
-              </span>
+              <Grade score={analysis.projectScore} className="score-badge-value" />
             </span>
             {/* at 480px and below these show only their icon */}
             <div className="header-tools">
@@ -152,7 +154,18 @@ function Shell() {
         </div>
       )}
       {analysis && view === 'report' && (
-        <Report analysis={analysis} onOpen={(path, line) => dispatch({ type: 'open', path, from: 'report', line })} />
+        <Report
+          analysis={analysis}
+          onOpen={(path, line) => dispatch({ type: 'open', path, from: 'report', line })}
+          sevOn={sevOn}
+          onToggleSeverity={(severity) => dispatchSeverity({ type: 'severity', severity })}
+          onRule={(ruleId) => {
+            flushSync(() => setView('rules'))
+            const row = document.getElementById('rule-' + ruleId)
+            row?.scrollIntoView({ block: 'center' })
+            row?.focus({ preventScroll: true })
+          }}
+        />
       )}
       </main>
       <input

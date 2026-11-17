@@ -124,13 +124,14 @@ const es: Dict = {
   'tab.rules': 'Reglas',
   'tab.upload': 'Subir zip',
   'rules.title': 'Reglas y puntaje',
-  'rules.count': 'reglas registradas',
+  'rules.count.one': '{n} regla registrada',
+  'rules.count.other': '{n} reglas registradas',
   'rules.onUpload': 'Conteos sobre',
   'rules.noUpload': 'Sube un zip para ver cuántas veces dispara cada regla',
   'rules.model': 'Modelo de puntaje',
   'rules.perFinding': 'Descuento por hallazgo',
   'rules.cap': 'Tope por familia de regla',
-  'rules.capNote': 'Máximo que una sola regla puede descontar a un taskbot.',
+  'rules.capNote': 'Lo máximo que una familia de reglas puede descontar a un taskbot.',
   'rules.bands': 'Notas',
   'rules.depthExempt': 'Taskbots permitidos en nivel 3',
   'rules.depthExemptNote': 'Cualquier taskbot puede estar en los niveles 1 y 2. En el nivel 3 solo los que empiezan con util (sin distinguir mayúsculas). En el nivel 4 o más, todos generan CALL_DEPTH.',
@@ -140,8 +141,10 @@ const es: Dict = {
   'rules.col.id': 'Regla',
   'rules.col.severity': 'Severidad',
   'rules.col.category': 'Categoría',
-  'rules.col.fired': 'Veces',
-  'rules.col.deducted': 'Puntos',
+  'rules.col.fired': 'Veces (todos los taskbots)',
+  'rules.col.deducted': 'Puntos (todos los taskbots)',
+  'rules.scope': 'El tope se aplica por taskbot; estas columnas suman todos los taskbots.',
+  'rules.sortBy': 'Ordenar por',
   'rules.col.detects': 'Qué detecta',
   'rules.col.fix': 'Corrección sugerida',
   'rules.cat.naming': 'Nomenclatura',
@@ -211,10 +214,12 @@ const es: Dict = {
   'report.noFindings': 'Sin hallazgos',
   'report.openInEditor': 'Abrir {name} en el editor',
   'report.finding.openLine': 'Abrir la línea {line} en el editor',
-  'report.group.count': '{n} hallazgos',
-  'report.group.rename': 'Renombrar cada variable como indica la lista.',
+  'report.group.count.one': '{n} hallazgo',
+  'report.group.count.other': '{n} hallazgos',
+  'report.group.msg': '{n} hallazgos de esta regla; la lista muestra cada uno.',
   'report.scope.included': 'Incluido: {list}.',
-  'report.scope.hidden': 'No se muestran: {list}.',
+  'report.scope.hidden.one': 'No se muestra: {list}.',
+  'report.scope.hidden.other': 'No se muestran: {list}.',
   'report.scope.score': 'El puntaje considera todos los hallazgos.',
   'report.scope.nothing': 'nada',
   'report.scoring.rule': 'Puntaje por taskbot: 100 menos {error} por Error, {warn} por Advertencia y {info} por Info, con un máximo de {cap} por familia de reglas. Puntaje del proyecto: promedio ponderado por líneas.',
@@ -222,9 +227,25 @@ const es: Dict = {
   'report.scoring.dist': 'Taskbots por nota:',
   'report.lost': 'Puntos perdidos:',
   'report.lost.cap': 'tope',
-  'report.bot.noneShown': 'No se muestran hallazgos ({list} ocultos).',
   'report.silent': 'Sin hallazgos visibles:',
-  'report.silent.hidden': '{list} ocultos',
+  'report.silent.hidden.one': '{list} oculto',
+  'report.silent.hidden.other': '{list} ocultos',
+  'report.clean.one': 'Sin hallazgos en {n} taskbot.',
+  'report.clean.other': 'Sin hallazgos en {n} taskbots.',
+  'report.findings.shownTotal': 'Hallazgos mostrados / total',
+  'report.summary.note': 'Las líneas, los comentarios, los logs y las variables están en la vista del taskbot.',
+  'report.finding.openRule': 'Ver la regla {id} en Reglas',
+  'grade.aria': 'nota {grade} {score}',
+  'node.lines.one': '{n} línea',
+  'node.lines.other': '{n} líneas',
+  'node.comments.one': '{n} comentario',
+  'node.comments.other': '{n} comentarios',
+  'node.logs.one': '{n} log',
+  'node.logs.other': '{n} logs',
+  'node.vars.one': '{n} variable',
+  'node.vars.other': '{n} variables',
+  'node.packages.one': '{n} paquete',
+  'node.packages.other': '{n} paquetes',
   'report.nameKey': 'Convención de nombres: <alcance><Tipo><Nombre>. Alcance: p = local, i = entrada, o = salida, io = entrada y salida, c = constante. Tipo: Str, Num, Dict, List, Date, Bool, File, Table, Rec, Win, Any.',
   'report.filter.title': 'Incluir en el reporte:',
   'report.filter.hint': 'El PDF se exporta con lo que ves aquí. El puntaje siempre considera todos los hallazgos.',
@@ -308,6 +329,27 @@ const es: Dict = {
   'rule.CALL_DEPTH.fix': 'Subir la llamada al master (nivel 1 llama a nivel 2) para que el flujo se lea desde arriba. Los taskbots util* pueden quedar en el nivel 3; ninguno en el nivel 4 o más.',
   'rule.TOO_LONG.msg': 'El taskbot tiene {lines} líneas; el máximo permitido es {max}.',
   'rule.TOO_LONG.fix': 'Modularizar: dividir en taskbots con responsabilidad propia según la anatomía del framework (ingesta, ejecución por ítem, reporte…).',
+  // grouped cards: one sentence for 3 or more findings of a rule in one taskbot
+  'rule.MSGBOX_BLOCKING.group': '{n} Message Boxes no se cierran solos: cada uno deja el bot colgado en ejecución desatendida.',
+  'rule.MSGBOX_DEAD.group': '{n} Message Boxes están dentro de código deshabilitado: nunca se van a abrir.',
+  'rule.VAR_NAME_FORMAT.group': '{n} variables no siguen la convención <alcance><Tipo><NombreCamel>.',
+  'rule.VAR_SCOPE_MISMATCH.group': '{n} variables tienen un prefijo de alcance que no coincide con sus flags de entrada/salida.',
+  'rule.VAR_TYPE_MISMATCH.group': '{n} variables usan un token de tipo que no corresponde a su tipo declarado.',
+  'rule.VAR_NO_DESCRIPTION.group': '{n} variables de entrada/salida no tienen descripción: son parte del contrato con los taskbots que las llaman.',
+  'rule.VAR_NO_DESCRIPTION_LOCAL.group': '{n} variables locales no tienen descripción.',
+  'rule.VAR_BOOL_NAME.group': '{n} variables booleanas no usan un nombre de bandera (Is/Has/Can/Allows/Supports).',
+  'rule.EMPTY_CATCH.group': '{n} bloques Catch vacíos: los errores se tragan silenciosamente.',
+  'rule.DISABLED_CODE.group': '{n} acciones deshabilitadas.',
+  'rule.HARDCODED_PATH.group': '{n} rutas absolutas escritas a mano.',
+  'rule.UNUSED_VAR.group': '{n} variables están declaradas pero nunca se usan.',
+  'rule.MISSING_DEPENDENCY.group': '{n} llamadas Run Task apuntan a taskbots que no están en los zip subidos.',
+  'rule.CALL_INPUT_UNKNOWN.group': '{n} llamadas Run Task pasan variables que el taskbot llamado no declara como entrada.',
+  'rule.CALL_VAR_UNDECLARED.group': '{n} llamadas Run Task usan variables que no existen en este taskbot.',
+  'rule.CALL_DEPTH.group': '{n} llamadas Run Task llegan a un nivel de anidación de taskbots demasiado profundo.',
+  'rule.VAR_NAME_FORMAT.groupFix': 'Renombrar cada variable como indica la lista.',
+  'rule.VAR_SCOPE_MISMATCH.groupFix': 'Renombrar cada variable como indica la lista, o corregir sus checkboxes de input/output.',
+  'rule.VAR_TYPE_MISMATCH.groupFix': 'Renombrar cada variable como indica la lista, o corregir su tipo.',
+  'rule.VAR_NO_DESCRIPTION.family': 'Variables sin descripción',
 }
 
 const en: Dict = {
@@ -430,13 +472,14 @@ const en: Dict = {
   'tab.rules': 'Rules',
   'tab.upload': 'Upload zip',
   'rules.title': 'Rules and scoring',
-  'rules.count': 'registered rules',
+  'rules.count.one': '{n} registered rule',
+  'rules.count.other': '{n} registered rules',
   'rules.onUpload': 'Counts for',
   'rules.noUpload': 'Upload a zip to see how often each rule fires',
   'rules.model': 'Scoring model',
   'rules.perFinding': 'Deduction per finding',
   'rules.cap': 'Cap per rule family',
-  'rules.capNote': 'Most a single rule can take off one taskbot.',
+  'rules.capNote': 'The most one rule family can take off one taskbot.',
   'rules.bands': 'Grades',
   'rules.depthExempt': 'Taskbots allowed at level 3',
   'rules.depthExemptNote': 'Any taskbot may sit at levels 1 and 2. At level 3 only taskbots whose name starts with util (any case). At level 4 or deeper every taskbot generates CALL_DEPTH.',
@@ -446,8 +489,10 @@ const en: Dict = {
   'rules.col.id': 'Rule',
   'rules.col.severity': 'Severity',
   'rules.col.category': 'Category',
-  'rules.col.fired': 'Times',
-  'rules.col.deducted': 'Points',
+  'rules.col.fired': 'Times (all taskbots)',
+  'rules.col.deducted': 'Points (all taskbots)',
+  'rules.scope': 'The cap applies per taskbot; these columns add up every taskbot.',
+  'rules.sortBy': 'Sort by',
   'rules.col.detects': 'What it detects',
   'rules.col.fix': 'Suggested fix',
   'rules.cat.naming': 'Naming',
@@ -517,10 +562,12 @@ const en: Dict = {
   'report.noFindings': 'No findings',
   'report.openInEditor': 'Open {name} in the editor',
   'report.finding.openLine': 'Open line {line} in the editor',
-  'report.group.count': '{n} findings',
-  'report.group.rename': 'Rename each variable as listed.',
+  'report.group.count.one': '{n} finding',
+  'report.group.count.other': '{n} findings',
+  'report.group.msg': '{n} findings of this rule; the list shows each one.',
   'report.scope.included': 'Included: {list}.',
-  'report.scope.hidden': 'Not shown: {list} findings.',
+  'report.scope.hidden.one': 'Not shown: {list} finding.',
+  'report.scope.hidden.other': 'Not shown: {list} findings.',
   'report.scope.score': 'The score counts every finding.',
   'report.scope.nothing': 'none',
   'report.scoring.rule': 'Score per taskbot: 100 minus {error} per Error, {warn} per Warning and {info} per Info, at most {cap} per rule family. Project score: the average weighted by lines.',
@@ -528,9 +575,25 @@ const en: Dict = {
   'report.scoring.dist': 'Taskbots by grade:',
   'report.lost': 'Points lost:',
   'report.lost.cap': 'cap',
-  'report.bot.noneShown': 'No findings shown ({list} hidden).',
   'report.silent': 'No findings shown:',
-  'report.silent.hidden': '{list} hidden',
+  'report.silent.hidden.one': '{list} hidden',
+  'report.silent.hidden.other': '{list} hidden',
+  'report.clean.one': 'No findings in {n} taskbot.',
+  'report.clean.other': 'No findings in {n} taskbots.',
+  'report.findings.shownTotal': 'Findings shown / total',
+  'report.summary.note': 'Lines, comments, logs and variables are in the taskbot view.',
+  'report.finding.openRule': 'Show rule {id} in Rules',
+  'grade.aria': 'grade {grade} {score}',
+  'node.lines.one': '{n} line',
+  'node.lines.other': '{n} lines',
+  'node.comments.one': '{n} comment',
+  'node.comments.other': '{n} comments',
+  'node.logs.one': '{n} log',
+  'node.logs.other': '{n} logs',
+  'node.vars.one': '{n} variable',
+  'node.vars.other': '{n} variables',
+  'node.packages.one': '{n} package',
+  'node.packages.other': '{n} packages',
   'report.nameKey': 'Naming key: <scope><Type><Name>. Scope: p = local, i = input, o = output, io = input and output, c = constant. Type: Str, Num, Dict, List, Date, Bool, File, Table, Rec, Win, Any.',
   'report.filter.title': 'Include in the report:',
   'report.filter.hint': 'The PDF exports exactly what you see here. The score always accounts for every finding.',
@@ -613,6 +676,27 @@ const en: Dict = {
   'rule.CALL_DEPTH.fix': 'Move the call up to the master (level 1 calls level 2) so the flow reads top-down. util* taskbots may sit at level 3; none at level 4 or deeper.',
   'rule.TOO_LONG.msg': 'Taskbot has {lines} lines; the maximum allowed is {max}.',
   'rule.TOO_LONG.fix': 'Modularize: split into taskbots with a single responsibility following the framework anatomy (ingestion, per-item execution, reporting…).',
+  // grouped cards: one sentence for 3 or more findings of a rule in one taskbot
+  'rule.MSGBOX_BLOCKING.group': '{n} Message Boxes never close on their own: each one hangs an unattended run.',
+  'rule.MSGBOX_DEAD.group': '{n} Message Boxes sit inside disabled code: they will never open.',
+  'rule.VAR_NAME_FORMAT.group': '{n} variables do not follow the <scope><Type><CamelName> convention.',
+  'rule.VAR_SCOPE_MISMATCH.group': '{n} variables have a scope prefix that does not match their input/output flags.',
+  'rule.VAR_TYPE_MISMATCH.group': '{n} variables use a type token that does not match their declared type.',
+  'rule.VAR_NO_DESCRIPTION.group': '{n} input/output variables have no description: each one is part of the contract with calling taskbots.',
+  'rule.VAR_NO_DESCRIPTION_LOCAL.group': '{n} local variables have no description.',
+  'rule.VAR_BOOL_NAME.group': '{n} boolean variables do not use a flag name (Is/Has/Can/Allows/Supports).',
+  'rule.EMPTY_CATCH.group': '{n} empty catch blocks: errors are silently swallowed.',
+  'rule.DISABLED_CODE.group': '{n} disabled actions.',
+  'rule.HARDCODED_PATH.group': '{n} hardcoded absolute paths.',
+  'rule.UNUSED_VAR.group': '{n} variables are declared but never used.',
+  'rule.MISSING_DEPENDENCY.group': '{n} Run Task calls point to taskbots that are not in the uploaded zips.',
+  'rule.CALL_INPUT_UNKNOWN.group': '{n} Run Task calls pass variables that the called taskbot does not declare as inputs.',
+  'rule.CALL_VAR_UNDECLARED.group': '{n} Run Task calls use variables that do not exist in this taskbot.',
+  'rule.CALL_DEPTH.group': '{n} Run Task calls reach a taskbot nesting level that is too deep.',
+  'rule.VAR_NAME_FORMAT.groupFix': 'Rename each variable as listed.',
+  'rule.VAR_SCOPE_MISMATCH.groupFix': 'Rename each variable as listed, or fix its input/output checkboxes.',
+  'rule.VAR_TYPE_MISMATCH.groupFix': 'Rename each variable as listed, or fix its type.',
+  'rule.VAR_NO_DESCRIPTION.family': 'Variables without description',
 }
 
 const dicts: Record<Lang, Dict> = { es, en }
@@ -646,11 +730,29 @@ export function translate(lang: Lang, key: string, params?: Record<string, strin
   return s
 }
 
+/** true when the English dictionary (the fallback for both languages) has the key */
+export function hasText(key: string): boolean {
+  return key in en
+}
+
+/** a count text from its .one/.other keys, picked by the plural rules of the language */
+export function plural(lang: Lang, key: string, n: number, params?: Record<string, string>): string {
+  return translate(lang, `${key}.${new Intl.PluralRules(lang).select(n) === 'one' ? 'one' : 'other'}`, {
+    n: new Intl.NumberFormat(lang).format(n),
+    ...params,
+  })
+}
+
 export const LangContext = createContext<{ lang: Lang; setLang: (l: Lang) => void }>({ lang: 'es', setLang: () => {} })
 
 export function useT() {
   const { lang } = useContext(LangContext)
   return (key: string, params?: Record<string, string>) => translate(lang, key, params)
+}
+
+export function usePlural() {
+  const { lang } = useContext(LangContext)
+  return (key: string, n: number, params?: Record<string, string>) => plural(lang, key, n, params)
 }
 
 export function useNumber() {

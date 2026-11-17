@@ -1,6 +1,7 @@
 import type { BotScore, Finding, Severity, Taskbot } from '../../core/model'
+import { RULES } from '../../core/rulesInfo'
 import { DEDUCTION, GRADE_BANDS, RULE_CAP, capGroup } from '../../core/score'
-import { translate, type Lang } from '../i18n'
+import { hasText, translate, type Lang } from '../i18n'
 
 export const SEVERITIES: Severity[] = ['error', 'warn', 'info']
 const SEV_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 }
@@ -69,6 +70,15 @@ export function gradeDistribution(scores: BotScore[]): Record<BotScore['grade'],
   return out
 }
 
+/** each grade band as "≥ 90", the last as "< 40"; the report line and the Rules page share it */
+export function gradeBands(lang: Lang): { grade: BotScore['grade']; text: string }[] {
+  const n = new Intl.NumberFormat(lang).format
+  return GRADE_BANDS.map((b, i) => ({
+    grade: b.grade,
+    text: b.min > 0 || i === 0 ? `≥ ${n(b.min)}` : `< ${n(GRADE_BANDS[i - 1].min)}`,
+  }))
+}
+
 /** the scoring rule and the grade bands, built from the scoring constants (no second copy of the numbers) */
 export function scoringLines(lang: Lang): { rule: string; bands: string } {
   const n = new Intl.NumberFormat(lang).format
@@ -78,16 +88,32 @@ export function scoringLines(lang: Lang): { rule: string; bands: string } {
     info: n(DEDUCTION.info),
     cap: n(RULE_CAP),
   })
-  const bands = GRADE_BANDS.map((b, i) =>
-    b.min > 0 || i === 0 ? `${b.grade} ≥ ${n(b.min)}` : `${b.grade} < ${n(GRADE_BANDS[i - 1].min)}`,
-  ).join(' · ')
+  const bands = gradeBands(lang).map((b) => `${b.grade} ${b.text}`).join(' · ')
   return { rule, bands: translate(lang, 'report.scoring.bands', { bands }) }
 }
 
-/** "16 Info" or "3 Warning, 16 Info" for the severities that have hidden findings */
+/** "16 Info" or "3 Warning, 16 Info" for the severities that have hidden findings, with their total for the plural */
 export function hiddenList(counts: Record<Severity, number>, shown: Record<Severity, boolean>, lang: Lang): string {
   const n = new Intl.NumberFormat(lang).format
   return SEVERITIES.filter((s) => !shown[s] && counts[s] > 0)
     .map((s) => `${n(counts[s])} ${translate(lang, 'report.severity.' + s)}`)
     .join(', ')
+}
+
+export function hiddenTotal(counts: Record<Severity, number>, shown: Record<Severity, boolean>): number {
+  return SEVERITIES.reduce((n, s) => n + (shown[s] ? 0 : counts[s]), 0)
+}
+
+/** the readable name of a cap group: the family label when several rules share the cap, else the rule title */
+export function groupLabel(lang: Lang, group: string): string {
+  const shared = RULES.filter((r) => r.capGroup === group).length > 1
+  return translate(lang, shared ? `rule.${group}.family` : `rule.${group}.title`)
+}
+
+/** the sentence and fix of a grouped card: per-rule group texts, never the single message with blanked slots */
+export function groupTexts(lang: Lang, ruleId: string, n: number): { msg: string; fix: string } {
+  const count = { n: new Intl.NumberFormat(lang).format(n) }
+  const msgKey = hasText(`rule.${ruleId}.group`) ? `rule.${ruleId}.group` : 'report.group.msg'
+  const fixKey = hasText(`rule.${ruleId}.groupFix`) ? `rule.${ruleId}.groupFix` : `rule.${ruleId}.fix`
+  return { msg: translate(lang, msgKey, count), fix: translate(lang, fixKey) }
 }

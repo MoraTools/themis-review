@@ -236,6 +236,8 @@ code { font-family: var(--font-mono); }
 }
 .score-badge-label { display: flex; align-items: center; padding: 0 8px; border-right: 1px solid var(--border); color: var(--text-muted); }
 .score-badge-value { display: flex; align-items: center; padding: 0 8px; font-weight: 700; letter-spacing: 0.06em; }
+/* one grade form: letter first, then the score, mono, in the grade color */
+.grade { display: inline-flex; align-items: baseline; gap: 0.4em; font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .grade-A { color: var(--grade-a); }
 .grade-B { color: var(--grade-b); }
@@ -847,9 +849,10 @@ code { font-family: var(--font-mono); }
   font: 600 var(--fs-40)/46px var(--font-display);
   text-wrap: balance;
 }
-.report-score { display: flex; flex-direction: column-reverse; min-width: 120px; padding: 12px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-align: center; }
-.report-score-num { display: block; font: 500 var(--fs-22)/1.45 var(--font-mono); }
-.report-score-grade { font: 600 var(--fs-80)/1 var(--font-display); }
+.report-score { display: flex; align-items: center; padding: 12px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.report-score .grade { gap: 12px; }
+.report-score .grade-letter { font: 600 var(--fs-80)/1 var(--font-display); }
+.report-score .grade-score { font: 500 var(--fs-22)/1.45 var(--font-mono); }
 .report-meta {
   margin: 16px 0 32px;
   color: var(--text-muted);
@@ -964,11 +967,34 @@ code { font-family: var(--font-mono); }
 .report-bot .finding-card { max-width: 100%; }
 .report-lost { max-width: 68ch; margin: 0 0 12px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); overflow-wrap: anywhere; }
 .report-silent { margin: 0 0 12px; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-body) var(--font-ui); overflow-wrap: anywhere; }
-.report-lost code { color: var(--text); }
+.report-lost-list { display: inline; margin: 0; padding: 0; list-style: none; }
+.report-lost-list li { display: inline; white-space: nowrap; }
+.report-lost-list li + li::before { content: " · "; }
+.report-lost-list.stacked { display: block; margin-top: 4px; }
+.report-lost-list.stacked li { display: block; }
+.report-lost-list.stacked li + li::before { content: none; }
+.report-lost-title, .report-lost-points { color: var(--text); }
+.report-lost-points { font-family: var(--font-mono); }
+.report-lost-id { color: var(--text-subtle); font: 400 var(--fs-12)/var(--lh-snug) var(--font-mono); }
+.report-lost-link { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: inherit; }
+.report-lost-link .report-lost-title { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.report-lost-link:hover .report-lost-title { color: var(--accent-text); text-decoration-color: currentColor; }
+.report-silent-item { white-space: nowrap; }
+.sev-counts { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.sev-count { display: inline-flex; align-items: center; gap: 3px; }
+.sev-count .icon { width: 12px; height: 12px; }
+/* a hidden severity stays readable but steps back */
+.sev-count.dim { color: var(--text-subtle); }
+.sev-count.dim .icon { opacity: 0.5; }
+.findings-ratio { color: var(--text-muted); }
+.summary-note { display: none; margin: 8px 0 0; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
+.rules-sort-by { display: none; }
+.finding-rule-link { border: 0; background: transparent; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.finding-rule-link:hover { color: var(--accent-text); text-decoration-color: currentColor; }
 .report-facts { max-width: 68ch; margin: -16px 0 32px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); }
 .report-facts p { margin: 0 0 2px; }
-/* the scoring sentence (second line) reads as text; scope, bands and distribution stay muted */
-.report-facts p:nth-child(2) { color: var(--text); }
+/* the scoring sentence reads as text; scope, bands and distribution stay muted */
+.report-facts .report-facts-rule { color: var(--text); }
 .report-dist { font: 600 var(--fs-12)/var(--lh-body) var(--font-mono); white-space: nowrap; }
 .print-only { display: none; }
 .report-foot {
@@ -1002,7 +1028,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 .row-name { border:0; background:transparent; color:var(--text); font:inherit; text-align:left; text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
 .row-name:hover { color:var(--accent-text); text-decoration-color:currentColor; }
 /* inline text targets: the padding grows the hit box and the matching negative margin keeps the text in place */
-.finding-line, .row-name, .code-flag { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
+.finding-line, .row-name, .code-flag, .finding-rule-link { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
 .report-bot h2 { overflow-wrap:anywhere; }
 .tb-stats .icon { width:13px; height:13px; }
 /* One chip shape and type. .severity-chip is the static status tag; .chip (editor filter) and .sev-toggle (report filter) are the filter chip. */
@@ -1040,9 +1066,10 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .report { padding:24px 15px; }
   .report-head { gap:12px; }
   .report-head h1 { font-size:var(--fs-32); line-height:36px; }
-  .report-score { min-width:84px; padding:8px 12px; }
-  .report-score-grade { font-size:var(--fs-64); }
-  .report-score-num { font-size:var(--fs-18); }
+  .report-score { padding:8px 12px; }
+  .report-score .grade-letter { font-size:var(--fs-64); }
+  .report-score .grade-score { font-size:var(--fs-18); }
+  .report-lost-list.stacked li { white-space:normal; }
   .drawer-head { display:grid; grid-template-columns:1fr auto; gap:8px 12px; padding:12px 15px; }
   .drawer-head > .header-toggles { grid-row:1; grid-column:1; justify-self:end; }
   .drawer-head > .btn { grid-row:1; grid-column:2; min-width:44px; }
@@ -1071,6 +1098,14 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 @media screen and (max-width:760px) {
   .summary-table { min-width:0; }
   .summary-table .col-detail { display:none; }
+  .summary-note { display:block; }
+  /* the header row becomes a labelled row of sort chips */
+  .rules-table caption.rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); font:600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing:.06em; text-align:left; text-transform:uppercase; }
+  .rules-table thead tr { gap:8px; }
+  .rules-table thead th.sortable { background:transparent; }
+  .rules-table thead th.sortable button { min-height:var(--control-h); padding:0 10px; border:1px solid var(--border-strong); border-radius:var(--radius-chip); background:var(--surface); color:var(--text-muted); font:600 var(--fs-11)/1 var(--font-mono); letter-spacing:.04em; }
+  .rules-table thead th.sortable button:hover { background:var(--surface-raised); color:var(--text); }
+  .rules-table thead th.sorted button { border-color:var(--selected-border); background:var(--selected-bg); color:var(--text); }
 }
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
@@ -1144,6 +1179,9 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .row-name { text-decoration:none; }
   .finding-line { color:var(--text); text-decoration:none; }
   .print-only { display:block; }
+  a.print-only, code.print-only { display:inline; }
+  .row-anchor { color:var(--text); text-decoration:none; }
+  .report-lost-link .report-lost-title { text-decoration:none; }
   @page {
     @bottom-right { content:counter(page) " / " counter(pages); color:var(--text-muted); font:400 var(--fs-11)/1 var(--font-mono); }
   }

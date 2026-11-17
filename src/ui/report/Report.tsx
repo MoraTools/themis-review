@@ -1,16 +1,20 @@
 import { Icon, SeverityIcon } from '../Icons'
 import { useContext, useMemo, useState } from 'react'
 import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
-import { GRADE_BANDS } from '../../core/score'
-import { LangContext, useT, useNumber } from '../i18n'
+import { GRADE_BANDS, capGroup } from '../../core/score'
+import { LangContext, useT, useNumber, usePlural } from '../i18n'
 import { Name } from '../shared/Name'
-import { FindingCard, FindingGroupCard } from '../findings/FindingCard'
+import { Grade } from '../shared/Grade'
+import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
+import { FindingCard, FindingGroupCard, PointsLost } from '../findings/FindingCard'
+import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 import {
   compareFindings,
   findingLine,
   gradeDistribution,
   groupFindings,
   hiddenList,
+  hiddenTotal,
   lostPoints,
   scoringLines,
   SEVERITIES,
@@ -18,35 +22,30 @@ import {
 } from '../findings/findings'
 
 type SortCol = 'name' | 'lines' | 'comments' | 'logs' | 'vars' | 'findings' | 'score'
-type Sort = { col: SortCol; dir: 1 | -1 }
-
-// module scope: defining this inside Report would remount every <th> on each render
-function Th({ col, label, sort, onSort, className = '' }: { col: SortCol; label: string; sort: Sort; onSort: (c: SortCol) => void; className?: string }) {
-  const active = sort.col === col
-  return (
-    <th className={'sortable ' + className + (active ? ' sorted' : '')} aria-sort={active ? sort.dir === 1 ? 'ascending' : 'descending' : 'none'}>
-      <button onClick={() => onSort(col)}>{label}
-      {active && <Icon name={sort.dir === 1 ? 'arrow-up' : 'arrow-down'} className="sort-icon" />}</button>
-    </th>
-  )
-}
 
 export default function Report({
   analysis,
   onOpen,
+  sevOn,
+  onToggleSeverity,
+  onRule,
 }: {
   analysis: ProjectAnalysis
   /** open a taskbot in the editor, optionally at a line */
   onOpen: (path: string, line?: number) => void
+  /** the severity filter, kept by the shell across view switches */
+  sevOn: SeverityOn
+  onToggleSeverity: (severity: Severity) => void
+  /** show a rule in the Rules view */
+  onRule: (ruleId: string) => void
 }) {
   const t = useT()
   const number = useNumber()
+  const plural = usePlural()
   const { lang } = useContext(LangContext)
   const date = new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date())
-  // info findings are noise in a printed report; opt in when you want the full list
-  const [sevOn, setSevOn] = useState<Record<Severity, boolean>>({ error: true, warn: true, info: false })
   // worst score first: the report leads with the taskbots that need work
-  const [sort, setSort] = useState<Sort>({ col: 'score', dir: 1 })
+  const [sort, setSort] = useState<Sort<SortCol>>({ col: 'score', dir: 1 })
 
   const counts = useMemo(() => severityCounts(analysis.findings), [analysis])
   const byBot = useMemo(() => {
@@ -57,9 +56,18 @@ export default function Report({
   }, [analysis])
 
   const rows = useMemo(() => {
-    const list = analysis.taskbots.map((b) => {
+    const list = analysis.taskbots.map((b, i) => {
       const all = byBot.get(b.path) ?? []
-      return { bot: b, m: analysis.metrics[b.path], s: analysis.scores[b.path], all, findings: all.filter((f) => sevOn[f.severity]) }
+      return {
+        bot: b,
+        // stable anchor per taskbot for the PDF links and the Points lost targets
+        anchor: 'bot-' + i,
+        m: analysis.metrics[b.path],
+        s: analysis.scores[b.path],
+        all,
+        counts: severityCounts(all),
+        findings: all.filter((f) => sevOn[f.severity]),
+      }
     })
     const value = (r: (typeof list)[number]): string | number => {
       switch (sort.col) {
@@ -68,7 +76,8 @@ export default function Report({
         case 'comments': return r.m.commentLines
         case 'logs': return r.m.logMessages
         case 'vars': return r.m.variables
-        case 'findings': return r.findings.length
+        // errors first, then warnings, then info
+        case 'findings': return (r.counts.error * 1e4 + r.counts.warn) * 1e4 + r.counts.info
         case 'score': return r.s.score
       }
     }
@@ -80,23 +89,23 @@ export default function Report({
     })
   }, [analysis, sort, byBot, sevOn])
 
-  const toggleSort = (col: SortCol) =>
-    setSort((s) => ({ col, dir: s.col === col && s.dir === 1 ? -1 : 1 }))
+  const toggleSort = (col: SortCol) => setSort((s) => nextSort(s, col))
 
   const included = SEVERITIES.filter((s) => sevOn[s]).map((s) => t('report.severity.' + s)).join(', ') || t('report.scope.nothing')
   const hidden = hiddenList(counts, sevOn, lang)
+  const anyHidden = SEVERITIES.some((s) => !sevOn[s])
   const scoring = scoringLines(lang)
   const dist = gradeDistribution(Object.values(analysis.scores))
   const lineAction = (line: number) => t('report.finding.openLine', { line: number(line) })
+  const shownRows = rows.filter((r) => r.findings.length > 0)
   const silent = rows.filter((r) => r.findings.length === 0)
 
   return (
     <div className="report">
       <header className="report-head">
         <h1>{t('report.title')}</h1>
-        <div className={'report-score grade-' + analysis.projectScore.grade}>
-          <span className="report-score-num">{number(analysis.projectScore.score)}</span>
-          <span className="report-score-grade">{analysis.projectScore.grade}</span>
+        <div className="report-score">
+          <Grade score={analysis.projectScore} />
         </div>
       </header>
       <p className="report-meta">
@@ -105,9 +114,9 @@ export default function Report({
       <div className="report-facts">
         <p>
           {t('report.scope.included', { list: included })}
-          {hidden && ' ' + t('report.scope.hidden', { list: hidden })} {t('report.scope.score')}
+          {hidden && ' ' + plural('report.scope.hidden', hiddenTotal(counts, sevOn), { list: hidden })} {t('report.scope.score')}
         </p>
-        <p>{scoring.rule}</p>
+        <p className="report-facts-rule">{scoring.rule}</p>
         <p>{scoring.bands}</p>
         <p>
           {t('report.scoring.dist')}{' '}
@@ -121,17 +130,7 @@ export default function Report({
       </div>
 
       <div className="report-options no-print">
-        <span className="report-options-label">{t('report.filter.title')}</span>
-        {SEVERITIES.map((sev) => (
-          <label key={sev} className={'sev-toggle sev-' + sev + (sevOn[sev] ? ' on' : '')}>
-            <input
-              type="checkbox"
-              checked={sevOn[sev]}
-              onChange={() => setSevOn((s) => ({ ...s, [sev]: !s[sev] }))}
-            />
-            <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(counts[sev])})
-          </label>
-        ))}
+        <SeverityFilter label={t('report.filter.title')} counts={counts} on={sevOn} onToggle={onToggleSeverity} />
         <span className="report-options-hint">{t('report.filter.hint')}</span>
       </div>
 
@@ -140,13 +139,13 @@ export default function Report({
         <table className="report-table summary-table">
           <thead>
             <tr>
-              <Th col="name" label={t('report.taskbot')} sort={sort} onSort={toggleSort} />
-              <Th col="lines" label={t('node.lines')} sort={sort} onSort={toggleSort} className="num col-detail" />
-              <Th col="comments" label={t('node.comments')} sort={sort} onSort={toggleSort} className="num col-detail" />
-              <Th col="logs" label={t('node.logs')} sort={sort} onSort={toggleSort} className="num col-detail" />
-              <Th col="vars" label={t('node.vars')} sort={sort} onSort={toggleSort} className="num col-detail" />
-              <Th col="findings" label={t('report.findings')} sort={sort} onSort={toggleSort} className="num" />
-              <Th col="score" label={t('report.score')} sort={sort} onSort={toggleSort} className="num" />
+              <SortHeader col="name" label={t('report.taskbot')} sort={sort} onSort={toggleSort} />
+              <SortHeader col="lines" label={t('node.lines')} sort={sort} onSort={toggleSort} className="num col-detail" />
+              <SortHeader col="comments" label={t('node.comments')} sort={sort} onSort={toggleSort} className="num col-detail" />
+              <SortHeader col="logs" label={t('node.logs')} sort={sort} onSort={toggleSort} className="num col-detail" />
+              <SortHeader col="vars" label={t('node.vars')} sort={sort} onSort={toggleSort} className="num col-detail" />
+              <SortHeader col="findings" label={anyHidden ? t('report.findings.shownTotal') : t('report.findings')} sort={sort} onSort={toggleSort} className="num" />
+              <SortHeader col="score" label={t('report.score')} sort={sort} onSort={toggleSort} className="num" />
             </tr>
           </thead>
           <tbody>
@@ -155,71 +154,101 @@ export default function Report({
                 <td>
                   <button
                     type="button"
-                    className="row-name"
+                    className="row-name no-print"
                     data-bot={r.bot.path}
                     aria-label={t('report.openInEditor', { name: r.bot.name })}
                     onClick={() => onOpen(r.bot.path)}
                   >
                     <Name text={r.bot.name} className="row-name-text" />
                   </button>
+                  {/* the PDF links each name to its section (clean taskbots to the compact list) */}
+                  <a className="print-only row-anchor" href={'#' + (r.findings.length > 0 ? r.anchor : 'report-clean')}>{r.bot.name}</a>
                 </td>
                 <td className="num col-detail">{number(r.m.totalLines)}</td>
                 <td className="num col-detail">{number(r.m.commentLines)}</td>
                 <td className="num col-detail">{number(r.m.logMessages)}</td>
                 <td className="num col-detail">{number(r.m.variables)}</td>
                 <td className="num">
-                  {r.findings.length < r.all.length
-                    ? `${number(r.findings.length)} / ${number(r.all.length)}`
-                    : number(r.all.length)}
+                  <span className="sev-counts">
+                    {SEVERITIES.filter((s) => r.counts[s] > 0).map((s) => (
+                      <span key={s} className={'sev-count' + (sevOn[s] ? '' : ' dim')}>
+                        <SeverityIcon severity={s} />
+                        <span className="sr-only">{t('report.severity.' + s)}</span>
+                        {number(r.counts[s])}
+                      </span>
+                    ))}
+                    {anyHidden
+                      ? <span className="findings-ratio">{number(r.findings.length)} / {number(r.all.length)}</span>
+                      : r.all.length === 0 && number(0)}
+                  </span>
                 </td>
-                <td className={'num grade-' + r.s.grade}>
-                  {number(r.s.score)} · {r.s.grade}
+                <td className="num">
+                  <Grade score={r.s} />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <p className="summary-note no-print">{t('report.summary.note')}</p>
 
-      {rows.map((r) => {
-        const lost = lostPoints(r.all)
+      {analysis.findings.length === 0 ? (
+        <p id="report-clean" className="empty-state report-clean">
+          <Icon name="circle-check" className="empty-ok" /> {plural('report.clean', rows.length)}
+        </p>
+      ) : silent.length > 0 && (
+        <p id="report-clean" className="report-silent">
+          {t('report.silent')}{' '}
+          {silent.map((r, i) => {
+            const list = hiddenList(r.counts, sevOn, lang)
+            return (
+              <span key={r.bot.path} className="report-silent-item">
+                {i > 0 && ' · '}
+                <button type="button" className="row-name" aria-label={t('report.openInEditor', { name: r.bot.name })} onClick={() => onOpen(r.bot.path)}>
+                  {r.bot.name}
+                </button>
+                {list && ` (${plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list })})`}
+              </span>
+            )
+          })}
+        </p>
+      )}
+
+      {shownRows.map((r) => {
         const lineOf = (f: Finding) => findingLine(f, r.bot)
+        const entries = groupFindings(r.findings)
+        // the first card of each rule gets an anchor; Points lost links each family to its first card
+        const anchorAt = new Map<number, string>()
+        const families = new Map<string, string>()
+        const seen = new Set<string>()
+        entries.forEach((e, i) => {
+          const ruleId = e.kind === 'group' ? e.ruleId : e.finding.ruleId
+          if (seen.has(ruleId)) return
+          seen.add(ruleId)
+          const id = `${r.anchor}-${ruleId}`
+          anchorAt.set(i, id)
+          if (!families.has(capGroup(ruleId))) families.set(capGroup(ruleId), id)
+        })
         return (
-          <section key={r.bot.path} className={'report-bot' + (r.findings.length === 0 ? ' no-print' : '')}>
+          <section key={r.bot.path} id={r.anchor} className="report-bot">
             <h2>
               <Name text={r.bot.name} className="report-bot-name" />{' '}
-              <span className={'tb-grade grade-' + r.s.grade}>{number(r.s.score)} · {r.s.grade}</span>
+              <Grade score={r.s} className="tb-grade" />
             </h2>
             <p className="report-bot-path">{r.bot.path}</p>
-            {lost.length > 0 && (
-              <p className="report-lost">
-                {t('report.lost')}{' '}
-                {lost.map((l, i) => (
-                  <span key={l.group}>
-                    {i > 0 && ' · '}
-                    <code>{l.group}</code> −{number(l.points)}{l.capped && ` (${t('report.lost.cap')})`}
-                  </span>
-                ))}
-              </p>
-            )}
-            {r.all.length === 0 && (
-              <p className="empty-state"><Icon name="circle-check" className="empty-ok" /> {t('report.noFindings')}</p>
-            )}
-            {r.all.length > 0 && r.findings.length === 0 && (
-              <p className="empty-state">
-                {t('report.bot.noneShown', { list: hiddenList(severityCounts(r.all), sevOn, lang) })}
-              </p>
-            )}
+            <PointsLost lost={lostPoints(r.all)} targetOf={(g) => families.get(g)} />
             {r.findings.some((f) => f.ruleId === 'VAR_NAME_FORMAT') && <p className="name-key">{t('report.nameKey')}</p>}
-            {groupFindings(r.findings).map((e, i) => {
+            {entries.map((e, i) => {
               if (e.kind === 'group') {
                 return (
                   <FindingGroupCard
                     key={i}
+                    id={anchorAt.get(i)}
                     findings={e.findings}
                     lineOf={lineOf}
                     onLine={(line) => onOpen(r.bot.path, line)}
                     lineAction={lineAction}
+                    onRule={onRule}
                   />
                 )
               }
@@ -227,31 +256,18 @@ export default function Report({
               return (
                 <FindingCard
                   key={i}
+                  id={anchorAt.get(i)}
                   finding={e.finding}
                   line={line}
                   onLine={line === undefined ? undefined : () => onOpen(r.bot.path, line)}
                   lineAction={line === undefined ? undefined : lineAction(line)}
+                  onRule={onRule}
                 />
               )
             })}
           </section>
         )
       })}
-      {silent.length > 0 && (
-        <p className="report-silent print-only">
-          {t('report.silent')}{' '}
-          {silent.map((r, i) => {
-            const list = hiddenList(severityCounts(r.all), sevOn, lang)
-            return (
-              <span key={r.bot.path}>
-                {i > 0 && ' · '}
-                {r.bot.name}
-                {list && ` (${t('report.silent.hidden', { list })})`}
-              </span>
-            )
-          })}
-        </p>
-      )}
       <footer className="report-foot">
         {t('report.generatedBy')} · {date}
         <br />
