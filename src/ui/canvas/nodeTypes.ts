@@ -3,6 +3,8 @@ import type { BotScore, Severity, TaskbotMetrics } from '../../core/model'
 import type { IconName } from '../Icons'
 
 export const DetailContext = createContext(true)
+/** true when the layout runs top to bottom (narrow panes): call handles sit on the top and bottom */
+export const VerticalContext = createContext(false)
 
 export interface TBNodeData {
   label: string
@@ -39,6 +41,25 @@ export function typeColor(t: string): string {
   return TYPE_COLORS[t] ?? TYPE_COLORS.ANY
 }
 
+/** short type tags, the same as the Type part of the naming key */
+const TYPE_TAGS: Record<string, string> = {
+  STRING: 'Str',
+  NUMBER: 'Num',
+  DICTIONARY: 'Dict',
+  LIST: 'List',
+  BOOLEAN: 'Bool',
+  DATETIME: 'Date',
+  FILE: 'File',
+  TABLE: 'Table',
+  RECORD: 'Rec',
+  WINDOW: 'Win',
+  ANY: 'Any',
+}
+
+export function typeTag(t: string): string {
+  return TYPE_TAGS[t] ?? t.charAt(0) + t.slice(1).toLowerCase()
+}
+
 /** node stat glyphs, shared by the node and the legend; keys are `node.*` labels */
 export const STAT_ICONS = {
   lines: 'file-archive',
@@ -60,6 +81,32 @@ export function nodeHeight(d: TBNodeData): number {
   if (d.ghost) return 67 + extraTitle
   const rows = Math.max(d.inputVars.length, d.wireOutVars.length, 1)
   return 89 + rows * 22 + (d.findingsCount > 0 ? 33 : 0) + extraTitle
+}
+
+/** compact text grows by 1/zoom up to this factor (the --s cap in styles.css) */
+const COMPACT_SCALE_CAP = 3.4
+/** average advance of the 12 px semibold UI font, in px */
+const CHAR_PX = 7
+
+/** The height of a compact node at `zoom`, in flow units: its text is counter-scaled, so at a
+ *  low zoom it needs more room than the detailed node. The name wraps only at word points
+ *  (underscore, camel case), as <Name> does. */
+export function compactHeight(d: TBNodeData, zoom: number): number {
+  const s = Math.min(1 / zoom, COMPACT_SCALE_CAP)
+  const perLine = Math.max(1, Math.floor((NODE_WIDTH - 20 * s) / (CHAR_PX * s)))
+  let lines = 1
+  let used = 0
+  for (const part of d.label.split(/(?<=_)|(?<=[a-z0-9])(?=[A-Z])/)) {
+    if (used > 0 && used + part.length > perLine) {
+      lines++
+      used = 0
+    }
+    // a single part longer than the line breaks inside the word
+    lines += Math.floor(Math.max(0, used + part.length - 1) / perLine)
+    used = ((used + part.length - 1) % perLine) + 1
+  }
+  // padding 12, grade chip 18 and gap 4, title lines of 14.4, severity row 4 + 16
+  return s * (12 + (d.ghost ? 0 : 22) + lines * 14.4 + (d.findingsCount > 0 ? 20 : 0)) + 2
 }
 
 export interface FileNodeData {

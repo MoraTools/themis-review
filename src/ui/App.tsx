@@ -15,7 +15,7 @@ import { DEFAULT_SEVERITY_ON, severityFilterReducer } from './findings/SeverityF
 function Shell() {
   const t = useT()
   const busyText = useBusyText()
-  const [{ analysis, nav: { view, selection } }, dispatch] = useReducer(shellReducer, initialShell)
+  const [{ analysis, nav: { view, selection, mapFocus } }, dispatch] = useReducer(shellReducer, initialShell)
   // the report filter lives here, so view switches keep it and Export PDF from any view prints with it
   const [sevOn, dispatchSeverity] = useReducer(severityFilterReducer, DEFAULT_SEVERITY_ON)
   const setView = (next: typeof view) => dispatch({ type: 'view', view: next })
@@ -150,7 +150,7 @@ function Shell() {
       {analysis && (
         <div className="canvas-wrap no-print" hidden={view !== 'map'}>
           <h1 className="sr-only">{t('tab.map')}</h1>
-          <Canvas analysis={analysis} onSelect={(path) => dispatch({ type: 'open', path, from: 'map' })} />
+          <Canvas analysis={analysis} focus={mapFocus} onSelect={(path) => dispatch({ type: 'open', path, from: 'map' })} />
         </div>
       )}
       {analysis && view === 'report' && (

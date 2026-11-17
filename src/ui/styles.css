@@ -472,6 +472,11 @@ code { font-family: var(--font-mono); }
   margin: 0 0 12px 212px;
 }
 .react-flow.no-minimap .react-flow__panel.react-flow__controls.bottom.left { margin-left: 12px; }
+/* narrow panes: the controls are a row under the grade strip (the strip is one control high) */
+.react-flow__panel.react-flow__controls.top.left { margin: calc(12px + var(--control-h) + 8px) 0 0 12px; }
+.react-flow__controls.horizontal .react-flow__controls-button { border-bottom: 1px solid var(--border-strong); border-right: 0; }
+.react-flow__controls.horizontal .react-flow__controls-button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.react-flow__controls.horizontal .react-flow__controls-button:last-child { border-right: 1px solid var(--border-strong); border-radius: 0 var(--radius) var(--radius) 0; }
 @media (max-width: 760px) { .react-flow__minimap { display: none; } .react-flow .react-flow__panel.react-flow__controls.bottom.left { margin-left: 12px; } }
 .react-flow__minimap-mask { fill: var(--minimap-mask); }
 .react-flow__minimap-node { fill: var(--border-strong); }
@@ -515,7 +520,7 @@ code { font-family: var(--font-mono); }
   display: flex;
   flex-direction: column;
   gap: 9px;
-  max-height: min(65vh, 560px);
+  max-height: min(60vh, 560px);
   margin: 0;
   padding: 2px 14px 11px;
   overflow: auto;
@@ -550,7 +555,32 @@ code { font-family: var(--font-mono); }
   .legend-body { gap: 6px; }
   .legend-item dd { display: none; }
 }
+.legend-body:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .leg-call { background: var(--edge-call); height: 3px; }
+
+/* grade strip (top-left): each grade jumps to its next taskbot, worst first */
+.grade-strip.react-flow__panel {
+  display: flex;
+  box-sizing: border-box;
+  height: var(--control-h);
+  gap: 4px;
+  margin: 12px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.grade-strip button {
+  min-width: var(--target-min, 32px);
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  font-size: var(--fs-13);
+  cursor: pointer;
+}
+.grade-strip button:hover { border-color: currentColor; }
+.grade-strip button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .leg-wire { background: var(--info); }
 .leg-ghost { background: transparent; border-top: 2px dashed var(--border-strong); height: 0; }
 
@@ -572,6 +602,7 @@ code { font-family: var(--font-mono); }
 .tb-node.g-D .tb-head, .tb-node.compact.g-D { background: color-mix(in oklab, var(--grade-d) 10%, var(--surface-raised)); }
 .tb-node.g-F .tb-head, .tb-node.compact.g-F { background: color-mix(in oklab, var(--grade-f) 14%, var(--surface-raised)); }
 .react-flow .react-flow__node.selectable:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius); }
+.tb-chip.grade { gap: 0.35em; }
 .tb-head .tb-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .tb-chip {
   flex: none;
@@ -582,7 +613,7 @@ code { font-family: var(--font-mono); }
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* under the detail zoom: name and grade only, scaled so they stay about 12-13px on screen */
+/* under the detail zoom: grade, name and severity counts, scaled so they stay 12 px on screen */
 .tb-node.compact {
   --s: min(calc(1 / var(--zoom, 1)), 3.4); /* unitless, so sizes are tokens times --s */
   display: flex;
@@ -593,16 +624,16 @@ code { font-family: var(--font-mono); }
 }
 .tb-node.compact.g-C, .tb-node.compact.g-D, .tb-node.compact.g-F { border-left-width: calc(4px * var(--s)); }
 .tb-node.compact .tb-title {
-  display: -webkit-box;
-  overflow: hidden;
+  /* the whole name: it wraps only at the <wbr> word points */
   font-size: calc(var(--fs-12) * var(--s));
   line-height: 1.2;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
 }
 .tb-node.compact .tb-chip { padding: calc(2px * var(--s)) calc(4px * var(--s)); font-size: calc(var(--fs-12) * var(--s)); }
+.tb-node.compact .tb-sevs { gap: calc(8px * var(--s)); padding: 0; border: 0; font-size: calc(var(--fs-12) * var(--s)); }
+.tb-node.compact .tb-sevs > span { gap: calc(4px * var(--s)); }
+.tb-node.compact .tb-sevs .icon { width: calc(13px * var(--s)); height: calc(13px * var(--s)); }
 .tb-node.ghost { border: 1px dashed var(--border-strong); padding: 12px; }
-.tb-ghost-tag { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase; }
+.tb-ghost-tag { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-12); letter-spacing: 0.1em; text-transform: uppercase; }
 .tb-head {
   display: flex;
   align-items: center;
@@ -632,7 +663,12 @@ code { font-family: var(--font-mono); }
 .tb-vars { display: flex; justify-content: space-between; padding: 8px 0; }
 .tb-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .tb-col-out { align-items: flex-end; margin-left: auto; }
-.tb-var { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 12px; height: 18px; }
+.tb-var { position: relative; display: flex; align-items: center; padding: 0 12px; height: 18px; }
+.tb-var-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tb-var.out .tb-var-label { flex-direction: row-reverse; }
+/* the short type tag shows from zoom 0.9 (set by the canvas) */
+.tb-var-type { display: none; color: var(--text-subtle); }
+.react-flow[data-type-tags="true"] .tb-var-type { display: inline; }
 .tb-var-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-var-dot { display: inline-block; width: 7px; height: 7px; flex: none; vertical-align: middle; }
 .var-handle { width: 7px !important; height: 7px !important; border: 1px solid var(--bg) !important; border-radius: 0 !important; }
