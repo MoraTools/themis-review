@@ -45,9 +45,32 @@ export function viewFromHash(hash: string, hasAnalysis: boolean): View {
 /** the history calls the shell uses, so tests can pass a fake */
 export type HistoryLike = Pick<History, 'state' | 'pushState' | 'replaceState' | 'back'>
 
-/** a fresh page has no analysis: drop any view hash and editor entry, so it shows the upload view at a clean address */
+/** a fresh page has no analysis: drop any editor entry and any view hash but #rules (the rules stand on their own), so it shows the upload view at a clean address */
 export function cleanStart(history: HistoryLike, location: Pick<Location, 'pathname' | 'search' | 'hash'>) {
-  if (location.hash || history.state !== null) history.replaceState(null, '', location.pathname + location.search)
+  const keep = location.hash === '#rules' ? '#rules' : ''
+  if (location.hash !== keep || history.state !== null) history.replaceState(null, '', location.pathname + location.search + keep)
+}
+
+/** the shell on a fresh page: no analysis, on the view the hash names (the rules, else the upload view) */
+export function startShell(hash: string): ShellState {
+  return { ...initialShell, nav: { ...initialNav, view: viewFromHash(hash, false) } }
+}
+
+/** the address a view tab links to; null for the upload view, which has no hash */
+export function tabHref(view: View, hasAnalysis: boolean): string | null {
+  return hasAnalysis || view === 'rules' ? '#' + view : null
+}
+
+/** a good upload: the map at #map (replace, not push: Back must not return to an upload page with the analysis gone), focus to the view heading */
+export function uploaded(
+  history: HistoryLike,
+  analysis: ProjectAnalysis,
+  dispatch: (action: ShellAction) => void,
+  focusHeading: { current: boolean },
+) {
+  history.replaceState(null, '', '#map')
+  focusHeading.current = true
+  dispatch({ type: 'loaded', analysis })
 }
 
 /** the editor selection kept in a history entry's state (never in the URL), or null */
@@ -67,9 +90,9 @@ export function closeEditor(history: HistoryLike, closeNow: () => void) {
   else closeNow()
 }
 
-/** document.title per view; an open editor names its taskbot */
-export function pageTitle(view: View, hasAnalysis: boolean, t: (key: string) => string, botName?: string): string {
-  const label = botName ?? (hasAnalysis || view === 'rules' ? t('tab.' + view) : null)
+/** document.title names the view only, also with the editor open: browser history keeps titles, and they must not name a taskbot */
+export function pageTitle(view: View, hasAnalysis: boolean, t: (key: string) => string): string {
+  const label = hasAnalysis || view === 'rules' ? t('tab.' + view) : null
   return label ? `${label} · Themis Review` : 'Themis Review'
 }
 

@@ -12,7 +12,8 @@ export function SortHeader<C extends string>({ col, label, sort, onSort, classNa
 }) {
   const active = sort.col === col
   return (
-    <th className={'sortable ' + className + (active ? ' sorted' : '')} aria-sort={active ? sort.dir === 1 ? 'ascending' : 'descending' : 'none'}>
+    // explicit role: the summary and rules tables become grids under 760px, which drops the implicit one
+    <th className={'sortable ' + className + (active ? ' sorted' : '')} role="columnheader" aria-sort={active ? sort.dir === 1 ? 'ascending' : 'descending' : 'none'}>
       <button type="button" onClick={() => onSort(col)}>{label}
       {active && <Icon name={sort.dir === 1 ? 'arrow-up' : 'arrow-down'} className="sort-icon" />}</button>
     </th>

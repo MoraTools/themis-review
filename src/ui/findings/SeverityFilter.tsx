@@ -23,7 +23,7 @@ export function severityFilterReducer(state: SeverityOn, action: SeverityFilterA
   }
 }
 
-/** multi-select severity chips: a label, then one hidden checkbox per severity with its count */
+/** multi-select severity chips: a fieldset whose legend is the label, then one hidden checkbox per severity with its count */
 export function SeverityFilter({ label, counts, on, onToggle }: {
   label: string
   counts: Record<Severity, number>
@@ -33,14 +33,14 @@ export function SeverityFilter({ label, counts, on, onToggle }: {
   const t = useT()
   const number = useNumber()
   return (
-    <>
-      <span className="report-options-label">{label}</span>
+    <fieldset className="sev-filter">
+      <legend className="report-options-label">{label}</legend>
       {SEVERITIES.map((sev) => (
         <label key={sev} className={'sev-toggle sev-' + sev + (on[sev] ? ' on' : '')}>
           <input type="checkbox" checked={on[sev]} onChange={() => onToggle(sev)} />
           <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(counts[sev])})
         </label>
       ))}
-    </>
+    </fieldset>
   )
 }

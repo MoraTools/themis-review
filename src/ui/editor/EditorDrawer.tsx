@@ -121,9 +121,11 @@ export default function EditorDrawer({
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
+    // an opener focused from the keyboard (Enter on a node or a report button) shows its ring; the tab shows it too
+    const keyboard = document.activeElement?.matches(':focus-visible') ?? false
     dialog.showModal()
     // focus starts on the selected tab, so the arrow keys work at once
-    tabRefs.current[tab]?.focus()
+    tabRefs.current[tab]?.focus({ focusVisible: keyboard } as FocusOptions)
     return () => {
       if (dialog.open) dialog.close()
     }
@@ -392,7 +394,7 @@ export default function EditorDrawer({
           <p className="empty-state"><Icon name="circle-check" className="empty-ok" /> {t('editor.noFindings')}</p>
         ) : (
           <>
-            <div className="report-options editor-filter" role="group" aria-label={t('editor.filter.label')}>
+            <div className="report-options editor-filter">
               <SeverityFilter
                 label={t('editor.filter.title')}
                 counts={severityCounts}

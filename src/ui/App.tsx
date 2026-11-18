@@ -1,6 +1,6 @@
 import { useContext, useEffect, useReducer, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { LangContext, useT, type Lang } from './i18n'
+import { LangContext, useNumber, useT, type Lang } from './i18n'
 import { ThemeToggles } from './ThemeToggles'
 import { Icon, SeverityIcon } from './Icons'
 import DropZone, { useBusyText, useUpload } from './DropZone'
@@ -9,18 +9,63 @@ import EditorDrawer from './editor/EditorDrawer'
 import Report from './report/Report'
 import Rules from './rules/Rules'
 import {
-  cleanStart, closeEditor, editorEntry, initialShell, pageTitle, pushEditor, shellReducer, viewFromHash,
+  cleanStart, closeEditor, editorEntry, pageTitle, pushEditor, shellReducer, startShell, tabHref, uploaded, viewFromHash,
   type Selection, type View,
 } from './shared/selection'
 import { Grade } from './shared/Grade'
 import { DEFAULT_SEVERITY_ON, severityFilterReducer } from './findings/SeverityFilter'
 import { includedList } from './findings/findings'
+import type { BotScore } from '../core/model'
+
+const VIEWS: View[] = ['map', 'report', 'rules']
+
+/** the view tabs are links to the view hashes; the upload view has no hash, so its tab goes there through onUpload */
+export function ViewTabs({ view, hasAnalysis, uploadHref, onUpload }: {
+  view: View
+  hasAnalysis: boolean
+  /** the clean address of the upload view */
+  uploadHref: string
+  onUpload: () => void
+}) {
+  const t = useT()
+  return (
+    <nav className="tabs" aria-label={t('nav.views')}>
+      {/* without an upload the map tab is the way back to the drop zone; the rule reference stands on its own */}
+      {VIEWS.filter((v) => hasAnalysis || v !== 'report').map((v) => {
+        const href = tabHref(v, hasAnalysis)
+        return (
+          <a
+            key={v}
+            className={view === v ? 'tab active' : 'tab'}
+            href={href ?? uploadHref}
+            aria-current={view === v ? 'page' : undefined}
+            onClick={href ? undefined : (e) => { e.preventDefault(); onUpload() }}
+          >
+            {v === 'map' && !hasAnalysis ? t('tab.upload') : t('tab.' + v)}
+          </a>
+        )
+      })}
+    </nav>
+  )
+}
+
+/** the project score opens the report, where the taskbot summary explains it */
+export function ScoreBadge({ score }: { score: BotScore }) {
+  const t = useT()
+  const number = useNumber()
+  return (
+    <a className="score-badge" href="#report" aria-label={t('score.open', { grade: score.grade, score: number(score.score) })}>
+      <span className="score-badge-label">{t('score.project')}</span>
+      <Grade score={score} className="score-badge-value" />
+    </a>
+  )
+}
 
 function Shell() {
   const t = useT()
   const { lang } = useContext(LangContext)
   const busyText = useBusyText()
-  const [{ analysis, nav: { view, selection, mapFocus } }, dispatch] = useReducer(shellReducer, initialShell)
+  const [{ analysis, nav: { view, selection, mapFocus } }, dispatch] = useReducer(shellReducer, location.hash, startShell)
   // the report filter lives here, so view switches keep it and Export PDF from any view prints with it
   const [sevOn, dispatchSeverity] = useReducer(severityFilterReducer, DEFAULT_SEVERITY_ON)
   // where focus goes back after the editor closes: the opener in the view it came from
@@ -33,7 +78,7 @@ function Shell() {
   // the view lives in the hash (#map, #report, #rules) and nothing else: an address is what people copy and send
   useEffect(() => cleanStart(history, location), [])
   const showHashView = () => {
-    if (!analysis && location.hash && location.hash !== '#rules') cleanStart(history, location)
+    if (!analysis) cleanStart(history, location)
     focusHeading.current = true
     dispatch({ type: 'view', view: viewFromHash(location.hash, !!analysis) })
   }
@@ -41,10 +86,9 @@ function Shell() {
     window.addEventListener('hashchange', showHashView)
     return () => window.removeEventListener('hashchange', showHashView)
   })
-  // a tab click sets the hash, which adds a history entry; the upload view has no hash
-  const goTo = (next: View) => {
-    if (analysis || next === 'rules') location.hash = next
-    else if (location.hash) {
+  // a tab link sets the hash, which adds a history entry; the upload view has no hash, so its tab comes here
+  const goToUpload = () => {
+    if (location.hash) {
       history.pushState(null, '', location.pathname + location.search)
       showHashView()
     }
@@ -72,9 +116,8 @@ function Shell() {
   })
 
   useEffect(() => {
-    const bot = selection && analysis?.taskbots.find((b) => b.path === selection.path)
-    document.title = pageTitle(view, !!analysis, t, bot ? bot.name : undefined)
-  }, [view, analysis, selection, lang])
+    document.title = pageTitle(view, !!analysis, t)
+  }, [view, analysis, lang])
   useEffect(() => {
     if (!focusHeading.current) return
     focusHeading.current = false
@@ -90,10 +133,8 @@ function Shell() {
   const newButton = useRef<HTMLButtonElement>(null)
   const upload = useUpload((next) => {
     setReturnTo(null)
-    // replace, not push: Back from the first map must not return to an upload page with the analysis gone
-    history.replaceState(null, '', '#map')
-    dispatch({ type: 'loaded', analysis: next })
-    dispatchSeverity({ type: 'loaded', analysis: next })
+    // focus goes to the map h1, as on a view change: the drop zone and its focused button are gone
+    uploaded(history, next, (action) => { dispatch(action); dispatchSeverity(action) }, focusHeading)
   })
   const pick = () => {
     if (upload.busy === 0) fileInput.current?.click()
@@ -144,37 +185,12 @@ function Shell() {
           <span className="brand-sub">Review</span>
         </div>
         <div className="header-zone header-left">
-          <nav className="tabs" aria-label={t('nav.views')}>
-            {/* without an upload the map tab is the way back to the drop zone */}
-            <button className={view === 'map' ? 'tab active' : 'tab'} aria-current={view === 'map' ? 'page' : undefined} onClick={() => goTo('map')}>
-              {analysis ? t('tab.map') : t('tab.upload')}
-            </button>
-            {analysis && (
-              <button
-                className={view === 'report' ? 'tab active' : 'tab'}
-                aria-current={view === 'report' ? 'page' : undefined}
-                onClick={() => goTo('report')}
-              >
-                {t('tab.report')}
-              </button>
-            )}
-            {/* the rule reference stands on its own, with or without an upload */}
-            <button
-              className={view === 'rules' ? 'tab active' : 'tab'}
-              aria-current={view === 'rules' ? 'page' : undefined}
-              onClick={() => goTo('rules')}
-            >
-              {t('tab.rules')}
-            </button>
-          </nav>
+          <ViewTabs view={view} hasAnalysis={!!analysis} uploadHref={location.pathname + location.search} onUpload={goToUpload} />
         </div>
 
         {analysis && (
           <div className="header-zone header-right">
-            <span className="score-badge">
-              <span className="score-badge-label">{t('score.project')}</span>
-              <Grade score={analysis.projectScore} className="score-badge-value" />
-            </span>
+            <ScoreBadge score={analysis.projectScore} />
             {/* at 480px and below these show only their icon */}
             <div className="header-tools">
               {/* one click from every view; the name says which severities the PDF includes */}
@@ -205,7 +221,8 @@ function Shell() {
         </div>
       )}
 
-      <main id="main" className="app-main" tabIndex={-1} aria-busy={upload.busy > 0}>
+      {/* aria-busy is on the view content, not on main: the drop zone status inside main must be announced */}
+      <main id="main" className="app-main" tabIndex={-1}>
       {!analysis && view !== 'rules' && (
         <DropZone
           busy={upload.busy}
@@ -217,7 +234,7 @@ function Shell() {
       )}
       {view === 'rules' && <Rules analysis={analysis} />}
       {analysis && (
-        <div className="canvas-wrap no-print" hidden={view !== 'map'}>
+        <div className="canvas-wrap no-print" hidden={view !== 'map'} aria-busy={upload.busy > 0}>
           <h1 className="sr-only">{t('tab.map')}</h1>
           <Canvas analysis={analysis} focus={mapFocus} onSelect={(path) => open({ path, from: 'map' })} />
         </div>

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import type { ProjectAnalysis } from '../src/core/model'
 import { translate } from '../src/ui/i18n'
 import {
-  cleanStart, closeEditor, editorEntry, pageTitle, pushEditor, viewFromHash, type HistoryLike,
+  cleanStart, closeEditor, editorEntry, pageTitle, pushEditor, startShell, tabHref, uploaded, viewFromHash,
+  type HistoryLike, type ShellAction,
 } from '../src/ui/shared/selection'
 
 /** a small session history: entries of [state, url]; back moves the index like the browser */
@@ -47,7 +49,7 @@ describe('hash to view', () => {
 })
 
 describe('reload with no analysis', () => {
-  for (const hash of ['#map', '#report', '#rules']) {
+  for (const hash of ['#map', '#report', '#Bot%20name']) {
     it(`rewrites ${hash} away with replaceState`, () => {
       const h = fakeHistory('/themis/' + hash)
       cleanStart(h, { pathname: '/themis/', search: '?x=1', hash })
@@ -55,6 +57,23 @@ describe('reload with no analysis', () => {
       expect(h.length).toBe(1)
     })
   }
+
+  it('keeps a direct #rules link and starts on the Rules view', () => {
+    const h = fakeHistory('/themis/?x=1#rules')
+    cleanStart(h, { pathname: '/themis/', search: '?x=1', hash: '#rules' })
+    expect(h.url).toBe('/themis/?x=1#rules')
+    expect(startShell('#rules').nav.view).toBe('rules')
+    expect(startShell('#rules').analysis).toBeNull()
+    for (const hash of ['', '#map', '#report']) expect(startShell(hash).nav.view).toBe('map')
+  })
+
+  it('drops a stale editor entry state on #rules, and keeps the hash', () => {
+    const h = fakeHistory('/#rules')
+    h.replaceState({ editor: { path: 'a', from: 'map' } }, '')
+    cleanStart(h, { pathname: '/', search: '', hash: '#rules' })
+    expect(h.state).toBeNull()
+    expect(h.url).toBe('/#rules')
+  })
 
   it('drops a stale editor entry state', () => {
     const h = fakeHistory('/')
@@ -129,7 +148,34 @@ describe('page title', () => {
     expect(pageTitle('rules', false, es)).toBe('Reglas · Themis Review')
   })
 
-  it('names the taskbot while the editor is open', () => {
-    expect(pageTitle('map', true, en, 'Main_Facturas')).toBe('Main_Facturas · Themis Review')
+  it('names no taskbot while the editor is open (history keeps titles): only the view', () => {
+    // pageTitle takes no taskbot; the shell calls it with the view only
+    expect(pageTitle.length).toBe(3)
+    expect(pageTitle('report', true, en)).not.toContain('Main_Facturas')
+  })
+})
+
+describe('view tab addresses', () => {
+  it('links every view to its hash with an analysis, and the rules always', () => {
+    expect(tabHref('map', true)).toBe('#map')
+    expect(tabHref('report', true)).toBe('#report')
+    expect(tabHref('rules', true)).toBe('#rules')
+    expect(tabHref('rules', false)).toBe('#rules')
+    // the upload view has no hash
+    expect(tabHref('map', false)).toBeNull()
+  })
+})
+
+describe('first upload', () => {
+  it('replaces the entry with #map, loads, and asks for the view heading focus', () => {
+    const h = fakeHistory('/')
+    const focusHeading = { current: false }
+    const actions: ShellAction[] = []
+    const analysis = { zipNames: ['A.zip'] } as unknown as ProjectAnalysis
+    uploaded(h, analysis, (a) => actions.push(a), focusHeading)
+    expect(h.url).toBe('#map')
+    expect(h.length).toBe(1)
+    expect(focusHeading.current).toBe(true)
+    expect(actions).toEqual([{ type: 'loaded', analysis }])
   })
 })

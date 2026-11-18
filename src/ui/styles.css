@@ -177,7 +177,7 @@ body {
 button, input, select, textarea { font: inherit; }
 code { font-family: var(--font-mono); }
 /* one caps-label recipe: 11px mono uppercase with the label tracking */
-.legend-toggle, .legend-group, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-table caption.rules-sort-by { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+.legend-toggle, .legend-group, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-sort-by { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 .app-main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -209,6 +209,8 @@ code { font-family: var(--font-mono); }
 .tab.active { color:var(--accent-text); border-bottom-color:var(--accent); }
 /* inside the tab so the bar edge does not clip the ring */
 .tab:focus-visible { outline-offset:-4px; border-radius:var(--radius); }
+/* the header tabs are links: center the text like a button and drop the link underline */
+a.tab { display:inline-flex; align-items:center; text-decoration:none; }
 .btn, .icon-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:var(--control-h); padding:0 12px; border:1px solid var(--border-strong); border-radius:var(--radius); background:var(--surface); color:var(--text); font:600 var(--fs-13)/1 var(--font-ui); cursor:pointer; white-space:nowrap; }
 .btn:hover, .icon-btn:hover { background:var(--surface-raised); }
 .btn.primary { border-color:var(--accent-edge); background:var(--accent); color:var(--on-accent); }
@@ -236,6 +238,8 @@ code { font-family: var(--font-mono); }
   text-transform: uppercase;
   white-space: nowrap;
 }
+/* the badge is a link to the report: keep the text color and no underline; the global ring shows on focus */
+a.score-badge { color: inherit; text-decoration: none; }
 .score-badge-label { display: flex; align-items: center; padding: 0 8px; border-right: 1px solid var(--border); color: var(--text-muted); }
 .score-badge-value { display: flex; align-items: center; padding: 0 8px; font-weight: 700; letter-spacing: var(--track-label); }
 /* one grade form: letter first, then the score, mono, in the grade color */
@@ -1049,6 +1053,9 @@ code { font-family: var(--font-mono); }
   font-size: var(--fs-12);
 }
 .report-options-label { color: var(--text-muted); }
+/* the severity filter is a fieldset: no box of its own, the legend sits inline with the chips (a floated legend is a flex item) */
+.sev-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.sev-filter legend { float: left; padding: 0; }
 .report-options-hint { flex: 1 1 100%; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 
 .report-table { width: 100%; min-width: 620px; border-collapse: collapse; font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); font-variant-numeric: tabular-nums; }
@@ -1252,7 +1259,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .finding-head > .finding-points { grid-area:2/4; justify-self:end; align-self:start; }
   .summary-note { display:block; }
   /* the header row becomes a labelled row of sort chips */
-  .rules-table caption.rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); text-align:left; }
+  .rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); text-align:left; }
   .rules-table thead tr { gap:8px; }
   .rules-table thead th.sortable { background:transparent; }
   .rules-table thead th.sortable button { min-height:var(--control-h); padding:0 10px; border:1px solid var(--border-strong); border-radius:var(--radius-chip); background:var(--surface); color:var(--text-muted); font:600 var(--fs-11)/1 var(--font-mono); letter-spacing:var(--track-chip); }

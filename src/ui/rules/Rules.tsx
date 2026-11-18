@@ -121,10 +121,11 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
       <p className="rules-note">{t('rules.note')}</p>
 
       <h2>{t('rules.table')}</h2>
+      {/* shown under 760px, where the header row becomes a row of sort chips */}
+      <p className="rules-sort-by">{t('rules.sortBy')}</p>
       <div className="table-scroll">
         <table className="report-table rules-table" role="table">
-          {/* shown under 760px, where the header row becomes a row of sort chips */}
-          <caption className="rules-sort-by">{t('rules.sortBy')}</caption>
+          <caption className="sr-only">{t('rules.table')}</caption>
           <thead role="rowgroup">
             <tr role="row">
               <SortHeader col="id" label={t('rules.col.id')} sort={sort} onSort={toggleSort} />
