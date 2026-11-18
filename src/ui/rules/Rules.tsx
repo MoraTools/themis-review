@@ -64,8 +64,8 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
   }, [sort, stats, t])
 
   const toggleSort = (col: SortCol) => setSort((s) => nextSort(s, col))
-  // each rule's example values; a rule with its own threshold overrides the shared ones
-  const ruleSlots = (id: string) => ({ ...placeholders[lang], ...EXAMPLES[id] })
+  // each rule's example values; a rule with its own values overrides the shared ones
+  const ruleSlots = (id: string) => ({ ...placeholders[lang], ...EXAMPLES[lang][id] })
   const categories = [...new Set(RULES.map((r) => r.category))] as RuleCategory[]
   /** cap families with more than one rule share a single points total */
   const sharedFamilies = new Set(
@@ -122,12 +122,14 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
       <p className="rules-note">{t('rules.note')}</p>
 
       <h2>{t('rules.table')}</h2>
-      {/* shown under 760px, where the header row becomes a row of sort chips */}
+      {/* one note for the Times and Points columns, so the headers stay short; before the sort label, so on phones
+          'Sort by' stays next to its buttons */}
+      <p className="rules-caption" id="rules-scope">{t('rules.scope')}</p>
+      {/* shown on phones, where the header row becomes a row of sort chips */}
       <p className="rules-sort-by">{t('rules.sortBy')}</p>
       <div className="table-scroll">
-        <table className="report-table rules-table" role="table">
-          {/* the name, then one note for the Times and Points columns, so the headers stay short */}
-          <caption className="rules-caption"><span className="sr-only">{t('rules.table')}. </span>{t('rules.scope')}</caption>
+        <table className="report-table rules-table" role="table" aria-describedby="rules-scope">
+          <caption className="sr-only">{t('rules.table')}</caption>
           <thead role="rowgroup">
             <tr role="row">
               <SortHeader col="id" label={t('rules.col.id')} sort={sort} onSort={toggleSort} />
@@ -145,7 +147,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
                 <td role="cell" className="rules-name">
                   <span className="rules-title">{t(`rule.${r.id}.title`)}</span> <code className="rules-id"><Breaks text={r.id} /></code>
                 </td>
-                <td role="cell" className="rules-sev"><SeverityIcon severity={r.severity} /> −{number(DEDUCTION[r.severity])}</td>
+                <td role="cell" className="rules-sev"><SeverityIcon severity={r.severity} /> {t('report.severity.' + r.severity)} <span className="fig">−{number(DEDUCTION[r.severity])}</span></td>
                 <td role="cell" className="rules-text">{t('rules.cat.' + r.category)}</td>
                 <td role="cell" className="rules-times" data-label={t('rules.col.fired')}>{r.fired ? number(r.fired) : '—'}</td>
                 <td role="cell" className="rules-points" data-label={t('rules.col.deducted')}
@@ -182,10 +184,20 @@ export function Breaks({ text }: { text: string }) {
   return text.split(/(?<=[_/\\])/).map((part, i) => <Fragment key={i}>{i > 0 && <wbr />}{part}</Fragment>)
 }
 
-/** example values for a rule whose threshold differs from the shared slot: depth 4 is CALL_DEPTH (level 4 or
- *  deeper); DEEP_NESTING fires at 6 */
-export const EXAMPLES: Record<string, Record<string, string>> = {
-  DEEP_NESTING: { depth: '6' },
+/** example values for a rule whose slots differ from the shared ones, per language: depth 4 is CALL_DEPTH (level 4
+ *  or deeper), DEEP_NESTING fires at 6; the mismatch rules get a name, expected value and rename that fit them
+ *  (expected is a type token for the type rule, a scope prefix for the scope rule, as src/core/rules/naming.ts) */
+export const EXAMPLES: Record<Lang, Record<string, Record<string, string>>> = {
+  en: {
+    DEEP_NESTING: { depth: '6' },
+    VAR_TYPE_MISMATCH: { name: 'pStrExample', token: 'Str', expected: 'Num', suggestion: 'pNumExample' },
+    VAR_SCOPE_MISMATCH: { name: 'pStrExample', scope: 'p', expected: 'i', suggestion: 'iStrExample' },
+  },
+  es: {
+    DEEP_NESTING: { depth: '6' },
+    VAR_TYPE_MISMATCH: { name: 'pStrEjemplo', token: 'Str', expected: 'Num', suggestion: 'pNumEjemplo' },
+    VAR_SCOPE_MISMATCH: { name: 'pStrEjemplo', scope: 'p', expected: 'i', suggestion: 'iStrEjemplo' },
+  },
 }
 
 /** rule texts are templates; fill the slots with readable stand-ins for the reference table, in the page language */

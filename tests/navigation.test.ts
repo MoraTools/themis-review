@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ProjectAnalysis } from '../src/core/model'
 import { translate } from '../src/ui/i18n'
 import {
-  cleanStart, closeEditor, editorEntry, pageTitle, pushEditor, startShell, tabHref, uploaded, viewFromHash,
+  cleanStart, closeEditor, editorEntry, pageTitle, pushEditor, ruleFromEditor, shellReducer, startShell, tabHref, uploaded, viewFromHash,
   type HistoryLike, type ShellAction,
 } from '../src/ui/shared/selection'
 
@@ -121,6 +121,24 @@ describe('editor history entry', () => {
     closeEditor(h, () => closed++)
     expect(closed).toBe(1)
     expect(h.popped).toEqual([])
+  })
+
+  it('a rule id from the editor keeps the editor entry at that family and adds #rules, so Back reopens the editor', () => {
+    const h = fakeHistory('/#report')
+    const open = { ...selection, from: 'report' as const, line: 7 }
+    pushEditor(h, open)
+    ruleFromEditor(h, open, 'VAR_NO_DESCRIPTION')
+    expect(h.length).toBe(3)
+    expect(h.url).toBe('#rules')
+    expect(h.state).toBeNull()
+    h.back()
+    const entry = editorEntry(h.popped.at(-1))
+    expect(entry).toEqual({ ...selection, from: 'report', line: undefined, variable: undefined, rule: 'VAR_NO_DESCRIPTION' })
+    // the URL of the editor entry is the view it was opened from, with no taskbot name
+    expect(h.url).toBe('/#report')
+    // the shell reopens the editor from that state (the popstate handler dispatches 'open')
+    const state = shellReducer({ analysis: null, nav: { view: 'rules', selection: null } }, { type: 'open', ...entry! })
+    expect(state.nav).toEqual({ view: 'report', selection: entry })
   })
 
   it('ignores states that are not editor entries', () => {

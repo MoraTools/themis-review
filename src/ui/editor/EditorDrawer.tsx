@@ -73,6 +73,8 @@ export default function EditorDrawer({
   const varsRef = useRef<HTMLDivElement>(null)
   const [sevOn, setSevOn] = useState<SeverityOn>(ALL_ON)
   const [flashLine, setFlashLine] = useState<number | null>(line ?? null)
+  // the line of the last jump keeps its finding titles after the flash, so it says why it was shown
+  const [targetLine, setTargetLine] = useState<number | null>(line ?? null)
   // index (in `findings`) of the card to show after a Variables flag opens the Findings tab
   const [focusFinding, setFocusFinding] = useState<number | null>(null)
   // the code line whose findings show inline under it
@@ -168,6 +170,7 @@ export default function EditorDrawer({
 
   const jumpTo = (at: number) => {
     setFlashLine(at)
+    setTargetLine(at)
     setTab('code')
   }
 
@@ -275,9 +278,10 @@ export default function EditorDrawer({
             <Name text={bot.name} className="drawer-name" id="editor-title" />{' '}
             <Grade score={score} className="grade-chip" />
           </h1>
-          {/* one line: the path (cut with an ellipsis, in full in the title), then the stats */}
+          {/* one line: the path (cut with an ellipsis, in full in the title), then the stats; the bdi keeps the path
+              left to right when narrow screens cut it at the start */}
           <div className="drawer-sub">
-            <span className="drawer-path" title={bot.path}>{bot.path}</span>
+            <span className="drawer-path" title={bot.path}><bdi>{bot.path}</bdi></span>
             <span className="drawer-stats">
               <span>{plural('node.lines', metrics.totalLines)}</span>
               <span>{plural('node.comments', metrics.commentLines)}</span>
@@ -353,6 +357,9 @@ export default function EditorDrawer({
                   <ActionGlyph action={a} />
                   <span className="code-label">{describeAction(a, lang)}</span>
                   {(a.disabled || !a.reachable) && <span className="code-off">{t('editor.disabled')}</span>}
+                  {a.line === targetLine && worst && (
+                    <span className="code-target">{[...new Set(fs.map((i) => t(`rule.${findings[i].ruleId}.title`)))].join(' · ')}</span>
+                  )}
                 </span>
                 {/* every row keeps the flag cell, so all rows end at the same x */}
                 <span className="code-flag-cell">
@@ -421,7 +428,7 @@ export default function EditorDrawer({
                   <td>{v.input && v.output ? t('editor.var.both') : v.input ? t('editor.var.in') : v.output ? t('editor.var.out') : v.readOnly ? t('editor.var.const') : '—'}</td>
                   <td className="var-desc">{v.description || '—'}</td>
                   <td className="var-findings">
-                    {fs.map((f) => {
+                    {fs.length > 0 && <div className="var-findings-list">{fs.map((f) => {
                       const title = t(`rule.${f.ruleId}.title`)
                       const msg = t(`rule.${f.ruleId}.msg`, f.params)
                       const index = findings.indexOf(f)
@@ -431,7 +438,7 @@ export default function EditorDrawer({
                           <SeverityIcon severity={f.severity} /> {title}
                         </button>
                       )
-                    })}
+                    })}</div>}
                   </td>
                 </tr>
               )

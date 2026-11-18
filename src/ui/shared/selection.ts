@@ -90,6 +90,13 @@ export function closeEditor(history: HistoryLike, closeNow: () => void) {
   else closeNow()
 }
 
+/** a rule id from the editor: the editor entry now names that rule family (no line or variable), and #rules is a new
+ *  entry after it, so Back reopens the editor at the family's first card; the URL names no taskbot */
+export function ruleFromEditor(history: HistoryLike, selection: Selection, family: string) {
+  history.replaceState({ editor: { ...selection, line: undefined, variable: undefined, rule: family } }, '')
+  history.pushState(null, '', '#rules')
+}
+
 /** document.title names the view only, also with the editor open: browser history keeps titles, and they must not name a taskbot */
 export function pageTitle(view: View, hasAnalysis: boolean, t: (key: string) => string): string {
   const label = hasAnalysis || view === 'rules' ? t('tab.' + view) : null

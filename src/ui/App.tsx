@@ -9,9 +9,10 @@ import EditorDrawer from './editor/EditorDrawer'
 import Report from './report/Report'
 import Rules from './rules/Rules'
 import {
-  cleanStart, closeEditor, editorEntry, pageTitle, pushEditor, shellReducer, startShell, tabHref, uploaded, viewFromHash,
+  cleanStart, closeEditor, editorEntry, pageTitle, pushEditor, ruleFromEditor, shellReducer, startShell, tabHref, uploaded, viewFromHash,
   type Selection, type View,
 } from './shared/selection'
+import { capGroup } from '../core/score'
 import { Grade } from './shared/Grade'
 import { DEFAULT_SEVERITY_ON, severityFilterReducer } from './findings/SeverityFilter'
 import { includedList } from './findings/findings'
@@ -146,9 +147,11 @@ function Shell() {
     uploaded(history, next, (action) => { dispatch(action); dispatchSeverity(action) }, focusHeading)
   })
   // a rule id goes to its row in the Rules view, like a tab but with focus on the row. From the report it adds an
-  // entry; from the editor it replaces the editor entry, so Back returns to the view the editor was opened from
+  // entry; from the editor it keeps the editor entry (now at that rule family) and adds #rules, so Back reopens the
+  // editor at the finding
   const showRule = (ruleId: string, fromEditor: boolean) => {
-    if (fromEditor) history.replaceState(null, '', '#rules')
+    const current = selectionRef.current
+    if (fromEditor && current) ruleFromEditor(history, current, capGroup(ruleId))
     else history.pushState(null, '', '#rules')
     flushSync(() => {
       if (fromEditor) dispatch({ type: 'close' })
@@ -234,6 +237,9 @@ function Shell() {
         <ThemeToggles />
       </header>
 
+      {/* aria-busy is on the view content, not on main: the drop zone status inside main must be announced */}
+      <main id="main" className="app-main" tabIndex={-1}>
+      {/* first in main, so the upload status and errors are inside a landmark on every view */}
       {analysis && (
         <div className="upload-bar no-print">
           <div className="upload-status" role="status">{upload.busy > 0 && <p>{busyText(upload.busy)}</p>}</div>
@@ -243,9 +249,6 @@ function Shell() {
           </p>
         </div>
       )}
-
-      {/* aria-busy is on the view content, not on main: the drop zone status inside main must be announced */}
-      <main id="main" className="app-main" tabIndex={-1}>
       {!analysis && view !== 'rules' && (
         <DropZone
           busy={upload.busy}
