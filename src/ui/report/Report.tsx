@@ -123,7 +123,7 @@ export default function Report({
   const hidden = hiddenList(counts, sevOn, lang)
   const scoring = scoringLines(lang)
   const dist = gradeDistribution(Object.values(analysis.scores))
-  const lineAction = (line: number) => t('report.finding.openLine', { line: number(line) })
+  const lineAction = t('report.finding.openLine')
   const shownRows = rows.filter((r) => r.findings.length > 0)
   const rowOf = new Map(rows.map((r) => [r.bot.path, r]))
   const familyOf = (r: (typeof rows)[number], group: string) => r.all.filter((f) => capGroup(f.ruleId) === group)
@@ -205,11 +205,13 @@ export default function Report({
               const r = rowOf.get(l.botPath)!
               const target = r.families.get(l.group)
               const hidden = target ? undefined : hiddenOf(r)(l.group)
+              // a grid on phones: the name on row 1, the rule and the points (right) on row 2, without separators
+              const sep = <span className="report-fix-sep"> · </span>
               const body = (
-                <>
-                  <span className="report-fix-bot">{r.bot.name}</span> · <span className="report-lost-title">{groupLabel(lang, l.group)}</span> ·{' '}
-                  <span className="report-lost-points"><LostPoints lost={l} /> · {project(l.project)}</span>
-                </>
+                <span className="report-fix-item">
+                  <span className="report-fix-bot">{r.bot.name}</span>{sep}<span className="report-lost-title">{groupLabel(lang, l.group)}</span>{sep}
+                  <span className="report-lost-points"><LostPoints lost={l} /><span className="report-fix-sep"> ·</span> {project(l.project)}</span>
+                </span>
               )
               return (
                 <li key={l.botPath + l.group}>
@@ -223,15 +225,20 @@ export default function Report({
         </section>
       )}
 
-      <div className="report-options no-print">
-        <SeverityFilter label={t('report.filter.title')} counts={counts} on={sevOn} onToggle={onToggleSeverity} />
-        <span className="report-options-hint">{t('report.filter.hint')}</span>
-      </div>
+      {/* a project with no findings has nothing to filter */}
+      {analysis.findings.length > 0 && (
+        <div className="report-options no-print">
+          <SeverityFilter label={t('report.filter.title')} counts={counts} on={sevOn} onToggle={onToggleSeverity} />
+          <span className="report-options-hint">{t('report.filter.hint')}</span>
+        </div>
+      )}
 
-      <h2>{t('report.summary')}</h2>
+      {/* one hint for every name button: the button's name stays the visible taskbot name */}
+      <span id="report-open-hint" hidden>{t('report.openHint')}</span>
+      <h2 id="report-summary-title">{t('report.summary')}</h2>
       <div className="table-scroll">
         {/* explicit roles: under 760px the rows are grids, which drops the implicit table semantics */}
-        <table className="report-table summary-table" role="table">
+        <table className="report-table summary-table" role="table" aria-labelledby="report-summary-title">
           <thead role="rowgroup">
             <tr role="row">
               <SortHeader col="name" label={t('report.taskbot')} sort={sort} onSort={toggleSort} />
@@ -251,7 +258,7 @@ export default function Report({
                     type="button"
                     className="row-name no-print"
                     data-bot={r.bot.path}
-                    aria-label={t('report.openInEditor', { name: r.bot.name })}
+                    aria-describedby="report-open-hint"
                     onClick={() => onOpen(r.bot.path)}
                   >
                     <Name text={r.bot.name} className="row-name-text" />
@@ -311,10 +318,10 @@ export default function Report({
           <section key={r.bot.path} id={r.anchor} className="report-bot">
             <h2>
               {/* a finding without a line still leads to the editor: the name opens it */}
-              <button type="button" className="row-name report-bot-open no-print" aria-label={t('report.openInEditor', { name: r.bot.name })} onClick={() => onOpen(r.bot.path)}>
+              <button type="button" className="row-name report-bot-open no-print" aria-describedby="report-open-hint" onClick={() => onOpen(r.bot.path)}>
                 <Name text={r.bot.name} className="report-bot-name" />
               </button>
-              <Name text={r.bot.name} className="report-bot-name print-only" />{' '}
+              <span className="print-only" aria-hidden="true"><Name text={r.bot.name} className="report-bot-name" /></span>{' '}
               <Grade score={r.s} className="tb-grade" />
             </h2>
             <p className="report-bot-path">{r.bot.path}</p>
@@ -325,7 +332,6 @@ export default function Report({
                 <PointsLost lost={r.lost} targetOf={(g) => r.families.get(g)} hiddenOf={hiddenOf(r)} onShowHidden={showHidden(r)} />
               </details>
             )}
-            {r.findings.some((f) => f.ruleId === 'VAR_NAME_FORMAT') && <p className="name-key">{t('report.nameKey')}</p>}
             {r.entries.map((e, i) => {
               if (e.kind === 'group') {
                 return (
@@ -352,7 +358,7 @@ export default function Report({
                   finding={e.finding}
                   line={line}
                   onLine={line === undefined ? undefined : () => onOpen(r.bot.path, line)}
-                  lineAction={line === undefined ? undefined : lineAction(line)}
+                  lineAction={line === undefined ? undefined : lineAction}
                   onRule={onRule}
                 />
               )

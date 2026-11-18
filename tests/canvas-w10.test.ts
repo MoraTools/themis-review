@@ -207,7 +207,7 @@ describe('grade strip and legend', () => {
     expect(text(html)).toContain('A ×1')
     expect(text(html)).toContain('F ×2')
     expect(html).toContain('aria-labelledby="grade-strip-label"')
-    expect(html).toContain('aria-label="Next taskbot with grade F, 2 in total"')
+    expect(html).toContain('aria-label="F ×2, next taskbot with grade F"')
     expect(html).not.toContain('grade-score')
     expect(text(wrap('es', createElement(GradeStrip, { scores, onShow: () => {} })))).toContain('Taskbots por nota')
   })

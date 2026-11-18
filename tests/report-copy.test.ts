@@ -122,7 +122,7 @@ describe('points lost', () => {
     // the title is the link text; the id stays on the card head only
     expect(html).not.toContain('report-lost-id')
     expect((html.match(/<button/g) ?? []).length).toBe(2)
-    expect(html).toContain('(cap)')
+    expect(html).toContain('(<abbr title="The most one rule family can take off one taskbot.">cap</abbr>)')
     // one stacked layout at every length, the print anchors to the same cards, the total last
     expect(html).not.toContain('stacked')
     expect(html).toContain('<a class="print-only card-anchor" href="#bot-0-MSGBOX_BLOCKING">')

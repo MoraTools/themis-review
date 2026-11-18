@@ -19,6 +19,12 @@ import type { BotScore } from '../core/model'
 
 const VIEWS: View[] = ['map', 'report', 'rules']
 
+/** YYYY-MM-DD in local time, as the report date: toISOString() is UTC and can name the next or previous day */
+export function localDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 /** the view tabs are links to the view hashes; the upload view has no hash, so its tab goes there through onUpload */
 export function ViewTabs({ view, hasAnalysis, uploadHref, onUpload }: {
   view: View
@@ -136,6 +142,20 @@ function Shell() {
     // focus goes to the map h1, as on a view change: the drop zone and its focused button are gone
     uploaded(history, next, (action) => { dispatch(action); dispatchSeverity(action) }, focusHeading)
   })
+  // a rule id goes to its row in the Rules view, like a tab but with focus on the row. From the report it adds an
+  // entry; from the editor it replaces the editor entry, so Back returns to the view the editor was opened from
+  const showRule = (ruleId: string, fromEditor: boolean) => {
+    if (fromEditor) history.replaceState(null, '', '#rules')
+    else history.pushState(null, '', '#rules')
+    flushSync(() => {
+      if (fromEditor) dispatch({ type: 'close' })
+      dispatch({ type: 'view', view: 'rules' })
+    })
+    const row = document.getElementById('rule-' + ruleId)
+    row?.scrollIntoView({ block: 'center' })
+    row?.focus({ preventScroll: true })
+  }
+
   const pick = () => {
     if (upload.busy === 0) fileInput.current?.click()
   }
@@ -165,7 +185,7 @@ function Shell() {
       history.replaceState(history.state, '', '#report')
       flushSync(() => dispatch({ type: 'view', view: 'report' }))
       const names = analysis.zipNames.map((n) => n.replace(/\.zip$/i, '')).join(', ')
-      document.title = `Themis - ${names} - ${new Date().toISOString().slice(0, 10)}`
+      document.title = `Themis - ${names} - ${localDate(new Date())}`
     }
     const after = () => { document.title = title }
     window.addEventListener('beforeprint', before)
@@ -191,11 +211,11 @@ function Shell() {
         {analysis && (
           <div className="header-zone header-right">
             <ScoreBadge score={analysis.projectScore} />
-            {/* at 480px and below these show only their icon */}
+            {/* at 480px and below these show a short label: 'PDF', 'New' */}
             <div className="header-tools">
               {/* one click from every view; the name says which severities the PDF includes */}
               <button className="btn primary" aria-label={t('header.exportScope', { list: includedList(sevOn, lang) })} title={t('header.exportScope', { list: includedList(sevOn, lang) })} onClick={() => window.print()}>
-                <Icon name="download" /><span className="btn-label">{t('header.export')}</span>
+                <Icon name="download" /><span className="btn-label">{t('header.export')}</span><span className="btn-short">{t('header.export.short')}</span>
               </button>
               <button
                 ref={newButton}
@@ -204,7 +224,7 @@ function Shell() {
                 title={t('header.reset')}
                 aria-disabled={upload.busy > 0}
                 onClick={pick}
-              ><Icon name="plus" /><span className="btn-label">{t('header.reset')}</span></button>
+              ><Icon name="plus" /><span className="btn-label">{t('header.reset')}</span><span className="btn-short">{t('header.reset.short')}</span></button>
             </div>
           </div>
         )}
@@ -245,14 +265,7 @@ function Shell() {
           onOpen={(path, line, variable) => open({ path, from: 'report', line, variable })}
           sevOn={sevOn}
           onToggleSeverity={(severity) => dispatchSeverity({ type: 'severity', severity })}
-          onRule={(ruleId) => {
-            // a view change like a tab, without the h1 focus: focus goes to the rule row
-            history.pushState(null, '', '#rules')
-            flushSync(() => dispatch({ type: 'view', view: 'rules' }))
-            const row = document.getElementById('rule-' + ruleId)
-            row?.scrollIntoView({ block: 'center' })
-            row?.focus({ preventScroll: true })
-          }}
+          onRule={(ruleId) => showRule(ruleId, false)}
         />
       )}
       </main>
@@ -284,6 +297,7 @@ function Shell() {
             history.replaceState(null, '', '#map')
             dispatch({ type: 'showOnMap', path: selection.path })
           }}
+          onRule={(ruleId) => showRule(ruleId, true)}
         />
       )}
     </div>

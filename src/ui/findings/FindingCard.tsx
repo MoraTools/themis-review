@@ -1,4 +1,4 @@
-import { useContext, type ReactNode } from 'react'
+import { useContext, useId, type ReactNode } from 'react'
 import type { Finding, Severity } from '../../core/model'
 import { SeverityIcon } from '../Icons'
 import { LangContext, useNumber, usePlural, useT } from '../i18n'
@@ -25,8 +25,10 @@ function Where({ line, varName, onLine, lineAction, onVar }: { line?: number; va
   const number = useNumber()
   if (line === undefined) return varName ? <VarName name={varName} onVar={onVar} className="finding-where" /> : null
   const label = `${t('report.finding.line')} ${number(line)}`
+  // the name starts with the visible text: 'Line 62, open in the editor'
+  const name = lineAction && `${label}, ${lineAction}`
   return onLine ? (
-    <button type="button" className="finding-where finding-line" aria-label={lineAction} title={lineAction} onClick={onLine}>
+    <button type="button" className="finding-where finding-line" aria-label={name} title={name} onClick={onLine}>
       {label}
     </button>
   ) : (
@@ -34,43 +36,53 @@ function Where({ line, varName, onLine, lineAction, onVar }: { line?: number; va
   )
 }
 
-/** the rule id; with onRule a screen-only button to the rule's row in the Rules view, plain text in print */
+/** the rule id; with onRule a button to the rule's row in the Rules view. Print hides it: the title names the rule */
 function RuleId({ ruleId, onRule }: { ruleId: string; onRule?: (ruleId: string) => void }) {
   const t = useT()
   if (!onRule) return <code className="finding-rule">{ruleId}</code>
   return (
-    <>
-      <button type="button" className="finding-rule finding-rule-link no-print" title={t('report.finding.openRule', { id: ruleId })}
-        aria-label={t('report.finding.openRule', { id: ruleId })} onClick={() => onRule(ruleId)}>
-        {ruleId}
-      </button>
-      <code className="finding-rule print-only">{ruleId}</code>
-    </>
+    <button type="button" className="finding-rule finding-rule-link" title={t('report.finding.openRule', { id: ruleId })}
+      aria-label={t('report.finding.openRule', { id: ruleId })} onClick={() => onRule(ruleId)}>
+      {ruleId}
+    </button>
   )
 }
 
-/** what a rule family costs, '−15 (cap)'; the card heads and Fix first use it */
+/** what a rule family costs, '−15 (cap)'; the card heads and Fix first use it; '(cap)' explains itself on hover */
 export function LostPoints({ lost }: { lost: Lost }) {
   const t = useT()
   const number = useNumber()
-  return <>−{number(lost.points)}{lost.capped && ` (${t('report.lost.cap')})`}</>
+  return <>−{number(lost.points)}{lost.capped && <> (<abbr title={t('rules.capNote')}>{t('report.lost.cap')}</abbr>)</>}</>
 }
 
-function Head({ severity, ruleId, onRule, points, children }: {
+/** the rules whose cards show the naming key: their fix is a rename to the convention */
+const NAME_KEY_RULES = new Set(['VAR_NAME_FORMAT', 'VAR_TYPE_MISMATCH'])
+function NameKey({ ruleId }: { ruleId: string }) {
+  const t = useT()
+  return NAME_KEY_RULES.has(ruleId) ? <p className="name-key">{t('report.nameKey')}</p> : null
+}
+
+/** the card title is a heading: h3 in the report, h2 in the editor dialog (its h1 is the taskbot) */
+export type HeadingLevel = 2 | 3
+
+function Head({ severity, ruleId, onRule, points, titleId, level = 3, children }: {
   severity: Severity
   ruleId: string
+  titleId: string
+  level?: HeadingLevel
   onRule?: (ruleId: string) => void
   /** the family's points: on the first card of the family, and marked inFamily on its later cards */
   points?: Lost & { inFamily?: boolean }
   children?: ReactNode
 }) {
   const t = useT()
+  const Title = level === 2 ? 'h2' : 'h3'
   return (
     <div className="finding-head">
       <span className={'severity-chip sev-' + severity}>
         <SeverityIcon severity={severity} /> {t('report.severity.' + severity)}
       </span>
-      <span className="finding-title">{t(`rule.${ruleId}.title`)}</span>
+      <Title className="finding-title" id={titleId}>{t(`rule.${ruleId}.title`)}</Title>
       {children}
       {points && (
         <span className={'finding-points' + (points.inFamily ? ' in-family' : '')}>
@@ -85,13 +97,15 @@ function Head({ severity, ruleId, onRule, points, children }: {
 }
 
 /** one finding: severity chip, where, rule id, message and a labelled fix. Shared by the editor and the report. */
-export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, index, id, onRule, points, onVar }: {
+export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, index, id, onRule, points, onVar, level }: {
   finding: Finding
+  level?: HeadingLevel
   points?: Lost & { inFamily?: boolean }
   /** open the editor on the Variables tab at this variable, for a finding without a line */
   onVar?: (name: string) => void
   line?: number
   onLine?: () => void
+  /** what the line button does, after its visible text: 'open in the editor' */
   lineAction?: string
   tabIndex?: number
   index?: number
@@ -100,15 +114,18 @@ export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, in
   onRule?: (ruleId: string) => void
 }) {
   const t = useT()
+  const autoId = useId()
+  const titleId = (id ?? autoId) + '-title'
   return (
-    <article id={id} className={'finding-card sev-' + f.severity} tabIndex={tabIndex ?? (id ? -1 : undefined)} data-finding={index}>
-      <Head severity={f.severity} ruleId={f.ruleId} onRule={onRule} points={points}>
+    <article id={id} className={'finding-card sev-' + f.severity} tabIndex={tabIndex ?? (id ? -1 : undefined)} data-finding={index} aria-labelledby={titleId}>
+      <Head severity={f.severity} ruleId={f.ruleId} onRule={onRule} points={points} titleId={titleId} level={level}>
         <Where line={line} varName={f.varName} onLine={onLine} lineAction={lineAction} onVar={onVar} />
       </Head>
       <p className="finding-msg">{t(`rule.${f.ruleId}.msg`, f.params)}</p>
       <p className="finding-fix">
         <strong>{t('report.finding.fix')}:</strong> {t(`rule.${f.ruleId}.fix`, f.params)}
       </p>
+      <NameKey ruleId={f.ruleId} />
     </article>
   )
 }
@@ -129,13 +146,16 @@ export function FindingGroupCard({
   onRule,
   points,
   onVar,
+  level,
 }: {
   findings: Finding[]
+  level?: HeadingLevel
   points?: Lost & { inFamily?: boolean }
   onVar?: (name: string) => void
   lineOf: (f: Finding) => number | undefined
   onLine?: (line: number) => void
-  lineAction?: (line: number) => string
+  /** what a line button does, after its visible text: 'open in the editor' */
+  lineAction?: string
   id?: string
   onRule?: (ruleId: string) => void
 }) {
@@ -144,6 +164,8 @@ export function FindingGroupCard({
   const plural = usePlural()
   const { lang } = useContext(LangContext)
   const first = findings[0]
+  const autoId = useId()
+  const titleId = (id ?? autoId) + '-title'
   // a group sentence and fix per rule: the list carries each name, line and rename
   const { msg, fix } = groupTexts(lang, first.ruleId, findings.length)
   const items = findings
@@ -154,18 +176,21 @@ export function FindingGroupCard({
   // a rename list (old → new): one grid row per item, in columns
   const renames = items.some((i) => i.suggestion)
   return (
-    <article id={id} tabIndex={id ? -1 : undefined} className={'finding-card finding-group sev-' + first.severity}>
-      <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule} points={points}>
+    <article id={id} tabIndex={id ? -1 : undefined} className={'finding-card finding-group sev-' + first.severity} aria-labelledby={titleId}>
+      <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule} points={points} titleId={titleId} level={level}>
         <span className="finding-where">{plural('report.group.count', findings.length)}</span>
       </Head>
       <p className="finding-msg">{msg}</p>
       <p className="finding-fix">
         <strong>{t('report.finding.fix')}:</strong> {fix}
       </p>
+      <NameKey ruleId={first.ruleId} />
       <ul className={'finding-items' + (renames ? ' finding-renames' : '')}>
         {items.map(({ f, line, subject, suggestion }, i) => {
+          // the name starts with the visible text: 'L62, open in the editor'
+          const lineName = line === undefined || !lineAction ? undefined : `L${number(line)}, ${lineAction}`
           const lineCell = line === undefined ? null : onLine ? (
-            <button type="button" className="finding-line" aria-label={lineAction?.(line)} title={lineAction?.(line)} onClick={() => onLine(line)}>
+            <button type="button" className="finding-line" aria-label={lineName} title={lineName} onClick={() => onLine(line)}>
               L{number(line)}
             </button>
           ) : (

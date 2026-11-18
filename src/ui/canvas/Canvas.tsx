@@ -911,7 +911,8 @@ export default function Canvas({
         ariaLabel: labels.get(node.id),
         // taskbots open the editor (Enter, Space, click); ghosts and file nodes are not tab stops
         ...(isTaskbot(node)
-          ? { ariaRole: 'button' as const, domAttributes: { tabIndex: node.id === tabStop ? 0 : -1 } }
+          // a button needs no "node" role description: React Flow sets it first, domAttributes override it
+          ? { ariaRole: 'button' as const, domAttributes: { tabIndex: node.id === tabStop ? 0 : -1, 'aria-roledescription': undefined } }
           : { focusable: false, ariaRole: 'group' as const }),
       })),
     [showDetails, nodes, labels, tabStop],

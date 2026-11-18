@@ -1,5 +1,5 @@
 import { SeverityIcon } from '../Icons'
-import { useContext, useMemo, useState } from 'react'
+import { Fragment, useContext, useMemo, useState } from 'react'
 import { CALL_DEPTH_UTILITY_PREFIX } from '../../core/graph'
 import type { ProjectAnalysis, Severity } from '../../core/model'
 import { RULES, type RuleCategory } from '../../core/rulesInfo'
@@ -64,7 +64,8 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
   }, [sort, stats, t])
 
   const toggleSort = (col: SortCol) => setSort((s) => nextSort(s, col))
-  const slots = placeholders[lang]
+  // each rule's example values; a rule with its own threshold overrides the shared ones
+  const ruleSlots = (id: string) => ({ ...placeholders[lang], ...EXAMPLES[id] })
   const categories = [...new Set(RULES.map((r) => r.category))] as RuleCategory[]
   /** cap families with more than one rule share a single points total */
   const sharedFamilies = new Set(
@@ -113,7 +114,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
         <div className="rules-model-block">
           <span className="rules-model-label">{t('rules.depthExempt')}</span>
           <ul>
-            <li><code>{CALL_DEPTH_UTILITY_PREFIX}*</code></li>
+            <li>{t('rules.depthExemptItem', { prefix: CALL_DEPTH_UTILITY_PREFIX })}</li>
           </ul>
           <p className="rules-model-note">{t('rules.depthExemptNote')}</p>
         </div>
@@ -125,7 +126,8 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
       <p className="rules-sort-by">{t('rules.sortBy')}</p>
       <div className="table-scroll">
         <table className="report-table rules-table" role="table">
-          <caption className="sr-only">{t('rules.table')}</caption>
+          {/* the name, then one note for the Times and Points columns, so the headers stay short */}
+          <caption className="rules-caption"><span className="sr-only">{t('rules.table')}. </span>{t('rules.scope')}</caption>
           <thead role="rowgroup">
             <tr role="row">
               <SortHeader col="id" label={t('rules.col.id')} sort={sort} onSort={toggleSort} />
@@ -141,7 +143,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
             {rows.map((r) => (
               <tr role="row" key={r.id} id={'rule-' + r.id} tabIndex={-1}>
                 <td role="cell" className="rules-name">
-                  <span className="rules-title">{t(`rule.${r.id}.title`)}</span> <code className="rules-id">{r.id}</code>
+                  <span className="rules-title">{t(`rule.${r.id}.title`)}</span> <code className="rules-id"><Breaks text={r.id} /></code>
                 </td>
                 <td role="cell" className="rules-sev"><SeverityIcon severity={r.severity} /> −{number(DEDUCTION[r.severity])}</td>
                 <td role="cell" className="rules-text">{t('rules.cat.' + r.category)}</td>
@@ -151,9 +153,9 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
                   {r.deducted ? '−' + number(Math.round(r.deducted * 10) / 10) : '—'}
                   {sharedFamilies.has(r.capGroup) && r.deducted ? <span className="rules-shared">∑</span> : null}
                 </td>
-                <td role="cell" className="rules-msg" data-label={t('rules.col.detects')}>{t(`rule.${r.id}.msg`, slots)}</td>
+                <td role="cell" className="rules-msg" data-label={t('rules.col.detects')}><Breaks text={t(`rule.${r.id}.msg`, ruleSlots(r.id))} /></td>
                 <td role="cell" className="rules-msg" data-label={t('rules.col.fix')}>
-                  {t(`rule.${r.id}.fix`, slots)}
+                  <Breaks text={t(`rule.${r.id}.fix`, ruleSlots(r.id))} />
                   {/* findings show only the rename, so the naming key lives here */}
                   {r.id === 'VAR_NAME_FORMAT' && <span className="rules-key">{t('report.nameKey')}</span>}
                 </td>
@@ -162,7 +164,6 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
           </tbody>
         </table>
       </div>
-      <p className="rules-note">{t('rules.scope')}</p>
 
       <p className="rules-note">
         {t('rules.categories')}: {categories.map((c) => t('rules.cat.' + c)).join(' · ')}
@@ -176,6 +177,17 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
   )
 }
 
+/** a text that breaks only after '_' and '/' (and the '\\' of a Windows path), never inside a word */
+export function Breaks({ text }: { text: string }) {
+  return text.split(/(?<=[_/\\])/).map((part, i) => <Fragment key={i}>{i > 0 && <wbr />}{part}</Fragment>)
+}
+
+/** example values for a rule whose threshold differs from the shared slot: depth 4 is CALL_DEPTH (level 4 or
+ *  deeper); DEEP_NESTING fires at 6 */
+export const EXAMPLES: Record<string, Record<string, string>> = {
+  DEEP_NESTING: { depth: '6' },
+}
+
 /** rule texts are templates; fill the slots with readable stand-ins for the reference table, in the page language */
 const placeholders: Record<Lang, Record<string, string>> = {
   en: {
@@ -187,7 +199,7 @@ const placeholders: Record<Lang, Record<string, string>> = {
     line: 'N',
     command: 'messageBox',
     path: 'C:\\fixed\\path',
-    depth: '3',
+    depth: '4',
     lines: '300',
     max: '250',
     pct: '5.0',
@@ -207,7 +219,7 @@ const placeholders: Record<Lang, Record<string, string>> = {
     line: 'N',
     command: 'acción',
     path: 'C:\\ruta\\fija',
-    depth: '3',
+    depth: '4',
     lines: '300',
     max: '250',
     pct: '5.0',

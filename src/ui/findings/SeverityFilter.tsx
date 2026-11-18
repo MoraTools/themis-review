@@ -36,8 +36,9 @@ export function SeverityFilter({ label, counts, on, onToggle }: {
     <fieldset className="sev-filter">
       <legend className="report-options-label">{label}</legend>
       {SEVERITIES.map((sev) => (
-        <label key={sev} className={'sev-toggle sev-' + sev + (on[sev] ? ' on' : '')}>
-          <input type="checkbox" checked={on[sev]} onChange={() => onToggle(sev)} />
+        // a severity with no finding has nothing to show or hide
+        <label key={sev} className={'sev-toggle sev-' + sev + (on[sev] ? ' on' : '') + (counts[sev] === 0 ? ' disabled' : '')}>
+          <input type="checkbox" checked={on[sev]} disabled={counts[sev] === 0} onChange={() => onToggle(sev)} />
           <SeverityIcon severity={sev} /> {t('report.severity.' + sev)} ({number(counts[sev])})
         </label>
       ))}

@@ -43,8 +43,8 @@ describe('points lost', () => {
     expect(summary).toBe(`Points lost: −${lostTotal(lost)} in ${lost.length} rules`)
     expect(text(editor('es').match(/<summary class="drawer-lost-summary">(.*?)<\/summary>/)![1]))
       .toBe(`Puntos perdidos: −${String(lostTotal(lost)).replace('.', ',')} en ${lost.length} reglas`)
-    // open by default (no matchMedia on the server, as above 760 px), one layout, no id repeat
-    expect(html).toMatch(/<details class="drawer-lost" open="">/)
+    // closed by default at every width, one layout, no id repeat
+    expect(html).toMatch(/<details class="drawer-lost">/)
     const list = html.slice(html.indexOf('drawer-lost'), html.indexOf('</details>')).replace(/<a class="print-only card-anchor"[^]*?<\/a>/g, '')
     expect(list).toContain('class="report-lost-list long"')
     expect(list.match(/report-lost-title/g)).toHaveLength(lost.length)
@@ -176,7 +176,8 @@ describe('fix first', () => {
 describe('card heads and labels', () => {
   it('shows the family points on the first card of a family', () => {
     const html = report('en')
-    expect(html).toMatch(/<span class="finding-points"><span class="sr-only">points lost: <\/span>−15 \(cap\)<\/span>/)
+    // '(cap)' is an abbr whose title is the cap note
+    expect(html).toMatch(/<span class="finding-points"><span class="sr-only">points lost: <\/span>−15 \(<abbr title="The most one rule family can take off one taskbot.">cap<\/abbr>\)<\/span>/)
     const f = analysis.findings.find((x) => x.botPath === old.path)!
     const card = wrap('en', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 4, capped: false } }))
     expect(card).toContain('<span class="finding-points"><span class="sr-only">points lost: </span>−4</span>')

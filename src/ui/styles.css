@@ -769,10 +769,12 @@ a.score-badge { color: inherit; text-decoration: none; }
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
-.drawer-heading { min-width: 0; }
-/* Show on map, toggles, Close: the only auto margin, so the group keeps its x for any title */
+.drawer-heading { flex: 1; min-width: 0; }
+/* toggles, Show on map, Close: the only auto margin, so the group keeps its x for any title */
 .drawer-actions { display: flex; flex: none; align-items: center; gap: 16px; margin-left: auto; }
 .drawer-actions > .header-toggles { margin-left: 0; }
+.drawer-map .icon, .drawer-map-short { display: none; }
+.drawer-map .icon { width: 14px; height: 14px; }
 .drawer-close-icon { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 .drawer-title {
   margin: 0;
@@ -783,24 +785,18 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* Cormorant's default old-style figures make "000_" read as "ooo_"; after the font shorthand below, which resets it */
 .drawer-name { font-variant-numeric: lining-nums; }
 .drawer-title .tb-grade { font-family: var(--font-mono); font-size: var(--fs-13); letter-spacing: 0.08em; }
+/* one line: the path, cut with an ellipsis (in full in its title), then the stats after a separator each */
 .drawer-sub {
-  margin-top: 6px;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-12);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.drawer-stats {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-top: 6px;
   color: var(--text-muted);
   font: 400 var(--fs-12)/var(--lh-body) var(--font-ui);
 }
+.drawer-path { min-width: 0; overflow: hidden; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.drawer-stats { display: flex; flex: none; gap: 8px; white-space: nowrap; }
+.drawer-stats > span::before { content: "·" / ""; margin-right: 8px; }
 .drawer-lost { flex: none; padding: 0 20px; border-bottom: 1px solid var(--border); }
 /* a native disclosure: the summary names the total, the open list shows every rule, one per line, with no inner scroll */
 /* a list item keeps the native disclosure marker; the padding makes the 24/44 px target */
@@ -812,10 +808,14 @@ a.score-badge { color: inherit; text-decoration: none; }
   .drawer-lost .report-lost-list { display: block; columns: 3 32ch; column-gap: 32px; }
 }
 .tabs.small { gap: 20px; padding: 12px 20px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+/* a keyboard open shows the ring on the focused tab in every browser; the first pointer press removes data-kbd */
+.drawer[data-kbd] [role="tab"]:focus { outline: 2px solid var(--focus); outline-offset: -4px; border-radius: var(--radius); }
 .tabs.small .tab { flex: none; min-height: max(40px, var(--control-h)); padding-bottom: 12px; font: 600 var(--fs-13)/1 var(--font-ui); white-space: nowrap; }
 
 /* A <table> is not a scroll container, so it needs a wrapper or the page scrolls instead. */
 .code-list, .drawer-scroll { flex: 1; min-height: 0; overflow: auto; margin: 0; }
+/* the sr-only texts inside stay in the scroll box, so they do not make the dialog itself scrollable */
+.drawer-scroll { position: relative; }
 /* code list and its findings rail side by side; the rail stays put while the list scrolls */
 .code-panel { position: relative; flex: 1; min-height: 0; display: flex; }
 .code-panel[hidden] { display: none; }
@@ -893,10 +893,14 @@ a.score-badge { color: inherit; text-decoration: none; }
   color: var(--text-muted);
 }
 .var-table tbody tr:hover { background: var(--surface-raised); color: var(--text); }
-.var-table tbody tr.flash td { background: var(--selected-bg); color: var(--text); }
+.var-table tbody tr.flash > * { background: var(--selected-bg); color: var(--text); }
 .drawer .var-table th:first-child, .drawer .var-table td:first-child { padding-left: 20px; }
 
 .var-desc { color: var(--text-muted); }
+/* each finding of a variable: its icon and the rule title, one button per line */
+.var-findings { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.var-table .var-flag { justify-content: flex-start; gap: 6px; min-width: 0; margin: -3px -4px; color: var(--text); font: 400 var(--fs-13)/var(--lh-snug) var(--font-ui); text-align: left; }
+.var-table tbody th { position: static; background: transparent; color: inherit; font: inherit; letter-spacing: normal; text-transform: none; font-weight: 400; }
 
 .drawer .editor-filter { margin: 14px 20px 0; }
 
@@ -935,7 +939,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .finding-items.finding-renames { display: block; columns: 32ch; column-gap: 24px; }
 .finding-renames li { display: grid; grid-template-columns: 6ch minmax(0, 1fr); column-gap: 8px; align-items: baseline; padding-block: 2px; break-inside: avoid; }
 @media screen and (max-width: 760px) { .finding-items.finding-renames { columns: auto; } }
-.name-key { max-width: 60ch; margin: 0 0 4px; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
+.name-key { max-width: 60ch; margin: 8px 0 0; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 .empty-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; padding: 16px 20px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 .report .empty-state { padding: 0; }
 .empty-ok { color: var(--ok); }
@@ -1006,12 +1010,15 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .report-table.rules-table { min-width: 0; }
 .rules-table code { color: var(--accent-text); }
-.rules-msg { min-width: 24ch; max-width: 52ch; white-space: normal; line-height: 1.4; overflow-wrap: anywhere; }
+.rules-msg { min-width: 24ch; max-width: 52ch; white-space: normal; line-height: 1.4; overflow-wrap: break-word; }
+/* ids and paths break at the <wbr> after '_' and '/', not inside a word */
+.rules-table td.rules-text { white-space: nowrap; }
+.rules-caption { caption-side: top; margin: 0 0 8px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); text-align: left; }
 .rules-name { min-width: 18ch; }
 .rules-title { display: block; color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); }
-.rules-table .rules-id { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--fs-12); overflow-wrap: anywhere; }
+.rules-table .rules-id { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--fs-12); overflow-wrap: normal; }
 .rules-key { display: block; margin-top: 6px; color: var(--text-muted); font-size: var(--fs-12); }
-.finding-title { color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); }
+.finding-title { margin: 0; color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); }
 /* under 760px each rule is a stacked card; the sortable headers stay as a row of buttons */
 @media screen and (max-width: 760px) {
   .rules-view .table-scroll { overflow-x: visible; }
@@ -1184,6 +1191,8 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 /* Selected: fill, text border and a check mark, so the state is not color only. */
 .chip.active,.sev-toggle.on { border-color:var(--selected-border); background:var(--selected-bg); color:var(--text); }
 .chip.active::before,.sev-toggle.on::before { content:""; width:4px; height:8px; margin:-2px 1px 0; border:solid currentColor; border-width:0 2px 2px 0; transform:rotate(45deg); }
+/* a severity with no finding: nothing to filter */
+.sev-toggle.disabled, .sev-toggle.disabled:hover { border-color:var(--border); background:var(--surface); color:var(--text-subtle); cursor:default; }
 .sev-toggle input { position:absolute; width:1px; height:1px; margin:0; opacity:0; pointer-events:none; }
 .sev-toggle:has(:focus-visible) { outline:2px solid var(--focus); outline-offset:2px; }
 .sev-error { --tone:var(--crit); }
@@ -1217,32 +1226,48 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .report-head { column-gap:12px; }
   .report-head > .report-score { grid-row:1; }
   .report-head > .report-meta, .report-head > .report-facts { grid-column:1/-1; }
-  .drawer-head { display:grid; grid-template-columns:1fr auto; gap:8px 12px; padding:12px 15px; }
+  /* row 1: toggles, Show on map (icon and short label), Close; then the title */
+  .drawer-head { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px 12px; padding:12px 15px; }
   .drawer-actions { display:contents; }
   .drawer-actions > .header-toggles { grid-row:1; grid-column:1; justify-self:end; }
-  .drawer-actions > .drawer-close { grid-row:1; grid-column:2; min-width:44px; }
+  .drawer-actions > .drawer-map { grid-row:1; grid-column:2; min-width:44px; gap:6px; }
+  .drawer-map .icon, .drawer-map-short { display:inline-block; }
+  .drawer-map-long { display:none; }
+  .drawer-actions > .drawer-close { grid-row:1; grid-column:3; min-width:44px; }
   .drawer-heading { grid-row:2; grid-column:1/-1; }
-  .drawer-actions > .drawer-map { grid-row:3; grid-column:1/-1; justify-self:start; }
   .drawer .var-table th:first-child, .drawer .var-table td:first-child { padding-left:15px; }
-  .drawer-sub { white-space:normal; overflow-wrap:anywhere; }
+  /* the path keeps one line; the stats wrap under it */
+  .drawer-sub { flex-wrap:wrap; }
+  .drawer-path { flex-basis:100%; }
+  .drawer-stats { flex-wrap:wrap; gap:4px 12px; white-space:normal; }
+  .drawer-stats > span::before { content:none; }
   .var-table { min-width:620px; }
   .report-table th.sortable button { min-height:44px; }
   .legend { bottom:auto; top:12px; }
 }
-/* icons of the header tools show only as 44x44 icon buttons at 480px and below */
+/* the header tools show a short label at 480px and below: 'PDF', 'New' */
 .header-tools { display:flex; gap:8px; }
-.header-tools .icon { display:none; }
+.header-tools .icon, .header-tools .btn-short { display:none; }
 @media (max-width:480px) {
   .header { grid-template-columns:minmax(0,1fr) auto auto; }
   .header-right { display:contents; }
   .header-tools { grid-column:2; grid-row:1; }
-  .header-tools .btn { width:44px; padding:0; }
-  .header-tools .icon { display:inline-block; }
+  .header-tools .btn { min-width:44px; padding:0 10px; }
+  .header-tools .btn-short { display:inline; }
   .header-tools .btn-label { display:none; }
   .header-toggles { grid-column:3; }
   .header-left { grid-column:1/3; min-width:0; }
   .header .score-badge { grid-column:3; grid-row:2; align-self:center; justify-self:end; }
-  .score-badge-label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+}
+/* Fix first on phones: the taskbot on row 1; the rule and the points (right, on one line) on row 2; no separators */
+@media screen and (max-width:480px) {
+  .report-fix-list { align-items:stretch; }
+  /* a block button keeps its content width; the grid needs the full row */
+  .report-fix-list .report-lost-link { width:100%; }
+  .report-fix-item { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:12px; }
+  .report-fix-bot { grid-column:1/-1; }
+  .report-fix-item .report-lost-points { justify-self:end; white-space:nowrap; text-align:right; }
+  .report-fix-sep { display:none; }
 }
 /* under 760px the summary keeps Taskbot, Findings and Score; the editor shows the rest */
 @media screen and (max-width:760px) {
@@ -1261,13 +1286,13 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .summary-table tbody .col-findings { grid-area:2/1/3/3; white-space:normal; }
   .summary-table tbody .col-score { grid-area:2/3; }
   .sev-slots { flex-wrap:wrap; row-gap:4px; }
-  /* finding card head: chip, place and rule id on row 1, the title and the points on row 2 */
-  .finding-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; gap:6px 12px; }
-  .finding-head > .severity-chip { grid-area:1/1; justify-self:start; }
-  .finding-head > .finding-where { grid-area:1/2; justify-self:start; }
-  .finding-head > .finding-rule { grid-area:1/3/2/5; justify-self:end; }
-  .finding-head > .finding-title { grid-row:2; grid-column:1/4; }
-  .finding-head > .finding-points { grid-area:2/4; justify-self:end; align-self:start; }
+  /* finding card head: chip, title and points on row 1; the place, then the rule id last and muted on row 2 */
+  .finding-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:6px 12px; }
+  .finding-head > .severity-chip { grid-area:1/1; justify-self:start; align-self:start; }
+  .finding-head > .finding-title { grid-area:1/2; }
+  .finding-head > .finding-points { grid-area:1/3; justify-self:end; align-self:start; }
+  .finding-head > .finding-where { grid-area:2/1/3/3; justify-self:start; }
+  .finding-head > .finding-rule { grid-area:2/3; justify-self:end; }
   .summary-note { display:block; }
   /* the header row becomes a labelled row of sort chips */
   .rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); text-align:left; }
@@ -1338,7 +1363,9 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .report { max-width:none; padding:0 2px; overflow:visible; }
   /* no forced page break per taskbot; the head stays with its first finding */
   .report-bot { margin-top:28px; }
-  .report-bot h2, .report-bot-path, .report-bot .report-lost-box, .report-bot .name-key { break-after:avoid; }
+  .report-bot h2, .report-bot-path, .report-bot .report-lost-box { break-after:avoid; }
+  /* the localized title names the rule; the id is screen-only */
+  .finding-head .finding-rule { display:none; }
   .table-scroll { overflow:visible; }
   .report-table { min-width:0; }
   .report-table tr, .finding-card:not(.finding-group), .report-facts, .name-key, .report-lost-box { break-inside:avoid; }
@@ -1357,7 +1384,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .report-lost-hidden, .sev-shown, .sev-none { font-size:9pt; }
   /* a grouped card may break inside; its head and texts stay with the first lines of the list */
   .finding-group { break-inside:auto; orphans:3; widows:3; }
-  .finding-group .finding-head, .finding-group .finding-msg, .finding-group .finding-fix { break-after:avoid; }
+  .finding-group .finding-head, .finding-group .finding-msg, .finding-group .finding-fix, .finding-group .name-key { break-after:avoid; }
   /* the footer joins the last card, so no page holds only the footer */
   .report-foot { margin-top:24px; padding-top:12px; break-before:avoid; break-inside:avoid; }
   /* print has no touch targets: inline targets go back to plain inline text */

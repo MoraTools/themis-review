@@ -85,8 +85,8 @@ describe('grade strip', () => {
   })
 
   it('names each grade button with its count in both languages', () => {
-    expect(plural('en', 'canvas.grades.next', 7, { grade: 'F' })).toBe('Next taskbot with grade F, 7 in total')
-    expect(plural('es', 'canvas.grades.next', 1, { grade: 'C' })).toBe('Siguiente taskbot con nota C, 1 en total')
+    expect(plural('en', 'canvas.grades.next', 7, { grade: 'F' })).toBe('F ×7, next taskbot with grade F')
+    expect(plural('es', 'canvas.grades.next', 1, { grade: 'C' })).toBe('C ×1, siguiente taskbot con nota C')
     expect(plural('en', 'node.errors', 1)).toBe('1 error')
     expect(plural('es', 'node.warnings', 2)).toBe('2 advertencias')
   })

@@ -56,7 +56,8 @@ describe('editor content', () => {
     expect(html).toContain('<th>Findings</th>')
     expect(render('es')).toContain('<th>Hallazgos</th>')
     const vars = html.slice(html.indexOf('id="editor-panel-vars"'), html.indexOf('id="editor-panel-findings"'))
-    expect(vars).toMatch(/<button type="button" class="code-flag" aria-label="[^"]+" title="[^"]+">/)
+    // the icon, then the rule title as visible text; the name starts with that title
+    expect(vars).toMatch(/<button type="button" class="code-flag var-flag" aria-label="[^".]+\. [^"]+" title="[^"]+"><svg[^>]*>.*?<\/svg> [^<]+<\/button>/)
   })
 
   it('reserves the flag cell on every code row and draws one rail tick per flagged line', () => {

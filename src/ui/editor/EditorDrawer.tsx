@@ -10,7 +10,7 @@ import { typeColor, typeLabel } from '../canvas/nodeTypes'
 import { describeAction, glyphFor, GLYPH_PATH } from './describe'
 import { Name } from '../shared/Name'
 import { Grade } from '../shared/Grade'
-import { FindingCard, FindingGroupCard, PointsLost, lostOpenDefault } from '../findings/FindingCard'
+import { FindingCard, FindingGroupCard, PointsLost } from '../findings/FindingCard'
 import { compareByFamily, compareFindings, entryPoints, findingLine, groupFindings, lostPoints, lostTotal, severityCounts as countSeverities } from '../findings/findings'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 
@@ -40,6 +40,7 @@ export default function EditorDrawer({
   variable,
   onClose,
   onShowOnMap,
+  onRule,
 }: {
   analysis: ProjectAnalysis
   botPath: string
@@ -50,6 +51,8 @@ export default function EditorDrawer({
   onClose: () => void
   /** close the editor and show this taskbot's node on the map */
   onShowOnMap: () => void
+  /** close the editor and show this rule in the Rules view */
+  onRule?: (ruleId: string) => void
 }) {
   const t = useT()
   const plural = usePlural()
@@ -61,7 +64,8 @@ export default function EditorDrawer({
     [analysis, botPath],
   )
   const [tab, setTab] = useState<Tab>(() => initialTab(line, findings.length, variable))
-  const [lostOpen, setLostOpen] = useState(lostOpenDefault)
+  // closed at every width, so the tabs and the code start high; the user's toggle holds for this editor
+  const [lostOpen, setLostOpen] = useState(false)
   const [flashVar, setFlashVar] = useState<string | null>(variable ?? null)
   const varsRef = useRef<HTMLDivElement>(null)
   const [sevOn, setSevOn] = useState<SeverityOn>(ALL_ON)
@@ -71,6 +75,10 @@ export default function EditorDrawer({
   // the code line whose findings show inline under it
   const [openLine, setOpenLine] = useState<number | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
+  // set once the editor closes, so a second close (the dialog close event after Close) does nothing
+  const closed = useRef(false)
+  // the page parts made inert while the dialog is open
+  const inerted = useRef<HTMLElement[]>([])
   const codeListRef = useRef<HTMLOListElement>(null)
   const findingsRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ code: null, vars: null, findings: null })
@@ -118,15 +126,33 @@ export default function EditorDrawer({
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    // an opener focused from the keyboard (Enter on a node or a report button) shows its ring; the tab shows it too
-    const keyboard = document.activeElement?.matches(':focus-visible') ?? false
+    closed.current = false
+    // an opener focused from the keyboard (Enter on a node or a report button) shows its ring; data-kbd shows it on
+    // the first tab too, in every browser, until the first pointer press
+    if (document.activeElement?.matches(':focus-visible')) dialog.dataset.kbd = ''
+    const pointer = () => delete dialog.dataset.kbd
+    dialog.addEventListener('pointerdown', pointer, { once: true })
+    // the page behind leaves the accessibility tree: inert on every sibling of the dialog that is not inert yet
+    inerted.current = [...(dialog.parentElement?.children ?? [])].filter(
+      (el): el is HTMLElement => el !== dialog && el instanceof HTMLElement && !el.inert,
+    )
+    for (const el of inerted.current) el.inert = true
     dialog.showModal()
     // focus starts on the selected tab, so the arrow keys work at once
-    tabRefs.current[tab]?.focus({ focusVisible: keyboard } as FocusOptions)
+    tabRefs.current[tab]?.focus()
     return () => {
+      closed.current = true
+      dialog.removeEventListener('pointerdown', pointer)
+      release()
       if (dialog.open) dialog.close()
     }
   }, [])
+
+  // before the dialog closes, so it can give focus back to the opener behind it
+  function release() {
+    for (const el of inerted.current) el.inert = false
+    inerted.current = []
+  }
 
   if (!bot) return null
   const metrics = analysis.metrics[botPath]
@@ -180,7 +206,6 @@ export default function EditorDrawer({
   })
 
   const visible = findings.filter((f) => sevOn[f.severity])
-  const hasNameFindings = visible.some((f) => f.ruleId === 'VAR_NAME_FORMAT')
   // a card's id comes from its first finding, so it stays the same when the filter changes
   const cardId = (f: Finding) => 'editor-finding-' + findings.indexOf(f)
   const lost = lostPoints(findings)
@@ -201,7 +226,7 @@ export default function EditorDrawer({
     })
   }
   const lastLine = bot.actions.at(-1)?.line ?? 1
-  const lineAction = (at: number) => t('editor.showLine', { line: number(at) })
+  const lineAction = t('editor.showLine')
   // a variable finding without a line shows its row on the Variables tab
   const showVar = (name: string) => {
     setFlashVar(name)
@@ -209,15 +234,28 @@ export default function EditorDrawer({
   }
   // the opener (map node or report button) gets focus back in App once the view is restored
   const close = () => {
+    if (closed.current) return
+    closed.current = true
+    release()
     dialogRef.current?.close()
     onClose()
   }
+  // a rule id goes to the Rules view; the dialog closes first, so focus can move to the rule row
+  const showRule = onRule && ((ruleId: string) => {
+    closed.current = true
+    release()
+    dialogRef.current?.close()
+    onRule(ruleId)
+  })
 
   return (
     <dialog
       ref={dialogRef}
       className="drawer no-print"
       aria-labelledby="editor-title"
+      // the editor state follows the dialog, however it closes
+      // (a close event of a dialog that is open again, after a StrictMode remount, is stale)
+      onClose={() => { if (!dialogRef.current?.open) close() }}
       onCancel={(event) => {
         event.preventDefault()
         // Escape first folds an inline finding, then closes the editor
@@ -231,14 +269,28 @@ export default function EditorDrawer({
             <Name text={bot.name} className="drawer-name" id="editor-title" />{' '}
             <Grade score={score} className="tb-grade" />
           </h1>
-          <div className="drawer-sub">{bot.path}</div>
+          {/* one line: the path (cut with an ellipsis, in full in the title), then the stats */}
+          <div className="drawer-sub">
+            <span className="drawer-path" title={bot.path}>{bot.path}</span>
+            <span className="drawer-stats">
+              <span>{plural('node.lines', metrics.totalLines)}</span>
+              <span>{plural('node.comments', metrics.commentLines)}</span>
+              <span>{plural('node.logs', metrics.logMessages)}</span>
+              <span>{plural('node.vars', metrics.variables)}</span>
+              <span>{plural('node.packages', bot.packages.length)}</span>
+            </span>
+          </div>
         </div>
-        {/* one actions group with the only auto margin, so its x does not follow the title length */}
+        {/* one actions group with the only auto margin, so its x does not follow the title length; the shell
+            header is behind the dialog, so the drawer keeps its own toggles */}
         <div className="drawer-actions">
-          <button type="button" className="btn ghost drawer-map" onClick={onShowOnMap}>
-            {t('editor.showOnMap')}
-          </button>
           <ThemeToggles />
+          <button type="button" className="btn ghost drawer-map" onClick={onShowOnMap}>
+            <Icon name="map" />
+            {/* one label shows at a time, so the name is the visible text */}
+            <span className="drawer-map-long">{t('editor.showOnMap')}</span>
+            <span className="drawer-map-short">{t('editor.showOnMap.short')}</span>
+          </button>
           <button className="btn ghost drawer-close" onClick={close}>
             <svg className="drawer-close-icon" viewBox="0 0 16 16" aria-hidden="true">
               <path d="m3 3 10 10M13 3 3 13" />
@@ -246,13 +298,6 @@ export default function EditorDrawer({
             {t('editor.close')}
           </button>
         </div>
-      </div>
-      <div className="drawer-stats">
-        <span>{plural('node.lines', metrics.totalLines)}</span>
-        <span>{plural('node.comments', metrics.commentLines)}</span>
-        <span>{plural('node.logs', metrics.logMessages)}</span>
-        <span>{plural('node.vars', metrics.variables)}</span>
-        <span>{plural('node.packages', bot.packages.length)}</span>
       </div>
       {lost.length > 0 && (
         // every rule shows when open: no inner scroll box
@@ -321,7 +366,7 @@ export default function EditorDrawer({
                 {open && (
                   <div className="code-inline">
                     {fs.map((i) => (
-                      <FindingCard key={i} finding={findings[i]} />
+                      <FindingCard key={i} finding={findings[i]} level={2} onRule={showRule} />
                     ))}
                   </div>
                 )}
@@ -339,7 +384,7 @@ export default function EditorDrawer({
                 tabIndex={-1}
                 className={'code-tick sev-' + findings[fs[0]].severity}
                 style={{ top: ((at - 1) / lastLine) * 100 + '%' }}
-                title={lineAction(at)}
+                title={`${t('report.finding.line')} ${number(at)}, ${lineAction}`}
                 onClick={() => jumpTo(at)}
               />
             ))}
@@ -348,7 +393,7 @@ export default function EditorDrawer({
       </div>
 
       <div className="drawer-scroll" ref={varsRef} {...panelProps('vars')}>
-        <table className="var-table">
+        <table className="var-table" aria-labelledby="editor-tab-vars">
           <thead>
             <tr>
               <th>{t('editor.var.name')}</th>
@@ -363,19 +408,21 @@ export default function EditorDrawer({
               const fs = byVar.get(v.name) ?? []
               return (
                 <tr key={v.name} data-var={v.name} className={[fs.length ? 'has-findings' : '', v.name === flashVar ? 'flash' : ''].filter(Boolean).join(' ') || undefined}>
-                  <td>{v.name}</td>
+                  <th scope="row">{v.name}</th>
                   <td>
                     <span className="tb-var-dot" style={{ background: typeColor(v.type) }} aria-hidden="true" /> {typeLabel(v.type, lang)}
                   </td>
                   <td>{v.input && v.output ? t('editor.var.both') : v.input ? t('editor.var.in') : v.output ? t('editor.var.out') : v.readOnly ? t('editor.var.const') : '—'}</td>
                   <td className="var-desc">{v.description || '—'}</td>
-                  <td>
+                  <td className="var-findings">
                     {fs.map((f) => {
+                      const title = t(`rule.${f.ruleId}.title`)
                       const msg = t(`rule.${f.ruleId}.msg`, f.params)
                       const index = findings.indexOf(f)
+                      // the name starts with the visible title, then the message
                       return (
-                        <button key={index} type="button" className="code-flag" aria-label={msg} title={msg} onClick={() => showFinding(index)}>
-                          <SeverityIcon severity={f.severity} />
+                        <button key={index} type="button" className="code-flag var-flag" aria-label={`${title}. ${msg}`} title={msg} onClick={() => showFinding(index)}>
+                          <SeverityIcon severity={f.severity} /> {title}
                         </button>
                       )
                     })}
@@ -407,7 +454,6 @@ export default function EditorDrawer({
               </p>
             ) : (
               <div className="finding-list">
-                {hasNameFindings && <p className="name-key">{t('report.nameKey')}</p>}
                 {entries.map((e, k) => {
                   const list = e.kind === 'group' ? e.findings : [e.finding]
                   const at = lineOf(list[0])
@@ -415,16 +461,18 @@ export default function EditorDrawer({
                   return (
                     <div key={cardId(list[0])} data-finding={list.map((f) => findings.indexOf(f)).join(' ')}>
                       {e.kind === 'group' ? (
-                        <FindingGroupCard id={cardId(list[0])} points={points.get(k)} onVar={showVar} findings={list} lineOf={lineOf} onLine={jumpTo} lineAction={lineAction} />
+                        <FindingGroupCard id={cardId(list[0])} level={2} points={points.get(k)} onVar={showVar} findings={list} lineOf={lineOf} onLine={jumpTo} lineAction={lineAction} onRule={showRule} />
                       ) : (
                         <FindingCard
                           id={cardId(e.finding)}
+                          level={2}
+                          onRule={showRule}
                           points={points.get(k)}
                           onVar={showVar}
                           finding={e.finding}
                           line={at}
                           onLine={at === undefined ? undefined : () => jumpTo(at)}
-                          lineAction={at === undefined ? undefined : lineAction(at)}
+                          lineAction={at === undefined ? undefined : lineAction}
                         />
                       )}
                     </div>
