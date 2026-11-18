@@ -83,6 +83,14 @@ for (const theme of ['light', 'dark']) {
       }
       console.table(rows)
     })
+    it('draws the taskbot node edge at 3:1 against the canvas and the node', () => {
+      const border = css.match(/\.tb-node \{[^}]*border: 1px solid ([^;]+);/)![1]
+      expect(border).toBe('var(--border-strong)')
+      for (const ground of ['--bg', '--surface', '--surface-raised']) {
+        const ratio = contrast(resolve(border, values), resolve(values[ground], values))
+        expect(ratio, `${theme} node border on ${ground}`).toBeGreaterThanOrEqual(3.0)
+      }
+    })
     it('keeps the D and F grade chips readable on their tinted node heads', () => {
       for (const grade of ['D', 'F']) {
         const tint = css.match(new RegExp(`\\.tb-node\\.g-${grade} \\.tb-head, \\.tb-node\\.compact\\.g-${grade} \\{ background: ([^;]+); \\}`))![1]

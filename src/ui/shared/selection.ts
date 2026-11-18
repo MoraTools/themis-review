@@ -2,8 +2,8 @@ import type { ProjectAnalysis } from '../../core/model'
 
 export type View = 'map' | 'report' | 'rules'
 
-/** the taskbot open in the editor, where it was opened from, and an optional line or variable to show */
-export type Selection = { path: string; from: 'map' | 'report'; line?: number; variable?: string }
+/** the taskbot open in the editor, where it was opened from, and an optional line, variable or rule family to show */
+export type Selection = { path: string; from: 'map' | 'report'; line?: number; variable?: string; rule?: string }
 
 /** a request for the map to center and select a node; a new nonce asks again for the same path */
 export type MapFocus = { path: string; nonce: number }
@@ -11,7 +11,7 @@ export type MapFocus = { path: string; nonce: number }
 export type NavState = { view: View; selection: Selection | null; mapFocus?: MapFocus }
 
 export type NavAction =
-  | { type: 'open'; path: string; from: Selection['from']; line?: number; variable?: string }
+  | { type: 'open'; path: string; from: Selection['from']; line?: number; variable?: string; rule?: string }
   | { type: 'close' }
   | { type: 'showOnMap'; path: string }
   | { type: 'view'; view: View }
@@ -22,7 +22,7 @@ export const initialNav: NavState = { view: 'map', selection: null }
 export function navReducer(state: NavState, action: NavAction): NavState {
   switch (action.type) {
     case 'open':
-      return { ...state, view: action.from, selection: { path: action.path, from: action.from, line: action.line, variable: action.variable } }
+      return { ...state, view: action.from, selection: { path: action.path, from: action.from, line: action.line, variable: action.variable, rule: action.rule } }
     case 'close':
       // the editor returns to the view it was opened from
       return state.selection ? { ...state, view: state.selection.from, selection: null } : state

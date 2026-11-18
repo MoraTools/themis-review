@@ -35,6 +35,15 @@ export function fitRoute(points: Point[], source: Point, target: Point, vertical
   return out
 }
 
+/** Where a call joins the shared last stretch into its callee: the bend where it reaches the bus (the bus is the
+ *  segment before the last one, across the main direction), or undefined when the route has no such bend. */
+export function joinPoint(points: Point[], vertical: boolean): Point | undefined {
+  const main = vertical ? 'y' : 'x'
+  if (points.length < 4) return undefined
+  const [join, bus] = [points[points.length - 3], points[points.length - 2]]
+  return join[main] === bus[main] ? join : undefined
+}
+
 /** an SVG path through the points, with corners rounded by up to `radius` */
 export function routePath(points: Point[], radius = 8): string {
   if (!points.length) return ''

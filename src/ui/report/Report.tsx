@@ -2,12 +2,11 @@ import { Icon, SeverityIcon } from '../Icons'
 import { useContext, useEffect, useMemo, useState } from 'react'
 import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
-import { groupLabel } from '../findings/findings'
 import { LangContext, plural as pluralText, useT, useNumber, usePlural, type Lang } from '../i18n'
 import { Name } from '../shared/Name'
 import { Grade, GradeCount } from '../shared/Grade'
 import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
-import { CardLink, FindingCard, FindingGroupCard, HiddenNote, LostPoints, PointsLost, goToCard, lostOpenDefault } from '../findings/FindingCard'
+import { CardLink, FindingCard, FindingGroupCard, FixItemText, HiddenNote, PointsLost, goToCard, lostOpenDefault } from '../findings/FindingCard'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 import {
   compareByFamily,
@@ -156,7 +155,6 @@ export default function Report({
   }, [])
   const [lostOpen] = useState(lostOpenDefault)
   const { items: top, more } = fixFirst(analysis)
-  const project = (points: number) => t('report.fixFirst.project', { points: number(points) })
   // pages 2+ of the PDF name the report: @page margin boxes read custom properties only from the root element
   const printId = `${analysis.zipNames.join(', ')} · ${date}`
   useEffect(() => {
@@ -205,14 +203,7 @@ export default function Report({
               const r = rowOf.get(l.botPath)!
               const target = r.families.get(l.group)
               const hidden = target ? undefined : hiddenOf(r)(l.group)
-              // a grid on phones: the name on row 1, the rule and the points (right) on row 2, without separators
-              const sep = <span className="report-fix-sep"> · </span>
-              const body = (
-                <span className="report-fix-item">
-                  <span className="report-fix-bot">{r.bot.name}</span>{sep}<span className="report-lost-title">{groupLabel(lang, l.group)}</span>{sep}
-                  <span className="report-lost-points"><LostPoints lost={l} /><span className="report-fix-sep"> ·</span> {project(l.project)}</span>
-                </span>
-              )
+              const body = <FixItemText name={r.bot.name} item={l} />
               return (
                 <li key={l.botPath + l.group}>
                   {target ? <CardLink target={target}>{body}</CardLink> : body}

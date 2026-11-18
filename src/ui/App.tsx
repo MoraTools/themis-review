@@ -101,7 +101,10 @@ function Shell() {
   }
 
   // the open editor is one history entry with the same URL and the selection in its state; Back closes it
+  // the map's first-step hint shows until the first editor open of this page (a reload also drops the analysis)
+  const [editorOpened, setEditorOpened] = useState(false)
   const open = (next: Selection) => {
+    setEditorOpened(true)
     pushEditor(history, next)
     dispatch({ type: 'open', ...next })
   }
@@ -256,7 +259,12 @@ function Shell() {
       {analysis && (
         <div className="canvas-wrap no-print" hidden={view !== 'map'} aria-busy={upload.busy > 0}>
           <h1 className="sr-only">{t('tab.map')}</h1>
-          <Canvas analysis={analysis} focus={mapFocus} onSelect={(path) => open({ path, from: 'map' })} />
+          <Canvas
+            analysis={analysis}
+            focus={mapFocus}
+            hint={!editorOpened}
+            onSelect={(path, rule) => open({ path, from: 'map', rule })}
+          />
         </div>
       )}
       {analysis && view === 'report' && (
@@ -284,11 +292,12 @@ function Shell() {
       {analysis && selection && (
         <EditorDrawer
           // a new open (other bot, other line) starts a fresh editor
-          key={selection.path + ':' + (selection.line ?? '') + ':' + (selection.variable ?? '')}
+          key={selection.path + ':' + (selection.line ?? '') + ':' + (selection.variable ?? '') + ':' + (selection.rule ?? '')}
           analysis={analysis}
           botPath={selection.path}
           line={selection.line}
           variable={selection.variable}
+          rule={selection.rule}
           onClose={() => closeEditor(history, closeNow)}
           onShowOnMap={() => {
             // the map centers and selects the node from nav.mapFocus; focus goes to the node

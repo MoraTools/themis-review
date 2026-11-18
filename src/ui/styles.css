@@ -428,20 +428,30 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* ---------- canvas ---------- */
 .canvas-wrap { flex: 1; position: relative; min-height: 0; }
 .canvas-wrap[hidden] { display: none; }
+/* where the grade strip appears later, so a magnifier at the top left finds it */
 .canvas-loading {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 18px 24px;
+  color: var(--text);
   font: 400 var(--fs-14)/var(--lh-body) var(--font-ui);
 }
+.canvas-loading p { margin: 0; }
+.canvas-loading a { color: var(--text); text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.canvas-loading a:hover { color: var(--accent-text); }
 .react-flow { --xy-background-color:var(--bg); --xy-background-pattern-dots-color:var(--border-strong); --xy-node-color:var(--text); --xy-node-background-color:var(--surface); --xy-edge-stroke:var(--border-strong); --xy-edge-stroke-selected:var(--accent-edge); --xy-minimap-background-color:var(--surface); --xy-minimap-mask-background-color:var(--minimap-mask); background: var(--bg); }
 .react-flow__background-pattern { color: var(--border); }
 .react-flow__edge.edge-call path { stroke: var(--border-strong); stroke-width: 1.5; }
 /* gold only for the calls of the hovered, focused or selected taskbot: the grades stay the strongest ink */
 .react-flow__edge.edge-call.active path { stroke: var(--edge-call); stroke-width: 2.5; }
 /* wires stay in the background until their taskbot is hovered or selected */
+/* where a call joins the shared last stretch into its callee: a dot in the edge color */
+.react-flow__edge.edge-call .edge-junction { fill: var(--border-strong); }
+.react-flow__edge.edge-call.active .edge-junction { fill: var(--edge-call); }
 .react-flow__edge.edge-wire path { stroke-width: 1; opacity: 0.35; }
 .react-flow__edge.edge-wire.active path { stroke-width: 2; opacity: 1; }
 .react-flow__edge.edge-call:hover path.react-flow__edge-path {
@@ -487,7 +497,8 @@ a.score-badge { color: inherit; text-decoration: none; }
 .react-flow__controls.horizontal .react-flow__controls-button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
 .react-flow__controls.horizontal .react-flow__controls-button:last-child { border-right: 1px solid var(--border-strong); border-radius: 0 var(--radius) var(--radius) 0; }
 @media (max-width: 760px) { .react-flow__minimap { display: none; } .react-flow .react-flow__panel.react-flow__controls.bottom.left { margin-left: 12px; } }
-.react-flow__minimap-mask { fill: var(--minimap-mask); }
+/* a light veil: grade fills outside the view keep their hue; the outline marks the view */
+.react-flow__minimap-mask { fill: color-mix(in oklab, var(--bg) 35%, transparent); }
 .react-flow__minimap-node { fill: var(--border-strong); }
 .react-flow__minimap-node.mm-ghost { stroke-dasharray: 16 10; }
 /* F: a second channel besides the hue, a 2 px stroke in the text color (!important: the minimap sets stroke inline) */
@@ -525,6 +536,8 @@ a.score-badge { color: inherit; text-decoration: none; }
 .legend-caret { display: inline-flex; }
 .legend-caret .icon { width:14px; height:14px; }
 .legend-body {
+  position: relative; /* the offset parent of its rows: the legend cuts its height after the last whole row */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -532,7 +545,17 @@ a.score-badge { color: inherit; text-decoration: none; }
   margin: 0;
   padding: 2px 14px 11px;
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
   border-top: 1px solid var(--border);
+  /* scroll cue: a shade at an edge with more rows behind it; the local covers hide it at the ends */
+  background:
+    linear-gradient(var(--surface) 30%, transparent) center top / 100% 24px no-repeat local,
+    linear-gradient(transparent, var(--surface) 70%) center bottom / 100% 24px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in oklab, var(--text) 30%, transparent), transparent) center top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in oklab, var(--text) 30%, transparent), transparent) center bottom / 100% 10px no-repeat scroll,
+    var(--surface);
 }
 .legend-body dl { display: flex; flex-direction: column; gap: 9px; margin: 0; }
 .legend-group { margin: 6px 0 0; color: var(--text-muted); }
@@ -568,15 +591,38 @@ a.score-badge { color: inherit; text-decoration: none; }
 .legend-body:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .leg-call { background: var(--border-strong); height: 2px; }
 
-/* grade strip (top-left): each grade jumps to its next taskbot, worst first */
-.grade-strip.react-flow__panel {
+/* map head (top-left): the grade strip with the first-step hint beside it, Fix first under it */
+.map-head.react-flow__panel { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: min(640px, calc(100% - 24px)); margin: 12px; }
+.map-head-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 8px; }
+/* on the canvas ground, so it stays a line of its own over an edge or a node */
+.map-hint { align-self: center; margin: 0; padding: 2px 6px; border-radius: var(--radius); background: var(--bg); color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-snug) var(--font-ui); }
+.map-fix { border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); }
+/* open, the list takes the row under the strip */
+.map-fix[open] { order: 1; flex-basis: 100%; box-sizing: border-box; }
+.map-fix summary {
+  display: flex;
+  align-items: center;
+  min-height: max(var(--control-h), var(--target-min) + 8px);
+  box-sizing: border-box;
+  padding: 0 10px;
+  color: var(--text-muted);
+  font: 600 var(--fs-11)/var(--lh-label) var(--font-mono);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.map-fix summary:hover, .map-fix[open] summary { color: var(--text); }
+.map-fix summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.map-fix .report-fix-list { margin: 0; padding: 0 10px 6px 2.2em; font-size: var(--fs-13); }
+.map-fix .report-lost-link { display: block; min-height: var(--target-min); margin: 0; padding: 3px 0; text-align: left; }
+/* grade strip: each grade jumps to its next taskbot, worst first */
+.grade-strip {
   display: flex;
   align-items: center;
   box-sizing: border-box;
   /* one control high, or a target plus its padding when that is more */
   min-height: max(var(--control-h), var(--target-min) + 8px);
   gap: 4px;
-  margin: 12px;
   padding: 3px 3px 3px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
@@ -599,11 +645,16 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .grade-strip button:hover { border-color: var(--border-strong); background: var(--surface-raised); }
 .grade-strip-label { margin-right: 4px; color: var(--text-muted); font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
-/* narrow panes: the strip and the legend toggle share the top row; the label wraps to two lines */
+/* narrow panes: the strip, the Fix first toggle and the legend toggle share the top row where they fit; the strip
+   label is for screen readers only (it still names the group) and the first-step hint is left out */
 @media screen and (max-width: 760px) {
-  .grade-strip.react-flow__panel { max-width: calc(100% - 120px); overflow-x: auto; gap: 2px; padding-left: 6px; }
-  .grade-strip-label { max-width: 9ch; margin-right: 2px; white-space: normal; }
+  .map-head.react-flow__panel { flex-flow: row wrap; gap: 6px; max-width: calc(100% - 120px); }
+  .map-head-row { display: contents; }
+  .map-hint { display: none; }
+  .grade-strip { max-width: 100%; overflow-x: auto; gap: 2px; padding-left: 3px; }
+  .grade-strip-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .grade-strip button { padding: 0 5px; font-size: var(--fs-12); }
+  .map-fix summary { padding: 0 8px; }
   .legend-toggle { gap: 6px; padding: 0 8px; }
 }
 .grade-strip button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
@@ -615,13 +666,14 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* ---------- taskbot node ---------- */
 .tb-node {
   width: 280px;
-  border: 1px solid var(--border);
+  /* the node edge: 3:1 against the canvas in both themes (tests/theme-contrast.test.ts) */
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
   font-family: var(--font-mono);
   font-size: var(--fs-12);
 }
-.tb-node:hover { border-color: var(--border-strong); }
+.tb-node:hover { border-color: var(--text-muted); }
 .react-flow__node.selected .tb-node { border-color: var(--selected-border); }
 /* salience grows with the grade: a grade bar for C, D and F, a tinted head only for D and F */
 .tb-node.g-C { border-left: 4px solid var(--grade-c); }
@@ -648,6 +700,9 @@ a.score-badge { color: inherit; text-decoration: none; }
   flex-direction: column;
   align-items: flex-start;
   gap: calc(4px * var(--s));
+  /* wider for a long name (--name-w, up to 22 characters a line), never wider than its layout slot (--slot-w) */
+  width: clamp(280px, calc(var(--name-w, 280px) * var(--s)), var(--slot-w, 280px));
+  box-sizing: border-box;
   padding: calc(6px * var(--s)) calc(8px * var(--s));
 }
 .react-flow__node.selected .tb-node.g-C { border-left-color: var(--grade-c); }
@@ -668,6 +723,9 @@ a.score-badge { color: inherit; text-decoration: none; }
 .tb-node.ghost { border: 1px dashed var(--border-strong); padding: 12px; }
 .tb-node.compact .tb-ghost-tag { margin: 0; font-size: calc(var(--fs-12) * var(--s)); line-height: 1.2; letter-spacing: 0; text-transform: none; }
 .tb-ghost-tag { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-12); letter-spacing: var(--track-label); text-transform: uppercase; }
+/* 'Not called': its own row under the head of a detailed node, a line under the name of a compact one */
+.tb-uncalled { margin: 0; padding: 4px 12px; border-bottom: 1px solid var(--border); line-height: 15px; }
+.tb-node.compact .tb-uncalled { padding: 0; border: 0; line-height: 1.2; }
 .tb-head {
   display: flex;
   align-items: center;
@@ -698,16 +756,19 @@ a.score-badge { color: inherit; text-decoration: none; }
 .tb-col { display: flex; flex: 1 1 auto; flex-direction: column; gap: 4px; min-width: 0; }
 .tb-col:empty { display: none; }
 .tb-col-out { align-items: flex-end; margin-left: auto; }
-.tb-var { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 12px; height: 18px; }
-.tb-var.out { flex-direction: row-reverse; }
-/* name and type share the row; the type tag wraps to a second, clipped line when the name needs the room */
-.tb-var-label { display: flex; flex-flow: row-reverse wrap; justify-content: flex-end; align-content: flex-start; column-gap: 6px; height: 18px; min-width: 0; overflow: hidden; line-height: 18px; }
-.tb-var.out .tb-var-label { flex-direction: row; }
-/* the short type tag shows from zoom 0.9 (set by the canvas) */
-.tb-var-type { display: none; color: var(--text-subtle); }
-.react-flow[data-type-tags="true"] .tb-var-type { display: inline; }
+/* dot, type tag, name in fixed slots; outputs mirror them. The name ellipsizes, never the tag */
+.tb-var { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px; padding: 0 12px; height: 18px; line-height: 18px; }
+.tb-var.out { grid-template-columns: minmax(0, 1fr) auto; }
+.tb-var.out .tb-var-dot { grid-column: 2; grid-row: 1; }
+.tb-var.out .tb-var-name { grid-column: 1; grid-row: 1; text-align: right; }
+/* the short type tag shows from zoom 0.9 (set by the canvas), in a 5ch slot on every row */
+.tb-var-type { display: none; color: var(--text-subtle); white-space: nowrap; }
+.react-flow[data-type-tags="true"] .tb-var { grid-template-columns: auto 5ch minmax(0, 1fr); }
+.react-flow[data-type-tags="true"] .tb-var.out { grid-template-columns: minmax(0, 1fr) 5ch auto; }
+.react-flow[data-type-tags="true"] .tb-var-type { display: block; }
+.react-flow[data-type-tags="true"] .tb-var.out .tb-var-dot { grid-column: 3; }
+.react-flow[data-type-tags="true"] .tb-var.out .tb-var-type { grid-column: 2; grid-row: 1; text-align: right; }
 .tb-var-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tb-var-type { flex: none; white-space: nowrap; }
 .tb-var-dot { display: inline-block; width: 7px; height: 7px; flex: none; vertical-align: middle; }
 .var-handle { width: 7px !important; height: 7px !important; border: 1px solid var(--bg) !important; border-radius: 0 !important; }
 .call-handle {

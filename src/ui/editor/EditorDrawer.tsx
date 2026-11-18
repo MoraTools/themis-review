@@ -38,6 +38,7 @@ export default function EditorDrawer({
   botPath,
   line,
   variable,
+  rule,
   onClose,
   onShowOnMap,
   onRule,
@@ -48,6 +49,8 @@ export default function EditorDrawer({
   line?: number
   /** open the Variables tab at this variable */
   variable?: string
+  /** open the Findings tab at the first card of this rule family (a cap group) */
+  rule?: string
   onClose: () => void
   /** close the editor and show this taskbot's node on the map */
   onShowOnMap: () => void
@@ -140,6 +143,9 @@ export default function EditorDrawer({
     dialog.showModal()
     // focus starts on the selected tab, so the arrow keys work at once
     tabRefs.current[tab]?.focus()
+    // a Fix first item: on to the family's first card, once the dialog is open
+    const first = rule === undefined ? -1 : findings.findIndex((f) => capGroup(f.ruleId) === rule)
+    if (first >= 0) setFocusFinding(first)
     return () => {
       closed.current = true
       dialog.removeEventListener('pointerdown', pointer)

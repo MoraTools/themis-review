@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   applyNodeChanges,
   Background,
@@ -25,6 +25,7 @@ import {
   FILE_NODE_WIDTH,
   NODE_WIDTH,
   compactHeight,
+  compactWidth,
   nodeHeight,
   SEVERITIES,
   STAT_ICONS,
@@ -36,7 +37,8 @@ import {
 } from './nodeTypes'
 import { Icon, SeverityIcon } from '../Icons'
 import { LangContext, plural, translate, usePlural, useT } from '../i18n'
-import { gradeBands, gradeDistribution } from '../findings/findings'
+import { fixFirst, gradeBands, gradeDistribution } from '../findings/findings'
+import { FixItemText } from '../findings/FindingCard'
 import { GradeCount } from '../shared/Grade'
 
 const nodeTypes = { taskbot: TaskbotNode, file: FileNode }
@@ -53,9 +55,12 @@ const TYPE_TAG_ZOOM = 0.9
 /** The first fit never zooms out further than this; the user pans for the rest. Compact text
  *  stays 12 px on screen down to zoom 1/3.4 (the --s cap), but each node gets the room its whole
  *  name needs at the floor, so a lower floor makes taller slots. Measured on a 43-taskbot map:
- *  0.5 shows the most whole taskbots at 1440x900, 0.4 at 390x844 (top to bottom). */
+ *  0.5 shows the most whole taskbots at 1440x900. */
 const FIT_FLOOR = 0.5
-const FIT_FLOOR_NARROW = 0.4
+/** top to bottom (phones): the first view fits the width, down to this: the --s cap, where compact text is still 12 px */
+const FIT_FLOOR_NARROW = 1 / 3.4
+/** screen px between the band of taskbots with no calls and the call chains, at the floor zoom */
+const BAND_GAP_PX = 40
 /** panes narrower than this lay the call chain out top to bottom */
 const NARROW_QUERY = '(max-width: 760px)'
 const MINIMAP_NODE_LIMIT = 100
@@ -76,7 +81,7 @@ export function legendCloses(event: { type: string; key?: string; inside: boolea
 }
 
 /** the unfolded legend: grade bands, node figures, lines and nodes, data types */
-export function LegendBody({ types }: { types: string[] }) {
+export function LegendBody({ types, detailed = true }: { types: string[]; detailed?: boolean }) {
   const t = useT()
   const { lang } = useContext(LangContext)
   return (
@@ -92,7 +97,8 @@ export function LegendBody({ types }: { types: string[] }) {
       <p className="legend-note">{t('canvas.legend.bar')}</p>
       <p className="legend-group">{t('canvas.legend.stats')}</p>
       <ul className="legend-grid">
-        {(Object.keys(STAT_ICONS) as (keyof typeof STAT_ICONS)[]).map((k) => (
+        {/* the figures, the variable wire and the data types are drawn only at the detail zoom */}
+        {detailed && (Object.keys(STAT_ICONS) as (keyof typeof STAT_ICONS)[]).map((k) => (
           <li key={k}>
             <Icon name={STAT_ICONS[k]} /> {t('node.' + k)}
           </li>
@@ -105,7 +111,7 @@ export function LegendBody({ types }: { types: string[] }) {
       </ul>
       <p className="legend-group">{t('canvas.legend.links')}</p>
       <dl>
-        {LEGEND_KEYS.map((k) => (
+        {LEGEND_KEYS.filter((k) => detailed || k !== 'wire').map((k) => (
           <div className="legend-item" key={k}>
             <dt>
               <i className={'leg-' + k} /> {t('canvas.legend.' + k)}
@@ -114,7 +120,7 @@ export function LegendBody({ types }: { types: string[] }) {
           </div>
         ))}
       </dl>
-      {types.length > 0 && (
+      {detailed && types.length > 0 && (
         <>
           <p className="legend-group">{t('canvas.legend.types')}</p>
           <ul className="legend-row">
@@ -131,7 +137,7 @@ export function LegendBody({ types }: { types: string[] }) {
 }
 
 /** Folded to a single row by default — expanded it covered too much canvas. */
-function Legend({ types }: { types: string[] }) {
+function Legend({ types, detailed }: { types: string[]; detailed: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -151,6 +157,22 @@ function Legend({ types }: { types: string[] }) {
     }
   }, [open])
 
+  // a scrolling body ends after its last whole row, never in the middle of one
+  useLayoutEffect(() => {
+    const body = ref.current?.querySelector<HTMLElement>('.legend-body')
+    if (!body) return
+    body.style.maxHeight = ''
+    const limit = body.clientHeight
+    if (body.scrollHeight <= limit) return
+    const pad = parseFloat(getComputedStyle(body).paddingBottom) || 0
+    let bottom = 0
+    for (const row of body.querySelectorAll<HTMLElement>(':scope > p, li, .legend-item')) {
+      const end = row.offsetTop + row.offsetHeight
+      if (end + pad <= limit) bottom = Math.max(bottom, end)
+    }
+    if (bottom) body.style.maxHeight = bottom + pad + body.clientTop + 'px'
+  }, [open, detailed, types])
+
   return (
     <div ref={ref} className={'legend' + (open ? ' open' : '')}>
       <button className="legend-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
@@ -159,7 +181,7 @@ function Legend({ types }: { types: string[] }) {
         </span>
         {t('canvas.legend.title')}
       </button>
-      {open && <LegendBody types={types} />}
+      {open && <LegendBody types={types} detailed={detailed} />}
     </div>
   )
 }
@@ -211,7 +233,7 @@ export function GradeStrip({ scores, onShow }: { scores: Record<string, BotScore
   const present = GRADES.filter((g) => counts[g] > 0)
   if (!present.length) return null
   return (
-    <Panel position="top-left" className="grade-strip" aria-labelledby="grade-strip-label" role="group">
+    <div className="grade-strip" aria-labelledby="grade-strip-label" role="group">
       <span id="grade-strip-label" className="grade-strip-label">
         {t('canvas.grades')}
       </span>
@@ -231,7 +253,36 @@ export function GradeStrip({ scores, onShow }: { scores: Record<string, BotScore
           <GradeCount grade={g} count={counts[g]} />
         </button>
       ))}
-    </Panel>
+    </div>
+  )
+}
+
+/** Fix first on the map: the report's items from the same fixFirst() call; each opens its taskbot at the rule family.
+ *  Closed at first at every width: open, it would cover the first rank of a large map */
+export function MapFixFirst({
+  analysis,
+  onOpen,
+}: {
+  analysis: Pick<ProjectAnalysis, 'findings' | 'taskbots' | 'metrics' | 'scores'>
+  onOpen: (path: string, group: string) => void
+}) {
+  const t = useT()
+  const { items } = fixFirst(analysis)
+  if (!items.length) return null
+  const names = new Map(analysis.taskbots.map((b) => [b.path, b.name]))
+  return (
+    <details className="map-fix">
+      <summary>{t('report.fixFirst')}</summary>
+      <ol className="report-fix-list">
+        {items.map((l) => (
+          <li key={l.botPath + l.group}>
+            <button type="button" className="report-lost-link" onClick={() => onOpen(l.botPath, l.group)}>
+              <FixItemText name={names.get(l.botPath) ?? l.botPath} item={l} />
+            </button>
+          </li>
+        ))}
+      </ol>
+    </details>
   )
 }
 
@@ -242,12 +293,16 @@ type Rect = { x: number; y: number; width: number; height: number }
  *  of the corner or above it, whichever gives the larger zoom. A graph that fits is centered. One
  *  that overflows at the floor centers `anchor` (the worst taskbot) on both axes, moved just enough
  *  that no node in `nodes` is cut at the top or lies under a panel in `panels`. `narrow` (top to bottom
- *  layout) fits the width only, so the widest rank fills the pane at a zoom of at least `floor`. */
+ *  layout) fits the width only, so the widest rank fills the pane at a zoom of at least `floor`, and starts
+ *  at the top of the graph.
+ *  `detailZoom`: a zoom from it up to 1 would draw the detailed node text under 12 CSS px, so the view
+ *  goes just under it instead, where compact nodes keep their text at 12 px. */
 export function firstFitViewport(
   graph: Rect,
   pane: { width: number; height: number },
-  { floor, anchor, nodes = [], panels = [], narrow = false, top = 0, corner = { width: 0, height: 0 }, pad = 24, maxZoom = 1 }: {
+  { floor, anchor, nodes = [], panels = [], narrow = false, top = 0, corner = { width: 0, height: 0 }, pad = 24, maxZoom = 1, detailZoom }: {
     floor: number
+    detailZoom?: number
     /** when the graph overflows, center this part of it instead of starting at the top left */
     anchor?: Rect
     /** the node boxes (flow units) and the panels on the map (pane pixels): the anchored view cuts
@@ -279,6 +334,7 @@ export function firstFitViewport(
     const fitsAbove = graph.height * zoom <= above.height - 2 * pad
     box = !fitsRight && fitsAbove ? above : right
   }
+  if (detailZoom !== undefined && zoom >= detailZoom && zoom < 1) zoom = detailZoom - 0.01
   const place = (start: number, room: number, size: number) => start + (size <= room - 2 * pad ? (room - size) / 2 : pad)
   // centered on the anchor, but no empty room before the graph's first edge or after its last one
   const center = (axis: 'x' | 'y', start: number, room: number, a: Rect) => {
@@ -297,17 +353,24 @@ export function firstFitViewport(
     if (overflow) x = clearX(x, { zoom, anchor, nodes, pane, pad })
   }
   let y = place(box.y, box.height, graph.height * zoom) - graph.y * zoom
-  if (overflow && anchor && tall) {
+  if (narrow && tall) {
+    // top to bottom starts at the top of the graph, right under the panels, moved only to keep nodes from under one
+    const start = { x: graph.x, y: graph.y, width: graph.width, height: 0 }
+    // a quarter pane at most: further down the first ranks would leave the screen
+    y = clearY(y, { x, zoom, anchor: start, nodes, panels, top, pane, pad, maxShift: pane.height / 4 })
+  } else if (overflow && anchor && tall) {
     y = clearY(center('y', box.y, box.height, anchor), { x, zoom, anchor, nodes, panels, top, pane, pad })
   }
   return { x, y, zoom, overflow }
 }
 
 /** The view offset nearest `y0` that keeps the anchor in view, cuts no node at the pane top and
- *  puts no node under a panel; the panel rule is dropped if no offset meets both. */
+ *  puts no node under a panel; if no offset meets both, a node cut at the top is allowed before one
+ *  under a panel (text under a panel collides with the panel text). */
 function clearY(
   y0: number,
-  { x, zoom, anchor, nodes, panels, top, pane, pad }: {
+  { x, zoom, anchor, nodes, panels, top, pane, pad, maxShift = Infinity }: {
+    maxShift?: number
     x: number
     zoom: number
     anchor: Rect
@@ -318,12 +381,12 @@ function clearY(
     pad: number
   },
 ): number {
-  const valid = (y: number, strict: boolean) => {
+  const valid = (y: number, strict: boolean, uncut = true) => {
     if (y + anchor.y * zoom < top || y + (anchor.y + anchor.height) * zoom > pane.height) return false
     return nodes.every((n) => {
       const t = y + n.y * zoom
       const b = t + n.height * zoom
-      if (t < 0 && b > 0) return false
+      if (uncut && t < 0 && b > 0) return false
       const l = x + n.x * zoom
       const r = l + n.width * zoom
       return !strict || panels.every((p) => r <= p.x || l >= p.x + p.width || b <= p.y || t >= p.y + p.height)
@@ -338,7 +401,8 @@ function clearY(
     candidates.push(top + pad - t, gap - t, -gap - b)
     for (const p of panels) candidates.push(p.y + p.height + gap - t, p.y - gap - b)
   }
-  return nearest(y0, candidates, [(y) => valid(y, true), (y) => valid(y, false)])
+  const near = candidates.filter((y) => Math.abs(y - y0) <= maxShift)
+  return nearest(y0, near, [(y) => valid(y, true), (y) => valid(y, true, false), (y) => valid(y, false)])
 }
 
 /** The same on the x axis, for a graph wider than the pane: no node cut at the left or the right
@@ -434,6 +498,7 @@ function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
     }
   }
 
+  const inCalls = new Set(a.edges.flatMap((e) => [e.from, e.to]))
   const nodes: FlowNode[] = []
   for (const bot of a.taskbots) {
     const vtypes = new Map(bot.variables.map((v) => [v.name, v.type]))
@@ -448,6 +513,7 @@ function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
       outputVars: bot.variables.filter((v) => v.output).map((v) => v.name),
       findingsCount: SEVERITIES.reduce((sum, sev) => sum + (findingCounts.get(bot.path)?.[sev] ?? 0), 0),
       bySeverity: findingCounts.get(bot.path),
+      uncalled: a.edges.length > 0 && !inCalls.has(bot.path),
     }
     nodes.push({ id: bot.path, type: 'taskbot', position: { x: 0, y: 0 }, data })
   }
@@ -564,13 +630,14 @@ export function layoutInWorker(graph: ElkNode, signal?: AbortSignal): Promise<La
 }
 
 /** Taskbots with no call and no file edge go in rows above the call chains (top to bottom layout
- *  only), wrapped at the chains' width, so they do not stack into a tall column. The rows sit one
- *  rank gap above the highest chain node under them (`placed`), not above the whole graph's top,
- *  which can be a root far off to the side. */
+ *  only), wrapped at the chains' width, so they do not stack into a tall column. The rows are a band
+ *  of their own, `gap.band` above the highest chain node or call route segment (`routes`) under them:
+ *  a call bus never runs along them, and a root far off to the side does not push them up. */
 export function isolateRows(
   isolates: { id: string; height: number }[],
   placed: Rect[],
-  gap = { node: 60, rank: 140 },
+  routes: Rect[] = [],
+  gap = { node: 60, band: 100 },
 ): { id: string; x: number; y: number }[] {
   const rest = placed.length
     ? {
@@ -587,10 +654,10 @@ export function isolateRows(
     else row.push(node)
   }
   const span = Math.max(...rows.map((row) => row.length)) * (NODE_WIDTH + gap.node) - gap.node
-  const under = placed.filter((r) => r.x < rest.x + span && r.x + r.width > rest.x)
+  const under = [...placed, ...routes].filter((r) => r.x < rest.x + span && r.x + r.width > rest.x)
   const top = under.length ? Math.min(...under.map((r) => r.y)) : rest.y
   const heights = rows.map((row) => Math.max(...row.map((n) => n.height)))
-  let y = top - gap.rank - heights.reduce((sum, h) => sum + h, 0) - (rows.length - 1) * gap.node
+  let y = top - gap.band - heights.reduce((sum, h) => sum + h, 0) - (rows.length - 1) * gap.node
   return rows.flatMap((row, i) => {
     const out = row.map((n, j) => ({ id: n.id, x: rest.x + j * (NODE_WIDTH + gap.node), y }))
     y += heights[i] + gap.node
@@ -604,48 +671,55 @@ async function layout(
   signal: AbortSignal,
   vertical: boolean,
   aspectRatio: number,
-  heightOf: (d: TBNodeData) => number,
+  sizeOf: (n: FlowNode) => { width: number; height: number },
+  /** layout units between the band of taskbots with no calls and the call chains (top to bottom only) */
+  bandGap = 100,
 ): Promise<{ nodes: FlowNode[]; routes: Map<string, Point[]> }> {
   // call + file edges shape the layout so assets settle next to the bot that uses them
   const links = edges.filter((e) => e.id.startsWith('call:') || e.id.startsWith('file:'))
   const linked = new Set(links.flatMap((e) => [e.source, e.target]))
-  const sizeOf = (n: FlowNode) =>
-    n.type === 'file'
-      ? { width: FILE_NODE_WIDTH, height: FILE_NODE_HEIGHT }
-      : { width: NODE_WIDTH, height: heightOf(n.data as TBNodeData) }
   const isolates = vertical && linked.size ? nodes.filter((n) => !linked.has(n.id)) : []
   const laidByElk = isolates.length ? nodes.filter((n) => linked.has(n.id)) : nodes
-  // one fixed port per side, where the node's call handles are, so ELK routes end at the handles
-  const port = (id: string, side: 'in' | 'out', w: number, h: number) => ({
-    id: id + '#' + side,
-    width: 0,
-    height: 0,
-    ...(vertical ? { x: w / 2, y: side === 'in' ? 0 : h } : { x: side === 'in' ? 0 : w, y: h / 2 }),
-    layoutOptions: { 'elk.port.side': vertical ? (side === 'in' ? 'NORTH' : 'SOUTH') : side === 'in' ? 'WEST' : 'EAST' },
-  })
+  // ELK merges the edges of one port into a shared trunk. Each call leaves its caller by a port of its own, so it
+  // has its own lane; the calls of one callee share its one in-port, so a shared stretch always ends at that callee
+  // (RoutedEdge keeps each port's place on the side and marks where a lane joins)
+  const side = (end: 'in' | 'out') => (vertical ? (end === 'in' ? 'NORTH' : 'SOUTH') : end === 'in' ? 'WEST' : 'EAST')
+  const ports = new Map<string, { id: string; width: number; height: number; layoutOptions: Record<string, string> }[]>()
+  const port = (node: string, end: 'in' | 'out', edge: string) => {
+    const id = end === 'in' ? node + '#in' : node + '#out#' + edge
+    const list = ports.get(node) ?? []
+    if (!list.some((p) => p.id === id)) ports.set(node, [...list, { id, width: 0, height: 0, layoutOptions: { 'elk.port.side': side(end) } }])
+    return id
+  }
+  const elkEdges = links.map((e) => ({ id: e.id, sources: [port(e.source, 'out', e.id)], targets: [port(e.target, 'in', e.id)] }))
   const graph: ElkNode = {
     id: 'root',
     layoutOptions: {
       'elk.algorithm': 'layered',
       // narrow panes: the call chain reads down the screen
       'elk.direction': vertical ? 'DOWN' : 'RIGHT',
-      // packs separate call trees to the pane's shape
-      'elk.aspectRatio': String(aspectRatio),
-      'elk.spacing.nodeNode': '60',
+      // packs separate call trees to the pane's shape; top to bottom stacks them, so the widest rank sets the width
+      'elk.aspectRatio': String(vertical ? Math.min(aspectRatio, 0.2) : aspectRatio),
+      // top to bottom, a rank lies across the narrow pane: a third of the gap between its nodes
+      'elk.spacing.nodeNode': vertical ? '20' : '60',
       'elk.layered.spacing.nodeNodeBetweenLayers': '140',
       'elk.edgeRouting': 'ORTHOGONAL',
+      // each call its own lane, 12 apart, and 24 clear of every box it passes
+      'elk.layered.mergeEdges': 'false',
+      'elk.spacing.edgeEdge': '12',
+      'elk.layered.spacing.edgeEdgeBetweenLayers': '12',
+      'elk.spacing.edgeNode': '24',
+      'elk.layered.spacing.edgeNodeBetweenLayers': '24',
+      // a caller sits at the middle of its callees; top to bottom the narrowest placement, so the widest rank
+      // fits a phone at a zoom that keeps compact text at 12 px
+      'elk.layered.nodePlacement.strategy': vertical ? 'SIMPLE' : 'NETWORK_SIMPLEX',
     },
     children: laidByElk.map((n) => {
       const { width, height } = sizeOf(n)
-      return {
-        id: n.id,
-        width,
-        height,
-        layoutOptions: { 'elk.portConstraints': 'FIXED_POS' },
-        ports: n.type === 'file' ? [port(n.id, 'in', width, height)] : [port(n.id, 'in', width, height), port(n.id, 'out', width, height)],
-      }
+      // ELK spreads the ports of a side over its length, in the order that crosses the fewest edges
+      return { id: n.id, width, height, layoutOptions: { 'elk.portConstraints': 'FIXED_SIDE' }, ports: ports.get(n.id) ?? [] }
     }),
-    edges: links.map((e) => ({ id: e.id, sources: [e.source + '#out'], targets: [e.target + '#in'] })),
+    edges: elkEdges,
   }
   let laid: Laid
   try {
@@ -663,9 +737,18 @@ async function layout(
   const pos = new Map(laid.positions.map((child) => [child.id, { x: child.x, y: child.y }]))
   if (isolates.length) {
     const placed = laidByElk.map((n) => ({ ...n, position: pos.get(n.id) ?? { x: 0, y: 0 } }))
+    // every route segment as a box, so the band also keeps clear of the call buses
+    const segments = laid.routes.flatMap((r) =>
+      r.points.slice(1).map((b, i) => {
+        const a = r.points[i]
+        return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(a.x - b.x), height: Math.abs(a.y - b.y) }
+      }),
+    )
     const rows = isolateRows(
       isolates.map((n) => ({ id: n.id, height: sizeOf(n).height })),
-      placed.map((n) => fullGraphBounds([n], heightOf)),
+      placed.map((n) => fullGraphBounds([n], sizeOf)),
+      segments,
+      { node: 60, band: bandGap },
     )
     for (const p of rows) pos.set(p.id, { x: p.x, y: p.y })
   }
@@ -675,14 +758,17 @@ async function layout(
   }
 }
 
-export function fullGraphBounds(nodes: FlowNode[], heightOf: (d: TBNodeData) => number = nodeHeight) {
+/** the detailed size of a node, in flow units */
+export const detailSize = (n: FlowNode) =>
+  n.type === 'file' ? { width: FILE_NODE_WIDTH, height: FILE_NODE_HEIGHT } : { width: NODE_WIDTH, height: nodeHeight(n.data as TBNodeData) }
+
+export function fullGraphBounds(nodes: FlowNode[], sizeOf: (n: FlowNode) => { width: number; height: number } = detailSize) {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
   let maxY = -Infinity
   for (const node of nodes) {
-    const width = node.type === 'file' ? FILE_NODE_WIDTH : NODE_WIDTH
-    const height = node.type === 'file' ? FILE_NODE_HEIGHT : heightOf(node.data as TBNodeData)
+    const { width, height } = sizeOf(node)
     minX = Math.min(minX, node.position.x)
     minY = Math.min(minY, node.position.y)
     maxX = Math.max(maxX, node.position.x + width)
@@ -697,12 +783,17 @@ export default function Canvas({
   analysis,
   onSelect,
   focus,
+  hint = false,
 }: {
   analysis: ProjectAnalysis
-  onSelect: (path: string) => void
+  /** open a taskbot in the editor, at a rule family when given */
+  onSelect: (path: string, rule?: string) => void
   focus?: { path: string; nonce: number } | null
+  /** show the first-step line beside the grade strip */
+  hint?: boolean
 }) {
   const t = useT()
+  const countText = usePlural()
   const { lang } = useContext(LangContext)
   const { nodes: rawNodes, edges } = useMemo(() => buildFlow(analysis), [analysis])
   const [nodes, setNodes] = useState<FlowNode[] | null>(null)
@@ -726,8 +817,23 @@ export default function Canvas({
   const [vertical, setVertical] = useState(() => window.matchMedia(NARROW_QUERY).matches)
   const wrapRef = useRef<HTMLDivElement>(null)
   const floor = vertical ? FIT_FLOOR_NARROW : FIT_FLOOR
-  // each taskbot gets the room its compact form needs at the floor zoom, so compact nodes never overlap
-  const slotHeight = useCallback((d: TBNodeData) => Math.max(nodeHeight(d), compactHeight(d, floor)), [floor])
+  // each taskbot gets the room its compact form needs at the floor zoom, so compact nodes never overlap;
+  // left to right, a long name also makes the slot wider (top to bottom keeps the width for the phone)
+  // kept per node data: the node and edge lists ask for it on every change of the nodes
+  const slotSize = useMemo(() => {
+    const sizes = new WeakMap<TBNodeData, { width: number; height: number }>()
+    return (n: FlowNode) => {
+      if (n.type === 'file') return detailSize(n)
+      const d = n.data as TBNodeData
+      let size = sizes.get(d)
+      if (!size) {
+        const width = vertical ? NODE_WIDTH : compactWidth(d, floor)
+        size = { width, height: Math.max(nodeHeight(d), compactHeight(d, floor, width)) }
+        sizes.set(d, size)
+      }
+      return size
+    }
+  }, [floor, vertical])
   // nodes are read through a ref here: keeping them in the effect's deps made every
   // drag (which rewrites the array) recentre the viewport mid-gesture
   const nodesRef = useRef<FlowNode[] | null>(null)
@@ -761,15 +867,13 @@ export default function Canvas({
         if (n.type === 'file') return [n.id, (n.data as FileNodeData).label]
         const d = n.data as TBNodeData
         if (d.ghost) return [n.id, translate(lang, 'node.aria.ghost', { name: d.label })]
-        return [
-          n.id,
-          translate(lang, 'node.aria', {
-            name: d.label,
-            grade: d.score?.grade ?? '',
-            score: d.score ? number(d.score.score) : '',
-            findings: plural(lang, 'report.group.count', d.findingsCount),
-          }),
-        ]
+        const name = translate(lang, 'node.aria', {
+          name: d.label,
+          grade: d.score?.grade ?? '',
+          score: d.score ? number(d.score.score) : '',
+          findings: plural(lang, 'report.group.count', d.findingsCount),
+        })
+        return [n.id, d.uncalled ? `${name}, ${translate(lang, 'node.uncalled')}` : name]
       }),
     )
   }, [rawNodes, lang])
@@ -787,7 +891,7 @@ export default function Canvas({
   // centre, select and focus a node. Uses the laid-out geometry rather than fitView,
   // which silently does nothing until React Flow has measured the nodes.
   const showNode = useCallback(
-    (path: string, zoom: number) => {
+    (path: string, zoom: number, focusNode = true) => {
       const node = nodesRef.current?.find((n) => n.id === path)
       if (!rf || !node) return false
       const w = node.type === 'file' ? FILE_NODE_WIDTH : NODE_WIDTH
@@ -808,7 +912,7 @@ export default function Canvas({
         })
         return changed ? next : ns
       })
-      setPendingFocus(path)
+      if (focusNode) setPendingFocus(path)
       return true
     },
     [rf, applyZoom],
@@ -832,7 +936,7 @@ export default function Canvas({
   useEffect(() => {
     const controller = new AbortController()
     const pane = wrapRef.current ?? document.documentElement
-    void layout(rawNodes, edges, controller.signal, vertical, pane.clientWidth / Math.max(1, pane.clientHeight), slotHeight)
+    void layout(rawNodes, edges, controller.signal, vertical, pane.clientWidth / Math.max(1, pane.clientHeight), slotSize, BAND_GAP_PX / floor)
       .then((laidOut) => {
         initiallyFitted.current = false // every new layout gets its own first view
         setNodes(laidOut.nodes)
@@ -845,7 +949,7 @@ export default function Canvas({
       controller.abort()
     }
     // `vertical` re-runs the layout when the pane crosses the narrow width
-  }, [rawNodes, edges, vertical, slotHeight])
+  }, [rawNodes, edges, vertical, slotSize, floor])
 
   useEffect(() => {
     if (!rf || !nodes || initiallyFitted.current) return
@@ -859,7 +963,7 @@ export default function Canvas({
     let cornerRight = 0
     let cornerTop = pane.bottom
     const panels: Rect[] = []
-    for (const part of el.querySelectorAll('.react-flow__minimap, .react-flow__controls, .grade-strip, .legend')) {
+    for (const part of el.querySelectorAll('.react-flow__minimap, .react-flow__controls, .map-head, .legend')) {
       const r = part.getBoundingClientRect()
       if (!r.width) continue
       panels.push({ x: r.left - pane.left, y: r.top - pane.top, width: r.width, height: r.height })
@@ -872,17 +976,21 @@ export default function Canvas({
     const called = new Set(edges.filter((e) => e.id.startsWith('call:')).map((e) => e.target))
     const roots = nodes.filter((n) => n.type === 'taskbot' && !called.has(n.id))
     const worst = nodes.find((n) => n.id === worstTaskbot(analysis.scores))
-    const whole = fullGraphBounds(nodes, slotHeight)
+    const whole = fullGraphBounds(nodes, slotSize)
     const viewport = firstFitViewport(
       whole,
       { width: pane.width, height: pane.height },
       {
         floor,
         // an overflowing map opens on the worst taskbot; with no grades, top to bottom starts at the entry taskbots
-        anchor: worst ? fullGraphBounds([worst], slotHeight) : vertical && roots.length ? fullGraphBounds(roots, slotHeight) : undefined,
-        nodes: nodes.map((n) => fullGraphBounds([n], slotHeight)),
+        anchor: worst ? fullGraphBounds([worst], slotSize) : vertical && roots.length ? fullGraphBounds(roots, slotSize) : undefined,
+        nodes: nodes.map((n) => fullGraphBounds([n], slotSize)),
         panels,
         narrow: vertical,
+        // compact text is 12 px from zoom 1/3.4 (the --s cap) up: both floors are above it
+        detailZoom: DETAIL_ZOOM,
+        // a phone has no room to spare at the sides
+        pad: vertical ? 12 : 24,
         top,
         corner: { width: cornerRight, height: pane.bottom - cornerTop },
       },
@@ -909,27 +1017,43 @@ export default function Canvas({
       (showDetails ? nodes : nodes?.filter((node) => node.type !== 'file'))?.map((node) => ({
         ...node,
         ariaLabel: labels.get(node.id),
+        // a compact node grows with its name up to its layout slot (styles.css .tb-node.compact)
+        style: { '--slot-w': slotSize(node).width + 'px' } as CSSProperties,
         // taskbots open the editor (Enter, Space, click); ghosts and file nodes are not tab stops
         ...(isTaskbot(node)
           // a button needs no "node" role description: React Flow sets it first, domAttributes override it
           ? { ariaRole: 'button' as const, domAttributes: { tabIndex: node.id === tabStop ? 0 : -1, 'aria-roledescription': undefined } }
           : { focusable: false, ariaRole: 'group' as const }),
       })),
-    [showDetails, nodes, labels, tabStop],
+    [showDetails, nodes, labels, tabStop, slotSize],
   )
   const shownEdges = useMemo(() => {
     const active = new Set(nodes?.filter((n) => n.selected).map((n) => n.id))
     if (hovered) active.add(hovered)
     if (focused) active.add(focused)
-    // call edges carry the ELK route and where it put their two nodes
+    // call edges carry the ELK route, where it put their two nodes and the size of their layout slots
+    const byId = new Map(nodes?.map((n) => [n.id, n]))
+    const callsIn = new Map<string, number>()
+    for (const edge of edges) if (edge.type === 'routed') callsIn.set(edge.target, (callsIn.get(edge.target) ?? 0) + 1)
+    const slot = (id: string) => {
+      const node = byId.get(id)
+      return node && slotSize(node)
+    }
     const routed = edges.map((edge) => {
       const points = routes.points.get(edge.id)
       if (!points || edge.type !== 'routed') return edge
-      const data: RoutedEdgeData = { points, sourceAt: routes.at.get(edge.source), targetAt: routes.at.get(edge.target) }
+      const data: RoutedEdgeData = {
+        points,
+        sourceAt: routes.at.get(edge.source),
+        targetAt: routes.at.get(edge.target),
+        sourceSlot: slot(edge.source),
+        targetSlot: slot(edge.target),
+        joins: (callsIn.get(edge.target) ?? 0) > 1,
+      }
       return { ...edge, data }
     })
     return displayEdges(routed, showDetails, selectedEdge, active)
-  }, [showDetails, edges, selectedEdge, nodes, hovered, focused, routes])
+  }, [showDetails, edges, selectedEdge, nodes, hovered, focused, routes, slotSize])
   const nodeId = (target: EventTarget) => {
     const el = target as HTMLElement
     return el.classList?.contains('react-flow__node') ? (el.dataset.id ?? null) : null
@@ -975,8 +1099,9 @@ export default function Canvas({
 
   if (!shownNodes)
     return (
-      <div className="canvas-loading" role="status">
-        {t('canvas.loading')}
+      <div className="canvas-loading" role="region" aria-label={t('canvas.label')} aria-busy="true">
+        <p role="status">{countText('canvas.loading', analysis.taskbots.length)}</p>
+        <a href="#report">{t('canvas.openReport')}</a>
       </div>
     )
 
@@ -1050,7 +1175,21 @@ export default function Canvas({
       >
         <Background gap={24} />
         {/* DOM order is Tab order: the strip comes right after the map's one Tab stop */}
-        <GradeStrip scores={analysis.scores} onShow={(path) => showNode(path, rf?.getZoom() ?? 1)} />
+        {/* the strip; under it Fix first and the first-step hint (the open list takes a row of its own) */}
+        <Panel position="top-left" className="map-head">
+          <GradeStrip scores={analysis.scores} onShow={(path) => showNode(path, rf?.getZoom() ?? 1)} />
+          <div className="map-head-row">
+            <MapFixFirst
+              analysis={analysis}
+              onOpen={(path, group) => {
+                // selected and centered, not focused: focus goes into the editor
+                showNode(path, rf?.getZoom() ?? 1, false)
+                onSelect(path, group)
+              }}
+            />
+            {hint && <p className="map-hint">{t('canvas.hint')}</p>}
+          </div>
+        </Panel>
         {rawNodes.length <= MINIMAP_NODE_LIMIT && (
           <MiniMap
             position="bottom-left"
@@ -1060,6 +1199,8 @@ export default function Canvas({
             nodeColor={minimapColor}
             nodeStrokeColor={(n) => (isGhost(n) ? 'var(--border-strong)' : 'transparent')}
             nodeStrokeWidth={8}
+            maskStrokeColor="var(--text-muted)"
+            maskStrokeWidth={1}
             nodeClassName={minimapClass}
           />
         )}
@@ -1079,7 +1220,7 @@ export default function Canvas({
             <Icon name="minimize-2" />
           </ControlButton>
         </Controls>
-        <Legend types={types} />
+        <Legend types={types} detailed={showDetails} />
       </ReactFlow>
      </VerticalContext.Provider>
     </DetailContext.Provider>

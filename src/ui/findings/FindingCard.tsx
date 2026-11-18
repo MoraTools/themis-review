@@ -2,7 +2,7 @@ import { useContext, useId, type ReactNode } from 'react'
 import type { Finding, Severity } from '../../core/model'
 import { SeverityIcon } from '../Icons'
 import { LangContext, useNumber, usePlural, useT } from '../i18n'
-import { groupLabel, groupTexts, lostTotal, type Lost } from './findings'
+import { groupLabel, groupTexts, lostTotal, type FixItem, type Lost } from './findings'
 
 /** a variable name; with onVar a screen-only button that opens the editor on the Variables tab, plain text in print */
 function VarName({ name, onVar, className }: { name: string; onVar?: (name: string) => void; className?: string }) {
@@ -53,6 +53,21 @@ export function LostPoints({ lost }: { lost: Lost }) {
   const t = useT()
   const number = useNumber()
   return <>−{number(lost.points)}{lost.capped && <> (<abbr title={t('rules.capNote')}>{t('report.lost.cap')}</abbr>)</>}</>
+}
+
+/** a Fix first item: taskbot · rule family · −points · −project points; the report and the map show it */
+export function FixItemText({ name, item }: { name: string; item: FixItem }) {
+  const t = useT()
+  const number = useNumber()
+  const { lang } = useContext(LangContext)
+  // a grid on phones: the name on row 1, the rule and the points (right) on row 2, without separators
+  const sep = <span className="report-fix-sep"> · </span>
+  return (
+    <span className="report-fix-item">
+      <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{groupLabel(lang, item.group)}</span>{sep}
+      <span className="report-lost-points"><LostPoints lost={item} /><span className="report-fix-sep"> ·</span> {t('report.fixFirst.project', { points: number(item.project) })}</span>
+    </span>
+  )
 }
 
 /** the rules whose cards show the naming key: their fix is a rename to the convention */

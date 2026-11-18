@@ -104,23 +104,25 @@ describe('first view of a large map', () => {
       ],
       chains,
     )
-    // two fit in the chains' 700 width (280 + 60 + 280), the third wraps; the last row ends one rank gap above y 500
+    // two fit in the chains' 700 width (280 + 60 + 280), the third wraps; the last row ends one band gap (100) above y 500
     expect(rows).toEqual([
-      { id: 'a', x: 10, y: 500 - 140 - 100 - 60 - 150 },
-      { id: 'b', x: 350, y: 500 - 140 - 100 - 60 - 150 },
-      { id: 'c', x: 10, y: 500 - 140 - 100 },
+      { id: 'a', x: 10, y: 500 - 100 - 100 - 60 - 150 },
+      { id: 'b', x: 350, y: 500 - 100 - 100 - 60 - 150 },
+      { id: 'c', x: 10, y: 500 - 100 - 100 },
     ])
   })
 
-  it('sits one rank gap above the chain node under the row, not above a root off to the side', () => {
+  it('is a band above the nodes and call routes under it, with the gap the caller gives', () => {
     const chains = [
-      { x: 1300, y: 0, width: 280, height: 200 }, // a root far to the right
+      { x: 1300, y: 0, width: 280, height: 200 }, // a root far to the right, not under the row
       { x: 0, y: 360, width: 280, height: 200 }, // the first chain node under the row
       { x: 340, y: 360, width: 280, height: 200 },
     ]
-    const [row] = isolateRows([{ id: 'a', height: 210 }], chains)
-    expect(row).toEqual({ id: 'a', x: 0, y: 360 - 140 - 210 })
-    expect(360 - (row.y + 210)).toBe(140)
+    const bus = { x: 140, y: 330, width: 1160, height: 0 } // the root's call bus runs under the row at y 330
+    expect(isolateRows([{ id: 'a', height: 210 }], chains)).toEqual([{ id: 'a', x: 0, y: 360 - 100 - 210 }])
+    const [row] = isolateRows([{ id: 'a', height: 210 }], chains, [bus], { node: 60, band: 40 / 0.3 })
+    expect(row).toEqual({ id: 'a', x: 0, y: 330 - 40 / 0.3 - 210 })
+    expect(330 - (row.y + 210)).toBeCloseTo(40 / 0.3) // 40 px on screen at a first-fit zoom of 0.3
   })
 })
 

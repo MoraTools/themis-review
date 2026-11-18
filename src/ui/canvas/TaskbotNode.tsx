@@ -1,10 +1,10 @@
 import { Icon, SeverityIcon } from '../Icons'
 import { Handle, Position, useNodeConnections, type NodeProps, type Node } from '@xyflow/react'
-import { useContext } from 'react'
+import { useContext, type CSSProperties } from 'react'
 import { Name } from '../shared/Name'
 import { Grade } from '../shared/Grade'
 import { useNumber, usePlural, useT } from '../i18n'
-import { DetailContext, SEVERITIES, STAT_ICONS, typeColor, typeTag, VerticalContext, type TBNodeData } from './nodeTypes'
+import { DetailContext, nameWidth, SEVERITIES, STAT_ICONS, typeColor, typeTag, VerticalContext, type TBNodeData } from './nodeTypes'
 
 const SEVERITY_LABEL = { error: 'node.errors', warn: 'node.warnings', info: 'node.infos' } as const
 
@@ -13,13 +13,10 @@ function Var({ name, type, out }: { name: string; type: string; out?: boolean })
   return (
     <div className={'tb-var' + (out ? ' out' : '')} title={text}>
       <span className="sr-only">{text}</span>
-      {/* dot, type tag (zoom >= 0.9 only), name; outputs mirror it. The name comes first in the
-          wrapping label, so a type tag with no room left wraps to the hidden second line */}
+      {/* dot, type tag in a fixed slot (zoom >= 0.9 only), name; outputs mirror it. A long name ellipsizes */}
       <span className="tb-var-dot" aria-hidden="true" style={{ background: typeColor(type) }} />
-      <span className="tb-var-label" aria-hidden="true">
-        <span className="tb-var-name">{name}</span>
-        <span className="tb-var-type">{typeTag(type)}</span>
-      </span>
+      <span className="tb-var-type" aria-hidden="true">{typeTag(type)}</span>
+      <span className="tb-var-name" aria-hidden="true">{name}</span>
       <Handle
         type={out ? 'source' : 'target'}
         position={out ? Position.Right : Position.Left}
@@ -42,6 +39,7 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
   const wiresIn = useNodeConnections({ handleType: 'target', handleId: 'call-in' }).length
   const wiresOut = useNodeConnections({ handleType: 'source', handleId: 'call-out' }).length
   const handleClass = (wires: number) => (wires ? 'call-handle' : 'call-handle idle')
+  const uncalled = data.uncalled && <div className="tb-ghost-tag tb-uncalled">{t('node.uncalled')}</div>
   const callIn = <Handle type="target" position={vertical ? Position.Top : Position.Left} id="call-in" className={handleClass(wiresIn)} />
 
   if (data.ghost) {
@@ -81,10 +79,11 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
 
   if (!detailed) {
     return (
-      <div className={'tb-node compact' + (grade ? ' g-' + grade : '')}>
+      <div className={'tb-node compact' + (grade ? ' g-' + grade : '')} style={{ '--name-w': nameWidth(data) + 'px' } as CSSProperties}>
         {handles}
         {chip}
         <Name text={data.label} />
+        {uncalled}
         {sevs}
       </div>
     )
@@ -106,6 +105,7 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
         <Name text={data.label} />
         {chip}
       </div>
+      {uncalled}
       <div className="tb-stats">
         {stat('lines', m.totalLines)}
         {stat('comments', m.commentLines)}
