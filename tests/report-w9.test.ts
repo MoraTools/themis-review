@@ -134,7 +134,7 @@ describe('fix first', () => {
     items.forEach((item, i) => {
       const bot = analysis.taskbots.find((b) => b.path === top[i].botPath)!
       expect(item).toContain(bot.name)
-      expect(text(item)).toContain(`· −${top[i].project} project`)
+      expect(text(item)).toContain(`· +${top[i].project} project`)
       const button = item.match(/<button type="button" class="report-lost-link no-print">(.*?)<\/button>/)
       const anchor = item.match(/<a class="print-only card-anchor" href="#([^"]+)">(.*?)<\/a>/)
       if (button) {
@@ -142,18 +142,18 @@ describe('fix first', () => {
         expect(html).toContain(`id="${anchor![1]}"`)
       } else expect(item).toContain('not shown')
     })
-    expect(text(block)).toContain('−15 taskbot (cap) · −10.4 project')
+    expect(text(block)).toContain('+15 taskbot (fix all 5) · +10.4 project')
     // '+1 more' opens the tied items in the same list form; print lists them
     expect(block).toContain('<button type="button" class="report-fix-more-toggle no-print" aria-expanded="false" aria-controls="report-fix-ties">+1 more of the same size</button>')
     const ties = block.slice(block.indexOf('<ol id="report-fix-ties" class="report-fix-list report-fix-ties closed" start="4">'))
     expect(ties).not.toBe(block)
     const tie = fixFirst(analysis).ties[0]
     expect(ties).toContain(analysis.taskbots.find((b) => b.path === tie.botPath)!.name)
-    expect(text(ties)).toContain(`· −${tie.project} project`)
+    expect(text(ties)).toContain(`· +${tie.project} project`)
     const es = report('es')
     expect(es).toContain('>Corregir primero</h2>')
     expect(es).toContain('+1 más del mismo tamaño')
-    expect(text(es)).toContain('−15 taskbot (tope) · −10,4 proyecto')
+    expect(text(es)).toContain('+15 taskbot (corrige los 5) · +10,4 proyecto')
   })
 
   it('lists one item per taskbot while other taskbots have a loss of the same size, and counts the cut ties', () => {

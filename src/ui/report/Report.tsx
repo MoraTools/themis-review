@@ -2,7 +2,7 @@ import { Caret, Icon, SeverityIcon } from '../Icons'
 import { useContext, useEffect, useMemo, useState } from 'react'
 import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
-import { LangContext, plural as pluralText, useT, useNumber, usePlural, type Lang } from '../i18n'
+import { LangContext, plural as pluralText, translate, useT, useNumber, usePlural, type Lang } from '../i18n'
 import { Name } from '../shared/Name'
 import { Figures, Grade, GradeCount } from '../shared/Grade'
 import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
@@ -15,6 +15,7 @@ import {
   fixFirst,
   gradeDistribution,
   groupFindings,
+  groupTexts,
   hiddenList,
   hiddenTotal,
   includedList,
@@ -158,6 +159,11 @@ export default function Report({
   const { items: top, more, ties } = fixFirst(analysis)
   // the tied items of '+N more': a disclosure on screen, always listed in print
   const [tiesOpen, setTiesOpen] = useState(false)
+  // the fix a rule's card shows: the group fix for 2 or more findings, else the single fix with its params
+  const fixText = (findings: Finding[], ruleId: string) => {
+    const of = findings.filter((f) => f.ruleId === ruleId)
+    return of.length > 1 ? groupTexts(lang, ruleId, of.length).fix : translate(lang, `rule.${ruleId}.fix`, of[0]?.params)
+  }
   const fixItem = (l: (typeof top)[number]) => {
     const r = rowOf.get(l.botPath)!
     const target = r.families.get(l.group)
@@ -167,6 +173,8 @@ export default function Report({
       <li key={l.botPath + l.group}>
         {target ? <CardLink target={target}>{body}</CardLink> : body}
         {hidden && <> <HiddenNote text={hidden} onShow={() => showHidden(r)(l.group)} /></>}
+        {/* the filter hides every card of this item, so the PDF has no card that explains it: its fix, as the card says it */}
+        {!target && l.rules.map((ruleId) => <p key={ruleId} className="report-fix-hint print-only">{t('report.finding.fix')}: {fixText(r.all, ruleId)}</p>)}
       </li>
     )
   }

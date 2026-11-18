@@ -203,6 +203,11 @@ export function worstTaskbot(scores: Record<string, BotScore>): string | undefin
   return [...GRADES].reverse().map((g) => order[g][0]).find(Boolean)
 }
 
+/** the taskbot an overflowing first view centers: the one of the first Fix first item, else the worst taskbot */
+export function firstViewAnchor(analysis: Pick<ProjectAnalysis, 'findings' | 'taskbots' | 'metrics' | 'scores'>): string | undefined {
+  return fixFirst(analysis).items[0]?.botPath ?? worstTaskbot(analysis.scores)
+}
+
 /** taskbots in reading order of the layout: by column, then down (top to bottom layout: by row, then right) */
 export function layoutOrder(nodes: { id: string; position: { x: number; y: number } }[], vertical: boolean): string[] {
   const [main, cross] = vertical ? (['y', 'x'] as const) : (['x', 'y'] as const)
@@ -281,7 +286,8 @@ export function MapFixFirst({
     <details className="map-fix">
       <summary>
         <Caret />
-        <span className="map-fix-text">{`${t('report.fixFirst')}: ${names.get(first.botPath) ?? first.botPath} · ${lostLabel(lang, first)}`}</span>
+        {/* no-break spaces around the separator: a wrapped summary never starts or ends a line on it */}
+        <span className="map-fix-text">{`${t('report.fixFirst')}: ${names.get(first.botPath) ?? first.botPath}\u00a0·\u00a0${lostLabel(lang, first)}`}</span>
       </summary>
       <ol className="report-fix-list">
         {items.map((l) => (
@@ -301,7 +307,7 @@ type Rect = { x: number; y: number; width: number; height: number }
 /** The first view: fit the whole graph into the pane, but never below `floor`. The bottom-left
  *  corner (minimap and controls) and the strip at the top stay free of nodes: the graph goes right
  *  of the corner or above it, whichever gives the larger zoom. A graph that fits is centered. One
- *  that overflows at the floor centers `anchor` (the worst taskbot) on both axes, moved just enough
+ *  that overflows at the floor centers `anchor` (the taskbot to fix first) on both axes, moved just enough
  *  that no node in `nodes` is cut at the top or lies under a panel in `panels`. `narrow` (top to bottom
  *  layout) fits the width only, so the widest rank fills the pane at a zoom of at least `floor`, and starts
  *  at the top of the graph.
@@ -1010,15 +1016,16 @@ export default function Canvas({
     }
     const called = new Set(edges.filter((e) => e.id.startsWith('call:')).map((e) => e.target))
     const roots = nodes.filter((n) => n.type === 'taskbot' && !called.has(n.id))
-    const worst = nodes.find((n) => n.id === worstTaskbot(analysis.scores))
+    const anchorPath = firstViewAnchor(analysis)
+    const anchorNode = nodes.find((n) => n.id === anchorPath)
     const whole = fullGraphBounds(nodes, slotSize)
     const viewport = firstFitViewport(
       whole,
       { width: pane.width, height: pane.height },
       {
         floor,
-        // an overflowing map opens on the worst taskbot; with no grades, top to bottom starts at the entry taskbots
-        anchor: worst ? fullGraphBounds([worst], slotSize) : vertical && roots.length ? fullGraphBounds(roots, slotSize) : undefined,
+        // an overflowing map opens on the taskbot to fix first; with no grades, top to bottom starts at the entry taskbots
+        anchor: anchorNode ? fullGraphBounds([anchorNode], slotSize) : vertical && roots.length ? fullGraphBounds(roots, slotSize) : undefined,
         nodes: nodes.map((n) => fullGraphBounds([n], slotSize)),
         panels,
         narrow: vertical,
@@ -1045,9 +1052,9 @@ export default function Canvas({
     void rf.setViewport(viewport, { duration: 0 })
     applyZoom(viewport.zoom)
     // shown selected, not focused and not opened: the user decides what to open
-    if (viewport.overflow && worst) setNodes((ns) => ns && ns.map((n) => (n.id === worst.id ? { ...n, selected: true } : n)))
+    if (viewport.overflow && anchorNode) setNodes((ns) => ns && ns.map((n) => (n.id === anchorNode.id ? { ...n, selected: true } : n)))
     // `vertical` is read, not a trigger: the fit waits for the new layout's nodes
-  }, [rf, nodes, edges, applyZoom, analysis.scores, analysis.taskbots, cut])
+  }, [rf, nodes, edges, applyZoom, analysis, cut])
 
   const showDetails = detailed && !compact
   const isTaskbot = (n: FlowNode) => n.type === 'taskbot' && !(n.data as TBNodeData).ghost

@@ -87,6 +87,8 @@ export type FixItem = Lost & {
   botPath: string
   /** what the family takes from the project score: its points weighted by the taskbot lines, as projectScore() does */
   project: number
+  /** the findings of the family on that taskbot: a capped item needs all of them fixed */
+  count: number
 }
 
 /** all lines of the project: the weight of a taskbot is its lines over this, as in fixFirst() and projectScore() */
@@ -108,13 +110,15 @@ export function fixFirst(
   const total = projectLines(analysis)
   // sizes are compared as shown (one decimal), so items that read the same are a tie
   const all = analysis.taskbots.flatMap((b) => {
-    const lost = lostPoints(byBot.get(b.path) ?? [])
+    const findings = byBot.get(b.path) ?? []
+    const lost = lostPoints(findings)
     const sum = lostTotal(lost)
     const now = analysis.scores[b.path]?.score ?? 100
     return lost.map((l) => {
       // the taskbot score stops at 0, so a fix gains only what lifts it above 0
       const gain = Math.max(0, Math.min(l.points, 100 - (sum - l.points) - now))
-      return { ...l, botPath: b.path, project: total ? Math.round((gain * lines(b.path) / total) * 10) / 10 : 0 }
+      const count = findings.filter((f) => capGroup(f.ruleId) === l.group).length
+      return { ...l, botPath: b.path, project: total ? Math.round((gain * lines(b.path) / total) * 10) / 10 : 0, count }
     })
   })
   const score = (i: FixItem) => analysis.scores[i.botPath]?.score ?? 100

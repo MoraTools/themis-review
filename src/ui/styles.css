@@ -681,8 +681,9 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .grade-strip button:hover { border-color: var(--hover-border); background: var(--hover-bg); }
 .grade-strip-label { margin-right: 4px; color: var(--text-muted); }
-/* narrow panes: the strip and Fix first share the panel row, the legend toggle sits right of it; all three are one
-   44 px control high. The strip label is for screen readers only (it still names the group); no first-step hint */
+/* narrow panes: the strip on row 1, Fix first on its own full-width row under it (its summary wraps to 2 lines at
+   most), the legend toggle right of the panel; each a 44 px control. The strip label is for screen readers only
+   (it still names the group); no first-step hint */
 @media screen and (max-width: 760px) {
   .map-head { flex-flow: row wrap; align-items: stretch; gap: 0; max-width: calc(100% - 120px); padding: 0; }
   .map-head-row { display: contents; }
@@ -690,12 +691,13 @@ a.score-badge { color: inherit; text-decoration: none; }
   .map-status, .map-cut { flex-basis: 100%; padding: 4px 8px; }
   .map-cut { padding-block: 0; } /* the Show all target is already 44 px high */
   .map-head-row > a { padding: 0 8px; }
-  .grade-strip { max-width: 100%; overflow-x: auto; gap: 0; padding-left: 0; }
+  .grade-strip { flex-basis: 100%; max-width: 100%; overflow-x: auto; gap: 0; padding-left: 0; }
   .grade-strip-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   /* the panel is the box: the chips need no border of their own */
   .grade-strip button { padding: 0 5px; border-color: transparent; }
-  .map-fix { flex: 1 1 96px; }
+  .map-fix { flex: 1 1 100%; }
   .map-fix summary { padding: 0 8px; }
+  .map-fix-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; white-space: normal; line-height: var(--lh-snug); }
   .legend-toggle { gap: 6px; padding: 0 8px; }
 }
 .leg-wire { background: var(--info); }
@@ -845,7 +847,6 @@ a.score-badge { color: inherit; text-decoration: none; }
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: flex;
   flex-direction: column;
   width: 100%;
   max-width: none;
@@ -859,6 +860,8 @@ a.score-badge { color: inherit; text-decoration: none; }
   color: var(--text);
   box-shadow: var(--shadow-overlay);
 }
+/* only an open dialog is a flex box: a closed one keeps the UA display: none until React unmounts it */
+.drawer[open] { display: flex; }
 .drawer::backdrop { background: var(--bg); }
 .drawer-head {
   display: flex;
@@ -1203,22 +1206,27 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* one layout everywhere: a stacked list, the rule name left, the points right in tabular figures, the total last */
 .report-lost-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .report-lost-list li { break-inside: avoid; }
-.report-lost-list li > :is(.report-lost-link, .report-lost-row) { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-block: 0; text-align: left; }
+.report-lost-list li > :is(.report-lost-link, .report-lost-row) { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-block: 0; text-align: left; }
 /* a button fits its content: the link fills the row, its hit padding outside the text column */
 .report-lost-list li > .report-lost-link { width: calc(100% + 8px); }
 .report-lost-title, .report-lost-points { color: var(--text); }
 .report-lost-points { flex: none; white-space: nowrap; }
+/* one points width ('−15 (cap)'), so the bar tracks line up in one column */
+.report-lost-list .report-lost-points { min-width: 9ch; text-align: right; }
 .report-lost-link { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: inherit; }
 .report-lost-hidden { color: var(--text-subtle); font-size: var(--fs-12); }
+/* in a Points lost row the note follows the title on the same line */
+.report-lost-list .report-lost-hidden { flex: none; white-space: nowrap; }
 /* the hidden-findings note: a text button on screen that shows them */
 .report-lost-show { padding: 0; border: 0; background: transparent; font: inherit; font-size: var(--fs-12); cursor: pointer; }
 .report-lost-list .report-lost-show { min-height: var(--target-min); }
 /* the total: a full-width last row under a hairline, also across columns */
 .report-lost-total { column-span: all; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); color: var(--text); font-weight: 600; }
 .report-lost-total .report-lost-points { font-weight: 600; }
-/* the share of the largest row: a neutral 3px bar under the points, right-aligned so it does not read as an
-   underline of the name (width set inline), shown in print too */
-.report-lost-bar { display: block; height: 3px; margin: 1px 0 0 auto; border-radius: 2px; background: var(--border-strong); }
+/* the share of the largest row: a fixed-width track right before the points, filled from its right end (width set
+   inline), so it does not read as an underline or a table rule; shown in print too */
+.report-lost-track { display: flex; flex: none; justify-content: flex-end; align-self: center; width: 64px; height: 4px; margin-left: auto; overflow: hidden; border-radius: 2px; background: var(--border); }
+.report-lost-bar { display: block; height: 100%; background: var(--border-strong); }
 /* Fix first: the three biggest losses of the project, right after the head */
 .report-fix { max-width: 68ch; margin: 0 0 32px; }
 .report-fix h2 { margin: 0 0 4px; }
@@ -1229,6 +1237,10 @@ a.score-badge { color: inherit; text-decoration: none; }
 .report-fix-list .report-lost-link { display: block; margin: 0; padding: 4px 0; }
 .report-fix-bot { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
 .report-fix-value { white-space: nowrap; }
+/* the two values with their leading separator are one nowrap group: it moves as a whole */
+.report-fix-item .report-lost-points { white-space: nowrap; }
+/* print only: the fix of an item whose cards the filter hides */
+.report-fix-hint { margin: 0; }
 .report-fix-more { margin: 4px 0 0 1.5em; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 .report-fix-more-toggle { border: 0; background: transparent; font: inherit; cursor: pointer; }
 .report-fix-ties { margin-top: 4px; }
@@ -1371,16 +1383,16 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   /* clear of the header rule */
   .header .score-badge { grid-column:3; grid-row:2; align-self:center; justify-self:end; margin-bottom:6px; }
 }
-/* Fix first on phones: the taskbot on row 1; the rule and the points (right, on one line) on row 2; no separators */
-@media screen and (max-width:480px) {
+/* Fix first at 760 px and under: the taskbot on row 1; the rule and the two values (right, stacked as two lines)
+   on row 2; no separators */
+@media screen and (max-width:760px) {
   .report-fix-list { align-items:stretch; }
   /* a block button keeps its content width; the grid needs the full row */
   .report-fix-list .report-lost-link { width:100%; }
-  /* the points take at most half the row: two named values wrap between them, so the rule keeps its width */
-  .report-fix-item { display:grid; grid-template-columns:minmax(0,1fr) fit-content(50%); column-gap:12px; }
+  .report-fix-item { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:12px; }
   .report-fix-bot { grid-column:1/-1; }
-  .report-fix-item .report-lost-points { justify-self:end; white-space:normal; text-align:right; }
-  .report-fix-sep { display:none; }
+  .report-fix-item .report-lost-points { display:grid; justify-items:end; justify-self:end; text-align:right; }
+  .report-fix-sep, .report-fix-vsep { display:none; }
 }
 /* under 760px the summary keeps Taskbot, Findings and Score; the editor shows the rest */
 @media screen and (max-width:760px) {
@@ -1530,7 +1542,8 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .finding-line { color:var(--text); text-decoration:none; }
   .print-only { display:block; }
   a.print-only, code.print-only { display:inline; }
-  .report-lost-list li > a.card-anchor { display:flex; justify-content:space-between; align-items:baseline; gap:16px; }
+  .report-lost-list li > a.card-anchor { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .report-lost-track { width:48px; height:2px; }
   .row-anchor, .card-anchor { color:var(--text); text-decoration:none; }
   span.print-only { display:inline; }
   .report-fix { break-inside:avoid; }

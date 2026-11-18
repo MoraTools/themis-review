@@ -39,19 +39,19 @@ describe('Points lost', () => {
     expect(css).toMatch(/\n\.drawer-lost-summary, \.report-lost-summary, \.report-facts-summary \{[^}]*box-sizing: border-box; min-height: var\(--target-min\);/)
   })
 
-  it('draws a neutral bar per row, relative to the largest row, hidden from screen readers', () => {
+  it('draws a fixed-width track per row, filled relative to the largest row, hidden from screen readers', () => {
     const lost = [
       { group: 'VAR_NO_DESCRIPTION', points: 10, capped: false, rules: ['VAR_NO_DESCRIPTION'] },
       { group: 'TOO_LONG', points: 2.5, capped: false, rules: ['TOO_LONG'] },
     ]
     const html = wrap('en', createElement(PointsLost, { lost }))
-    expect(html.match(/<span class="report-lost-bar" aria-hidden="true" style="width:(\d+(?:\.\d+)?)%"><\/span>/g)).toHaveLength(2)
+    expect(html.match(/<span class="report-lost-track" aria-hidden="true"><span class="report-lost-bar" style="width:(\d+(?:\.\d+)?)%"><\/span><\/span>/g)).toHaveLength(2)
     expect(html).toContain('style="width:100%"')
     expect(html).toContain('style="width:25%"')
     // the total row has no bar
-    expect(html.split('report-lost-total')[1]).not.toContain('report-lost-bar')
-    expect(css).toMatch(/\n\.report-lost-bar \{[^}]*height: 3px; margin: 1px 0 0 auto;[^}]*background: var\(--border-strong\);/)
-    expect(printBlock).not.toContain('report-lost-bar')
+    expect(html.split('report-lost-total')[1]).not.toContain('report-lost-track')
+    // title | track | points on one line: the track sits right before the points
+    expect(html).toMatch(/<span class="report-lost-title">[^<]*<\/span><span class="report-lost-track"[^>]*><span[^>]*><\/span><\/span><span class="report-lost-points">/)
   })
 })
 

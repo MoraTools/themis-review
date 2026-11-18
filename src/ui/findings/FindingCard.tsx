@@ -57,22 +57,24 @@ export function LostPoints({ lost }: { lost: Pick<Lost, 'points' | 'capped'> }) 
   return <><span className="fig">−{number(lost.points)}</span>{lost.capped && ` (${t('report.lost.cap')})`}</>
 }
 
-/** a Fix first item: taskbot · rule · −points taskbot · −points project; the report and the map show it */
+/** a Fix first item: taskbot · rule · +points taskbot · +points project; the report and the map show it. A capped
+ *  item says that all findings of its family must be fixed */
 export function FixItemText({ name, item }: { name: string; item: FixItem }) {
   const t = useT()
   const number = useNumber()
   const { lang } = useContext(LangContext)
-  // a grid on phones: the name on row 1, the rule and the points (right) on row 2; only the separator between
-  // the two point values stays, so they do not read as one number
-  const sep = <span className="report-fix-sep"> · </span>
+  // no line starts or ends on a separator: each one is glued to its neighbours with no-break spaces, and the values
+  // with their leading separator are one nowrap group. At 760 px and under the item is a grid (the name on row 1, the
+  // rule and the two values stacked at the right on row 2) with no separators
+  const sep = <span className="report-fix-sep">{'\u00a0·\u00a0'}</span>
   return (
     <span className="report-fix-item">
-      <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{lostLabel(lang, item)}</span>{sep}
-      {/* two values, each kept on one line; on phones they may wrap between them */}
+      <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{lostLabel(lang, item)}</span>
       <span className="report-lost-points">
-        <span className="report-fix-value"><Figures text={t('report.fixFirst.bot', { points: number(item.points) })} />{item.capped && ` (${t('report.lost.cap')})`}</span>{' '}
-        {/* the separator starts the second value, so a wrapped line never ends on it */}
-        <span className="report-fix-value"><span className="report-fix-vsep">· </span><Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
+        {sep}
+        <span className="report-fix-value"><Figures text={t('report.fixFirst.bot', { points: number(item.points) })} />{item.capped && <> ({<Figures text={t('report.fixFirst.all', { n: number(item.count) })} />})</>}</span>
+        <span className="report-fix-vsep"> · </span>
+        <span className="report-fix-value"><Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
       </span>
     </span>
   )
@@ -290,21 +292,21 @@ export function PointsLost({ lost, targetOf, hiddenOf, onShowHidden }: {
       <ul className={'report-lost-list' + (lost.length > 6 ? ' long' : '')}>
         {lost.map((l) => {
           const target = targetOf?.(l.group)
-          const hidden = target ? undefined : hiddenOf?.(l.group)
+          const hidden = hiddenOf?.(l.group)
+          // one line per row: title, the hidden note, the bar track and the points. A row that links to its card
+          // holds the note as text (no button inside a button); a row whose cards are all hidden holds its button
           const body = (
             <>
-              <span className="report-lost-title">{lostLabel(lang, l)}</span>{' '}
+              <span className="report-lost-title">{lostLabel(lang, l)}</span>
+              {hidden && (target ? <span className="report-lost-hidden">{hidden}</span> : <HiddenNote text={hidden} onShow={onShowHidden && (() => onShowHidden(l.group))} />)}
+              {/* the row's share of the largest row, right-anchored to its figure; the figure says the same */}
+              <span className="report-lost-track" aria-hidden="true">
+                <span className="report-lost-bar" style={{ width: `${(largest > 0 ? l.points / largest : 0) * 100}%` }} />
+              </span>
               <span className="report-lost-points"><LostPoints lost={l} /></span>
             </>
           )
-          return (
-            <li key={l.group}>
-              {target ? <CardLink target={target}>{body}</CardLink> : <span className="report-lost-row">{body}</span>}
-              {/* the row's share of the largest row, right under its figure; the figure says the same */}
-              <span className="report-lost-bar" aria-hidden="true" style={{ width: `${(largest > 0 ? l.points / largest : 0) * 100}%` }} />
-              {hidden && <HiddenNote text={hidden} onShow={onShowHidden && (() => onShowHidden(l.group))} />}
-            </li>
-          )
+          return <li key={l.group}>{target ? <CardLink target={target}>{body}</CardLink> : <span className="report-lost-row">{body}</span>}</li>
         })}
         <li className="report-lost-total">
           <span className="report-lost-row">

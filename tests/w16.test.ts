@@ -60,9 +60,9 @@ describe('fix first labels and ties', () => {
     const { items, more, ties } = fixFirst(analysis)
     expect(ties).toHaveLength(more)
     expect(ties.every((i) => i.project === items.at(-1)!.project)).toBe(true)
-    expect(translate('en', 'report.fixFirst.bot', { points: '15' })).toBe('−15 taskbot')
-    expect(translate('es', 'report.fixFirst.bot', { points: '15' })).toBe('−15 taskbot')
-    expect(text(report('es'))).toContain('−15 taskbot (tope) · −10,4 proyecto')
+    expect(translate('en', 'report.fixFirst.bot', { points: '15' })).toBe('+15 taskbot')
+    expect(translate('es', 'report.fixFirst.bot', { points: '15' })).toBe('+15 taskbot')
+    expect(text(report('es'))).toContain('+15 taskbot (corrige los 5) · +10,4 proyecto')
   })
 })
 

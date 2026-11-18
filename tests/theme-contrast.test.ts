@@ -71,9 +71,8 @@ for (const theme of ['light', 'dark']) {
         const distance = Math.hypot(...labs[i].map((v, k) => v - labs[j][k]))
         expect(distance, `${theme} grades ${grades[i]}/${grades[j]}`).toBeGreaterThan(0.04)
       }
-      // B is not the info blue, C is not the gold (fill or text), and light C and D are not two close browns
-      const pairs: [string, string][] = [['--grade-b', '--info'], ['--grade-c', '--accent'], ['--grade-c', '--accent-text']]
-      if (theme === 'light') pairs.push(['--grade-c', '--grade-d'])
+      // B is not the info blue, C is not the gold (fill or text), and C and D are not two close browns
+      const pairs: [string, string][] = [['--grade-b', '--info'], ['--grade-c', '--accent'], ['--grade-c', '--accent-text'], ['--grade-c', '--grade-d']]
       for (const [x, y] of pairs) {
         const [p, q] = [x, y].map(token => toLab(resolve(values[token], values)))
         expect(Math.hypot(...p.map((v, k) => v - q[k])), `${theme} ${x}/${y}`).toBeGreaterThan(0.075)
