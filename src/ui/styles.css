@@ -1383,6 +1383,10 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   /* clear of the header rule */
   .header .score-badge { grid-column:3; grid-row:2; align-self:center; justify-self:end; margin-bottom:6px; }
 }
+/* too narrow for the wordmark, PDF, New and the toggles on one row (measured: English needs 377 px, Spanish 403 px,
+   evidence e68): PDF and New take a third row, right-aligned */
+@media screen and (max-width:376px) { .header .header-tools { grid-column:1/-1; grid-row:3; justify-self:end; padding-bottom:8px; } }
+@media screen and (max-width:402px) { html:lang(es) .header .header-tools { grid-column:1/-1; grid-row:3; justify-self:end; padding-bottom:8px; } }
 /* Fix first at 760 px and under: the taskbot on row 1; the rule and the two values (right, stacked as two lines)
    on row 2; no separators */
 @media screen and (max-width:760px) {

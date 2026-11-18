@@ -163,3 +163,12 @@ describe('W20 9: Fix first copy', () => {
     expect(lost).not.toContain('fix all')
   })
 })
+
+describe('narrow header', () => {
+  it('moves PDF and New to a third row below the measured fit width, per language', () => {
+    const css = readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8')
+    const rule = '{ grid-column:1/-1; grid-row:3; justify-self:end; padding-bottom:8px; }'
+    expect(css).toContain(`@media screen and (max-width:376px) { .header .header-tools ${rule} }`)
+    expect(css).toContain(`@media screen and (max-width:402px) { html:lang(es) .header .header-tools ${rule} }`)
+  })
+})

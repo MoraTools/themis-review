@@ -85,7 +85,9 @@ export function compareByFamily(lost: Lost[]): (x: Finding, y: Finding) => numbe
 
 export type FixItem = Lost & {
   botPath: string
-  /** what the family takes from the project score: its points weighted by the taskbot lines, as projectScore() does */
+  /** what fixing the family gives back to the taskbot score: its points, less when the score stops at 0 */
+  gain: number
+  /** the same gain for the project score: weighted by the taskbot lines, as projectScore() does */
   project: number
   /** the findings of the family on that taskbot: a capped item needs all of them fixed */
   count: number
@@ -118,7 +120,7 @@ export function fixFirst(
       // the taskbot score stops at 0, so a fix gains only what lifts it above 0
       const gain = Math.max(0, Math.min(l.points, 100 - (sum - l.points) - now))
       const count = findings.filter((f) => capGroup(f.ruleId) === l.group).length
-      return { ...l, botPath: b.path, project: total ? Math.round((gain * lines(b.path) / total) * 10) / 10 : 0, count }
+      return { ...l, botPath: b.path, gain, project: total ? Math.round((gain * lines(b.path) / total) * 10) / 10 : 0, count }
     })
   })
   const score = (i: FixItem) => analysis.scores[i.botPath]?.score ?? 100

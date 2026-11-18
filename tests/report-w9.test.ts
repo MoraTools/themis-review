@@ -6,7 +6,7 @@ import { analyzeZips } from '../src/core/analyze'
 import type { Finding } from '../src/core/model'
 import EditorDrawer from '../src/ui/editor/EditorDrawer'
 import Report from '../src/ui/report/Report'
-import { FindingCard, FindingGroupCard } from '../src/ui/findings/FindingCard'
+import { FindingCard, FindingGroupCard, FixItemText } from '../src/ui/findings/FindingCard'
 import { DEFAULT_SEVERITY_ON } from '../src/ui/findings/SeverityFilter'
 import { fixFirst, includedList, lostPoints, lostTotal } from '../src/ui/findings/findings'
 import { typeLabel } from '../src/ui/canvas/nodeTypes'
@@ -190,7 +190,22 @@ describe('fix first', () => {
       scores: { 'p/0': { score: 0, grade: 'F' } },
     } as unknown as Parameters<typeof fixFirst>[0]
     expect(lostTotal(lostPoints(findings))).toBe(105)
-    expect(fixFirst(zero).items.map((l) => [l.points, l.project])).toEqual([[15, 10], [15, 10], [15, 10]])
+    expect(fixFirst(zero).items.map((l) => [l.points, l.gain, l.project])).toEqual([[15, 10, 10], [15, 10, 10], [15, 10, 10]])
+  })
+
+  it('prints the taskbot gain, not the family points, when the score stops at 0', () => {
+    const findings: Finding[] = ['MSGBOX_BLOCKING', 'HARDCODED_PATH', 'VAR_NAME_FORMAT', 'TOO_LONG', 'CALL_DEPTH', 'EMPTY_CATCH', 'MSGBOX_DEAD']
+      .flatMap((ruleId) => Array.from({ length: 4 }, (_, k) => ({ ruleId, severity: 'error' as const, botPath: 'p/0', line: k + 1, params: {} })))
+    const item = fixFirst({
+      taskbots: [{ path: 'p/0', name: 'Bot0' }],
+      findings,
+      metrics: { 'p/0': { totalLines: 100 } },
+      scores: { 'p/0': { score: 0, grade: 'F' } },
+    } as unknown as Parameters<typeof fixFirst>[0]).items[0]
+    const html = renderToStaticMarkup(createElement(LangContext.Provider, { value: { lang: 'en', setLang: () => {} } },
+      createElement(FixItemText, { name: 'Bot0', item })))
+    expect(html).toContain('<span class="fig">+10</span> taskbot')
+    expect(html).not.toContain('+15')
   })
 })
 

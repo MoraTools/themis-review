@@ -72,7 +72,7 @@ export function FixItemText({ name, item }: { name: string; item: FixItem }) {
       <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{lostLabel(lang, item)}</span>
       <span className="report-lost-points">
         {sep}
-        <span className="report-fix-value"><Figures text={t('report.fixFirst.bot', { points: number(item.points) })} />{item.capped && <> ({<Figures text={t('report.fixFirst.all', { n: number(item.count) })} />})</>}</span>
+        <span className="report-fix-value"><Figures text={t('report.fixFirst.bot', { points: number(item.gain) })} />{item.capped && <> ({<Figures text={t('report.fixFirst.all', { n: number(item.count) })} />})</>}</span>
         <span className="report-fix-vsep"> · </span>
         <span className="report-fix-value"><Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
       </span>
