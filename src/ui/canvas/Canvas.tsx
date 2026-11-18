@@ -324,8 +324,11 @@ export function firstFitViewport(
   let zoom = fit(box)
   const overflow = zoom < floor
   if (narrow) {
-    // the widest rank fits the width; the rest is reached by panning down
-    zoom = Math.max(floor, Math.min((above.width - 2 * pad) / graph.width, maxZoom))
+    // the widest rank fits the width; a graph that also fits above the bottom controls at a zoom of at
+    // least `floor` is shown whole, else the rest is reached by panning down
+    const widthFit = Math.min((above.width - 2 * pad) / graph.width, maxZoom)
+    const heightFit = (above.height - 2 * pad) / graph.height
+    zoom = Math.max(floor, heightFit >= floor ? Math.min(widthFit, heightFit) : widthFit)
     box = above
   } else if (overflow) {
     zoom = floor

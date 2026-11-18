@@ -61,12 +61,13 @@ export function FixItemText({ name, item }: { name: string; item: FixItem }) {
   const t = useT()
   const number = useNumber()
   const { lang } = useContext(LangContext)
-  // a grid on phones: the name on row 1, the rule and the points (right) on row 2, without separators
+  // a grid on phones: the name on row 1, the rule and the points (right) on row 2; only the separator between
+  // the two point values stays, so they do not read as one number
   const sep = <span className="report-fix-sep"> · </span>
   return (
     <span className="report-fix-item">
       <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{groupLabel(lang, item.group)}</span>{sep}
-      <span className="report-lost-points"><LostPoints lost={item} /><span className="report-fix-sep"> ·</span> <Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
+      <span className="report-lost-points"><LostPoints lost={item} /><span className="report-fix-vsep"> ·</span> <Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
     </span>
   )
 }

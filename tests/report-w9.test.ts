@@ -171,6 +171,21 @@ describe('fix first', () => {
     const two = { ...big, taskbots: big.taskbots.slice(0, 2), findings: findings.filter((f) => ['p/0', 'p/1'].includes(f.botPath)) }
     expect(fixFirst(two).items.map((l) => [l.botPath, l.group])).toEqual([['p/1', 'HARDCODED_PATH'], ['p/0', 'HARDCODED_PATH'], ['p/1', 'MSGBOX_BLOCKING']])
   })
+
+  it('counts only the gain above 0 when a taskbot score stops at 0', () => {
+    // 7 capped families take 105 points: the score is 0, and one fix lifts it to 10, not 15
+    const rules = ['MSGBOX_BLOCKING', 'HARDCODED_PATH', 'VAR_NAME_FORMAT', 'TOO_LONG', 'CALL_DEPTH', 'EMPTY_CATCH', 'MSGBOX_DEAD']
+    const findings: Finding[] = rules.flatMap((ruleId) =>
+      Array.from({ length: 4 }, (_, k) => ({ ruleId, severity: 'error' as const, botPath: 'p/0', line: k + 1, params: {} })))
+    const zero = {
+      taskbots: [{ path: 'p/0', name: 'Bot0' }],
+      findings,
+      metrics: { 'p/0': { totalLines: 100 } },
+      scores: { 'p/0': { score: 0, grade: 'F' } },
+    } as unknown as Parameters<typeof fixFirst>[0]
+    expect(lostTotal(lostPoints(findings))).toBe(105)
+    expect(fixFirst(zero).items.map((l) => [l.points, l.project])).toEqual([[15, 10], [15, 10], [15, 10]])
+  })
 })
 
 describe('card heads and labels', () => {

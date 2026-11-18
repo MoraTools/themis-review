@@ -98,9 +98,16 @@ export function fixFirst(
   const lines = (path: string) => analysis.metrics[path]?.totalLines ?? 0
   const total = analysis.taskbots.reduce((sum, b) => sum + lines(b.path), 0)
   // sizes are compared as shown (one decimal), so items that read the same are a tie
-  const all = analysis.taskbots.flatMap((b) =>
-    lostPoints(byBot.get(b.path) ?? []).map((l) => ({ ...l, botPath: b.path, project: total ? Math.round((l.points * lines(b.path) / total) * 10) / 10 : 0 })),
-  )
+  const all = analysis.taskbots.flatMap((b) => {
+    const lost = lostPoints(byBot.get(b.path) ?? [])
+    const sum = lostTotal(lost)
+    const now = analysis.scores[b.path]?.score ?? 100
+    return lost.map((l) => {
+      // the taskbot score stops at 0, so a fix gains only what lifts it above 0
+      const gain = Math.max(0, Math.min(l.points, 100 - (sum - l.points) - now))
+      return { ...l, botPath: b.path, project: total ? Math.round((gain * lines(b.path) / total) * 10) / 10 : 0 }
+    })
+  })
   const score = (i: FixItem) => analysis.scores[i.botPath]?.score ?? 100
   // a stable sort keeps the input order of ties
   const sorted = [...all].sort((a, b) => b.project - a.project || score(a) - score(b))
