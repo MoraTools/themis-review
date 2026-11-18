@@ -3,14 +3,14 @@ import { useContext, useEffect, useMemo, useState } from 'react'
 import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
 import { groupLabel } from '../findings/findings'
-import { LangContext, translate, useT, useNumber, usePlural, type Lang } from '../i18n'
+import { LangContext, plural as pluralText, useT, useNumber, usePlural, type Lang } from '../i18n'
 import { Name } from '../shared/Name'
 import { Grade, GradeCount } from '../shared/Grade'
 import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
-import { CardLink, FindingCard, FindingGroupCard, LostPoints, PointsLost } from '../findings/FindingCard'
+import { CardLink, FindingCard, FindingGroupCard, HiddenNote, LostPoints, PointsLost, goToCard, lostOpenDefault } from '../findings/FindingCard'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 import {
-  compareFindings,
+  compareByFamily,
   entryPoints,
   findingLine,
   fixFirst,
@@ -20,6 +20,7 @@ import {
   hiddenTotal,
   includedList,
   lostPoints,
+  lostTotal,
   scoringLines,
   SEVERITIES,
   severityCounts,
@@ -27,10 +28,11 @@ import {
 
 export { GradeCount }
 
-/** a severity name per hidden severity of these findings, e.g. "Info" */
-function hiddenSeverities(findings: Finding[], shown: SeverityOn, lang: Lang): string | undefined {
-  const list = SEVERITIES.filter((s) => !shown[s] && findings.some((f) => f.severity === s))
-  return list.length ? list.map((s) => translate(lang, 'report.severity.' + s)).join(', ') : undefined
+/** the hidden findings of a family with their count, '8 Info, not shown', or undefined when none is hidden */
+function hiddenNote(findings: Finding[], shown: SeverityOn, lang: Lang): string | undefined {
+  const counts = severityCounts(findings)
+  const n = hiddenTotal(counts, shown)
+  return n ? pluralText(lang, 'report.lost.hidden', n, { list: hiddenList(counts, shown, lang) }) : undefined
 }
 
 type SortCol = 'name' | 'lines' | 'comments' | 'logs' | 'vars' | 'findings' | 'score'
@@ -63,7 +65,6 @@ export default function Report({
   const byBot = useMemo(() => {
     const grouped = new Map<string, Finding[]>()
     for (const f of analysis.findings) grouped.set(f.botPath, [...(grouped.get(f.botPath) ?? []), f])
-    for (const list of grouped.values()) list.sort(compareFindings)
     return grouped
   }, [analysis])
 
@@ -72,7 +73,9 @@ export default function Report({
       const all = byBot.get(b.path) ?? []
       // stable anchor per taskbot for the PDF links and the Points lost targets
       const anchor = 'bot-' + i
-      const findings = all.filter((f) => sevOn[f.severity])
+      const lost = lostPoints(all)
+      // cards in the Points lost order: family points, then severity, then line
+      const findings = all.filter((f) => sevOn[f.severity]).sort(compareByFamily(lost))
       const entries = groupFindings(findings)
       // the first card of each rule gets an anchor; Points lost and Fix first link each family to its first card
       const anchorAt = new Map<number, string>()
@@ -86,7 +89,6 @@ export default function Report({
         anchorAt.set(k, id)
         if (!families.has(capGroup(ruleId))) families.set(capGroup(ruleId), id)
       })
-      const lost = lostPoints(all)
       return {
         bot: b, anchor, all, findings, entries, anchorAt, families, lost,
         m: analysis.metrics[b.path],
@@ -119,14 +121,42 @@ export default function Report({
 
   const included = includedList(sevOn, lang)
   const hidden = hiddenList(counts, sevOn, lang)
-  const anyHidden = SEVERITIES.some((s) => !sevOn[s])
   const scoring = scoringLines(lang)
   const dist = gradeDistribution(Object.values(analysis.scores))
   const lineAction = (line: number) => t('report.finding.openLine', { line: number(line) })
   const shownRows = rows.filter((r) => r.findings.length > 0)
   const rowOf = new Map(rows.map((r) => [r.bot.path, r]))
-  const hiddenOf = (r: (typeof rows)[number]) => (group: string) => hiddenSeverities(r.all.filter((f) => capGroup(f.ruleId) === group), sevOn, lang)
-  const top = fixFirst(analysis.findings)
+  const familyOf = (r: (typeof rows)[number], group: string) => r.all.filter((f) => capGroup(f.ruleId) === group)
+  const hiddenOf = (r: (typeof rows)[number]) => (group: string) => hiddenNote(familyOf(r, group), sevOn, lang)
+  // a hidden-family button turns its severities on; the card exists after the next render, then it gets focus
+  const [pending, setPending] = useState<{ botPath: string; group: string } | null>(null)
+  const showHidden = (r: (typeof rows)[number]) => (group: string) => {
+    for (const s of SEVERITIES) if (!sevOn[s] && familyOf(r, group).some((f) => f.severity === s)) onToggleSeverity(s)
+    setPending({ botPath: r.bot.path, group })
+  }
+  useEffect(() => {
+    if (!pending) return
+    const target = rowOf.get(pending.botPath)?.families.get(pending.group)
+    if (target) {
+      goToCard(target)
+      setPending(null)
+    }
+  })
+  // the PDF shows every Points lost list: closed boxes open for the print and close again after it
+  useEffect(() => {
+    let closed: HTMLDetailsElement[] = []
+    const before = () => {
+      closed = [...document.querySelectorAll<HTMLDetailsElement>('details.report-lost-box:not([open])')]
+      for (const d of closed) d.open = true
+    }
+    const after = () => { for (const d of closed) d.open = false }
+    addEventListener('beforeprint', before)
+    addEventListener('afterprint', after)
+    return () => { removeEventListener('beforeprint', before); removeEventListener('afterprint', after) }
+  }, [])
+  const [lostOpen] = useState(lostOpenDefault)
+  const { items: top, more } = fixFirst(analysis)
+  const project = (points: number) => t('report.fixFirst.project', { points: number(points) })
   // pages 2+ of the PDF name the report: @page margin boxes read custom properties only from the root element
   const printId = `${analysis.zipNames.join(', ')} · ${date}`
   useEffect(() => {
@@ -141,6 +171,7 @@ export default function Report({
       <header className="report-head">
         <h1>{t('report.title')}</h1>
         <div className="report-score">
+          <span className="report-score-label">{t('report.projectScore')}</span>
           <Grade score={analysis.projectScore} />
         </div>
         <p className="report-meta">
@@ -177,17 +208,18 @@ export default function Report({
               const body = (
                 <>
                   <span className="report-fix-bot">{r.bot.name}</span> · <span className="report-lost-title">{groupLabel(lang, l.group)}</span> ·{' '}
-                  <span className="report-lost-points"><LostPoints lost={l} /></span>
+                  <span className="report-lost-points"><LostPoints lost={l} /> · {project(l.project)}</span>
                 </>
               )
               return (
                 <li key={l.botPath + l.group}>
                   {target ? <CardLink target={target}>{body}</CardLink> : body}
-                  {hidden && <> <span className="report-lost-hidden">{t('report.lost.hidden', { list: hidden })}</span></>}
+                  {hidden && <> <HiddenNote text={hidden} onShow={() => showHidden(r)(l.group)} /></>}
                 </li>
               )
             })}
           </ol>
+          {more > 0 && <p className="report-fix-more">{plural('report.fixFirst.more', more)}</p>}
         </section>
       )}
 
@@ -237,25 +269,27 @@ export default function Report({
                 <td role="cell" className="num col-detail">{number(r.m.logMessages)}</td>
                 <td role="cell" className="num col-detail">{number(r.m.variables)}</td>
                 <td role="cell" className="col-findings">
-                  {/* fixed slots (error, warning, info), empty for 0, so each icon sits at the same x in every row */}
-                  <span className="sev-slots">
-                    {SEVERITIES.map((s) => (
-                      <span key={s} className={'sev-slot sev-slot-' + s + (sevOn[s] ? '' : ' dim')}>
-                        {r.counts[s] > 0 && (
-                          <>
-                            <SeverityIcon severity={s} />
-                            <span className="sr-only">{t('report.severity.' + s)}</span>
-                            {number(r.counts[s])}
-                          </>
-                        )}
-                      </span>
-                    ))}
-                    {r.all.length === 0
-                      ? <span className="sev-shown">{t('report.noFindings')}</span>
-                      : r.findings.length === 0
+                  {/* fixed slots (error, warning, info), empty for 0, so each icon sits at the same x in every row;
+                      a clean taskbot has none, so 'No findings' starts at the column edge */}
+                  {r.all.length === 0 ? <span className="sev-none">{t('report.noFindings')}</span> : (
+                    <span className="sev-slots">
+                      {SEVERITIES.map((s) => (
+                        <span key={s} className={'sev-slot sev-slot-' + s + (sevOn[s] ? '' : ' dim')}>
+                          {r.counts[s] > 0 && (
+                            <>
+                              <SeverityIcon severity={s} />
+                              <span className="sr-only">{t('report.severity.' + s)}</span>
+                              {number(r.counts[s])}
+                            </>
+                          )}
+                        </span>
+                      ))}
+                      {/* the ratio only when the filter hides some findings of this taskbot */}
+                      {r.findings.length === 0
                         ? <span className="sev-shown">{plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list: hiddenList(r.counts, sevOn, lang) })}</span>
-                        : anyHidden && <span className="sev-shown">{plural('report.findings.shown', r.all.length, { shown: number(r.findings.length) })}</span>}
-                  </span>
+                        : r.findings.length < r.all.length && <span className="sev-shown">{plural('report.findings.shown', r.all.length, { shown: number(r.findings.length) })}</span>}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -284,7 +318,13 @@ export default function Report({
               <Grade score={r.s} className="tb-grade" />
             </h2>
             <p className="report-bot-path">{r.bot.path}</p>
-            <PointsLost lost={r.lost} targetOf={(g) => r.families.get(g)} hiddenOf={hiddenOf(r)} />
+            {r.lost.length > 0 && (
+              // closed under 760 px, where the list would push the cards a screen down; the PDF opens it
+              <details className="report-lost-box" open={lostOpen}>
+                <summary className="report-lost-summary">{plural('editor.lost.summary', r.lost.length, { points: number(lostTotal(r.lost)) })}</summary>
+                <PointsLost lost={r.lost} targetOf={(g) => r.families.get(g)} hiddenOf={hiddenOf(r)} onShowHidden={showHidden(r)} />
+              </details>
+            )}
             {r.findings.some((f) => f.ruleId === 'VAR_NAME_FORMAT') && <p className="name-key">{t('report.nameKey')}</p>}
             {r.entries.map((e, i) => {
               if (e.kind === 'group') {

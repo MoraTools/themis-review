@@ -60,8 +60,8 @@ function Head({ severity, ruleId, onRule, points, children }: {
   severity: Severity
   ruleId: string
   onRule?: (ruleId: string) => void
-  /** the family's points, on the first card of the family */
-  points?: Lost
+  /** the family's points: on the first card of the family, and marked inFamily on its later cards */
+  points?: Lost & { inFamily?: boolean }
   children?: ReactNode
 }) {
   const t = useT()
@@ -73,8 +73,10 @@ function Head({ severity, ruleId, onRule, points, children }: {
       <span className="finding-title">{t(`rule.${ruleId}.title`)}</span>
       {children}
       {points && (
-        <span className="finding-points">
-          <span className="sr-only">{t('report.lost.points')}: </span><LostPoints lost={points} />
+        <span className={'finding-points' + (points.inFamily ? ' in-family' : '')}>
+          <span className="sr-only">{t('report.lost.points')}: </span>
+          {/* a later card of a family: the family total, marked, so the card does not read as free */}
+          {points.inFamily && t('report.lost.inFamily') + ' '}<LostPoints lost={points} />
         </span>
       )}
       <RuleId ruleId={ruleId} onRule={onRule} />
@@ -85,7 +87,7 @@ function Head({ severity, ruleId, onRule, points, children }: {
 /** one finding: severity chip, where, rule id, message and a labelled fix. Shared by the editor and the report. */
 export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, index, id, onRule, points, onVar }: {
   finding: Finding
-  points?: Lost
+  points?: Lost & { inFamily?: boolean }
   /** open the editor on the Variables tab at this variable, for a finding without a line */
   onVar?: (name: string) => void
   line?: number
@@ -111,14 +113,13 @@ export function FindingCard({ finding: f, line, onLine, lineAction, tabIndex, in
   )
 }
 
-/** what one item of a group names: its variable, path, command or call target, plus the rename when there is one */
-function itemText(f: Finding): string {
+/** what one item of a group names: its variable, path, command or call target, and the new name when there is one */
+function itemText(f: Finding): { subject: string; suggestion?: string } {
   const p = f.params
-  const subject = f.varName ?? p.name ?? p.var ?? p.path ?? p.target ?? p.callee ?? p.command ?? ''
-  return p.suggestion ? `${subject} → ${p.suggestion}` : subject
+  return { subject: f.varName ?? p.name ?? p.var ?? p.path ?? p.target ?? p.callee ?? p.command ?? '', suggestion: p.suggestion }
 }
 
-/** 3 or more findings of one rule in one taskbot: the message and the fix once, then a compact list */
+/** 2 or more findings of one rule in one taskbot: the message and the fix once, then a compact list */
 export function FindingGroupCard({
   findings,
   lineOf,
@@ -130,7 +131,7 @@ export function FindingGroupCard({
   onVar,
 }: {
   findings: Finding[]
-  points?: Lost
+  points?: Lost & { inFamily?: boolean }
   onVar?: (name: string) => void
   lineOf: (f: Finding) => number | undefined
   onLine?: (line: number) => void
@@ -146,10 +147,12 @@ export function FindingGroupCard({
   // a group sentence and fix per rule: the list carries each name, line and rename
   const { msg, fix } = groupTexts(lang, first.ruleId, findings.length)
   const items = findings
-    .map((f) => ({ f, line: lineOf(f), text: itemText(f) }))
+    .map((f) => ({ f, line: lineOf(f), ...itemText(f) }))
     .sort((a, b) => (a.line ?? Infinity) - (b.line ?? Infinity))
   // a subject that is the same in every item (e.g. the command) says nothing in the list
-  const sameText = items.every((i) => i.text === items[0].text)
+  const sameText = items.every((i) => i.subject === items[0].subject && i.suggestion === items[0].suggestion)
+  // a rename list (old → new): one grid row per item, in columns
+  const renames = items.some((i) => i.suggestion)
   return (
     <article id={id} tabIndex={id ? -1 : undefined} className={'finding-card finding-group sev-' + first.severity}>
       <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule} points={points}>
@@ -159,20 +162,27 @@ export function FindingGroupCard({
       <p className="finding-fix">
         <strong>{t('report.finding.fix')}:</strong> {fix}
       </p>
-      <ul className="finding-items">
-        {items.map(({ f, line, text }, i) => {
+      <ul className={'finding-items' + (renames ? ' finding-renames' : '')}>
+        {items.map(({ f, line, subject, suggestion }, i) => {
+          const lineCell = line === undefined ? null : onLine ? (
+            <button type="button" className="finding-line" aria-label={lineAction?.(line)} title={lineAction?.(line)} onClick={() => onLine(line)}>
+              L{number(line)}
+            </button>
+          ) : (
+            <span>L{number(line)}</span>
+          )
+          // an item without a line names a variable: it opens the editor at that variable
+          const name = line === undefined && f.varName && onVar && !suggestion && subject === f.varName ? <VarName name={subject} onVar={onVar} /> : <code>{subject}</code>
           return (
             <li key={i}>
-              {line !== undefined &&
-                (onLine ? (
-                  <button type="button" className="finding-line" aria-label={lineAction?.(line)} title={lineAction?.(line)} onClick={() => onLine(line)}>
-                    L{number(line)}
-                  </button>
-                ) : (
-                  <span>L{number(line)}</span>
-                ))}{' '}
-              {/* an item without a line names a variable: it opens the editor at that variable */}
-              {!sameText && (line === undefined && f.varName && onVar && text === f.varName ? <VarName name={text} onVar={onVar} /> : <code>{text}</code>)}
+              {/* the grid keeps an empty line cell, so the names stay in one column */}
+              {renames ? <span className="finding-item-line">{lineCell}</span> : lineCell}{' '}
+              {!sameText && (
+                <span className="finding-item-text">
+                  {name}
+                  {suggestion && <> → <code className="finding-new">{suggestion}</code></>}
+                </span>
+              )}
             </li>
           )
         })}
@@ -181,27 +191,42 @@ export function FindingGroupCard({
   )
 }
 
-/** points each rule family took from one taskbot, largest first, then their total; an item with a target scrolls
- *  to and focuses its card, an item whose cards the filter hides says so */
-export function PointsLost({ lost, targetOf, hiddenOf, stacked, label = true }: {
+/** hidden findings of a family, '8 Info, not shown': on screen a button that turns those severities on and goes to
+ *  the card, plain text in print */
+export function HiddenNote({ text, onShow }: { text: string; onShow?: () => void }) {
+  const t = useT()
+  if (!onShow) return <span className="report-lost-hidden">{text}</span>
+  return (
+    <>
+      <button type="button" className="report-lost-hidden report-lost-show no-print" title={t('report.lost.showHidden')} onClick={onShow}>{text}</button>
+      <span className="report-lost-hidden print-only">{text}</span>
+    </>
+  )
+}
+
+/** the Points lost box opens above 760 px; at 760 px and under it starts closed, where it would push the cards down */
+const LOST_CLOSED = '(max-width: 760px)'
+export const lostOpenDefault = () => typeof matchMedia === 'undefined' || !matchMedia(LOST_CLOSED).matches
+
+/** points each rule family took from one taskbot, largest first, then their total as a full-width last row; an item
+ *  with a target links to its card (a button on screen, an anchor in the PDF), an item whose cards the filter hides
+ *  says how many and can show them */
+export function PointsLost({ lost, targetOf, hiddenOf, onShowHidden }: {
   lost: Lost[]
   /** id of the card or group of that family, when one is shown */
   targetOf?: (group: string) => string | undefined
-  /** the severity names of a family's findings that the filter hides, e.g. "Info" */
+  /** the hidden findings of a family as text, e.g. "8 Info, not shown" */
   hiddenOf?: (group: string) => string | undefined
-  /** one rule per line; else inline up to 4 items */
-  stacked?: boolean
-  /** false when a <summary> already says "Points lost" */
-  label?: boolean
+  /** turn the hidden severities of a family on and go to its card */
+  onShowHidden?: (group: string) => void
 }) {
-  const t = useT()
   const number = useNumber()
+  const t = useT()
   const { lang } = useContext(LangContext)
   if (lost.length === 0) return null
   return (
     <div className="report-lost">
-      {label && <><span className="report-lost-label">{t('report.lost')}</span>{' '}</>}
-      <ul className={'report-lost-list' + (stacked || lost.length > 4 ? ' stacked' : '')}>
+      <ul className={'report-lost-list' + (lost.length > 6 ? ' long' : '')}>
         {lost.map((l) => {
           const target = targetOf?.(l.group)
           const hidden = target ? undefined : hiddenOf?.(l.group)
@@ -213,13 +238,15 @@ export function PointsLost({ lost, targetOf, hiddenOf, stacked, label = true }: 
           )
           return (
             <li key={l.group}>
-              {target ? <button type="button" className="report-lost-link" onClick={() => goToCard(target)}>{body}</button> : body}
-              {hidden && <> <span className="report-lost-hidden">{t('report.lost.hidden', { list: hidden })}</span></>}
+              {target ? <CardLink target={target}>{body}</CardLink> : <span className="report-lost-row">{body}</span>}
+              {hidden && <HiddenNote text={hidden} onShow={onShowHidden && (() => onShowHidden(l.group))} />}
             </li>
           )
         })}
         <li className="report-lost-total">
-          {t('report.lost.total')} <span className="report-lost-points">−{number(lostTotal(lost))}</span>
+          <span className="report-lost-row">
+            {t('report.lost.total')} <span className="report-lost-points">−{number(lostTotal(lost))}</span>
+          </span>
         </li>
       </ul>
     </div>

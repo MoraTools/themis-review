@@ -109,7 +109,9 @@ describe('points lost', () => {
     const lost = lostPoints(findings)
     const targets: Record<string, string> = { MSGBOX_BLOCKING: 'bot-0-MSGBOX_BLOCKING', VAR_NO_DESCRIPTION: 'bot-0-VAR_NO_DESCRIPTION' }
     const html = render('en', createElement(PointsLost, { lost, targetOf: (g: string) => targets[g] }))
-    const titles = [...html.matchAll(/report-lost-title">([^<]+)</g)].map((m) => m[1])
+    // the screen copy of each link; the print anchor repeats it
+    const screen = html.replace(/<a class="print-only card-anchor"[^]*?<\/a>/g, '')
+    const titles = [...screen.matchAll(/report-lost-title">([^<]+)</g)].map((m) => m[1])
     expect(titles).toEqual([
       translate('en', 'rule.MSGBOX_BLOCKING.title'),
       translate('en', 'rule.EMPTY_CATCH.title'),
@@ -121,8 +123,10 @@ describe('points lost', () => {
     expect(html).not.toContain('report-lost-id')
     expect((html.match(/<button/g) ?? []).length).toBe(2)
     expect(html).toContain('(cap)')
-    // more than four items: one per line
-    expect(html).toContain('report-lost-list stacked')
+    // one stacked layout at every length, the print anchors to the same cards, the total last
+    expect(html).not.toContain('stacked')
+    expect(html).toContain('<a class="print-only card-anchor" href="#bot-0-MSGBOX_BLOCKING">')
+    expect(html).toMatch(/<li class="report-lost-total">.*<\/li><\/ul>/)
   })
 })
 

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { Finding, Severity } from '../src/core/model'
 import { DEDUCTION, GRADE_BANDS, RULE_CAP, scoreFindings } from '../src/core/score'
 import {
+  compareByFamily,
   compareFindings,
+  entryPoints,
   entrySize,
   findingLine,
   gradeDistribution,
@@ -53,7 +55,7 @@ describe('grouped findings in one taskbot with a severity filter', () => {
   const shown = all.filter((x) => sevOn[x.severity])
   const entries = groupFindings(shown)
 
-  it('puts 3 or more findings of one rule in one card and keeps the others single', () => {
+  it('puts 2 or more findings of one rule in one card and keeps the others single', () => {
     expect(entries.map((e) => e.kind)).toEqual(['single', 'group'])
     const group = entries[1]
     expect(group.kind === 'group' && group.ruleId).toBe('VAR_NAME_FORMAT')
@@ -68,8 +70,40 @@ describe('grouped findings in one taskbot with a severity filter', () => {
     expect(hiddenList(severityCounts(all), sevOn, 'en')).toBe('3 Info')
   })
 
-  it('keeps fewer than 3 findings of a rule as single cards', () => {
-    expect(groupFindings(shown.slice(0, 3)).every((e) => e.kind === 'single')).toBe(true)
+  it('keeps a lone finding of a rule as a single card and groups from 2', () => {
+    expect(groupFindings(shown.slice(0, 2)).every((e) => e.kind === 'single')).toBe(true)
+    expect(groupFindings(shown.slice(0, 3)).map((e) => e.kind)).toEqual(['single', 'group'])
+  })
+})
+
+describe('card order and family points', () => {
+  const list = [
+    f('UNUSED_VAR', 'info', 1, 'a'),
+    f('TOO_LONG', 'warn', 3),
+    ...[9, 4, 6, 8].map((l) => f('MSGBOX_BLOCKING', 'error', l)), // 16, capped at 15
+    f('VAR_NO_DESCRIPTION', 'warn', 2, 'b'),
+    f('VAR_NO_DESCRIPTION_LOCAL', 'info', 5, 'c'), // same cap family
+  ]
+  const lost = lostPoints(list)
+  const sorted = [...list].sort(compareByFamily(lost))
+
+  it('orders cards by family points, then severity, then line', () => {
+    expect(sorted.map((x) => x.ruleId + ':' + x.line)).toEqual([
+      'MSGBOX_BLOCKING:4', 'MSGBOX_BLOCKING:6', 'MSGBOX_BLOCKING:8', 'MSGBOX_BLOCKING:9',
+      'VAR_NO_DESCRIPTION:2', 'VAR_NO_DESCRIPTION_LOCAL:5', 'TOO_LONG:3', 'UNUSED_VAR:1',
+    ])
+  })
+
+  it('puts the family points on every card, marking the later cards of a shared family', () => {
+    const entries = groupFindings(sorted)
+    const points = entryPoints(entries, lost)
+    expect(entries.map((e) => (e.kind === 'group' ? 'group:' + e.ruleId : e.finding.ruleId))).toEqual([
+      'group:MSGBOX_BLOCKING', 'VAR_NO_DESCRIPTION', 'VAR_NO_DESCRIPTION_LOCAL', 'TOO_LONG', 'UNUSED_VAR',
+    ])
+    expect(points.get(0)).toEqual({ group: 'MSGBOX_BLOCKING', points: RULE_CAP, capped: true })
+    expect(points.get(1)?.inFamily).toBeUndefined()
+    expect(points.get(2)).toEqual({ group: 'VAR_NO_DESCRIPTION', points: DEDUCTION.warn + DEDUCTION.info, capped: false, inFamily: true })
+    expect(entries.every((_, i) => points.has(i))).toBe(true)
   })
 })
 

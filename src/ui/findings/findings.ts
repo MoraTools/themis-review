@@ -1,4 +1,4 @@
-import type { BotScore, Finding, Severity, Taskbot } from '../../core/model'
+import type { BotScore, Finding, ProjectAnalysis, Severity, Taskbot } from '../../core/model'
 import { RULES } from '../../core/rulesInfo'
 import { DEDUCTION, GRADE_BANDS, RULE_CAP, capGroup } from '../../core/score'
 import { hasText, translate, type Lang } from '../i18n'
@@ -26,9 +26,9 @@ export type FindingEntry =
   | { kind: 'single'; finding: Finding }
   | { kind: 'group'; ruleId: string; severity: Severity; findings: Finding[] }
 
-/** One card per finding, except 3 or more findings of one rule (and severity), which share one card
+/** One card per finding, except 2 or more findings of one rule (and severity), which share one card
  *  at the place of the first. Every finding stays in exactly one entry, so counts never change. */
-export function groupFindings(findings: Finding[], min = 3): FindingEntry[] {
+export function groupFindings(findings: Finding[], min = 2): FindingEntry[] {
   const byKey = new Map<string, Finding[]>()
   for (const f of findings) {
     const key = f.ruleId + '|' + f.severity
@@ -71,28 +71,65 @@ export function lostTotal(lost: Lost[]): number {
   return Math.round(lost.reduce((n, l) => n + l.points, 0) * 10) / 10
 }
 
-/** the biggest gains of the project: the top entries of lostPoints() over all taskbots, largest first */
-export function fixFirst(findings: Finding[], n = 3): (Lost & { botPath: string })[] {
-  const byBot = new Map<string, Finding[]>()
-  for (const f of findings) byBot.set(f.botPath, [...(byBot.get(f.botPath) ?? []), f])
-  // a stable sort: ties keep the taskbot order of the findings
-  return [...byBot]
-    .flatMap(([botPath, list]) => lostPoints(list).map((l) => ({ botPath, ...l })))
-    .sort((a, b) => b.points - a.points)
-    .slice(0, n)
+/** card order of one taskbot: family points (largest first, the lostPoints() order), then severity, then line;
+ *  the report and the editor sort the findings with it before groupFindings() */
+export function compareByFamily(lost: Lost[]): (x: Finding, y: Finding) => number {
+  const rank = new Map(lost.map((l, i) => [l.group, i]))
+  const at = (f: Finding) => rank.get(capGroup(f.ruleId)) ?? lost.length
+  return (x, y) => at(x) - at(y) || compareFindings(x, y)
 }
 
-/** the family points for the first card of each family, so a card head says what its family costs */
-export function entryPoints(entries: FindingEntry[], lost: Lost[]): Map<number, Lost> {
+export type FixItem = Lost & {
+  botPath: string
+  /** what the family takes from the project score: its points weighted by the taskbot lines, as projectScore() does */
+  project: number
+}
+
+/** the losses that raise the project score most when fixed: the report, the PDF and the map call this one function.
+ *  Order: project effect, then the lowest taskbot score, then the input order (taskbots, then their lostPoints()).
+ *  While other taskbots have a loss of the same size, a taskbot gets at most one item. `more` counts the cut items
+ *  of the same size as the last one. */
+export function fixFirst(
+  analysis: Pick<ProjectAnalysis, 'findings' | 'taskbots' | 'metrics' | 'scores'>,
+  n = 3,
+): { items: FixItem[]; more: number } {
+  const byBot = new Map<string, Finding[]>()
+  for (const f of analysis.findings) byBot.set(f.botPath, [...(byBot.get(f.botPath) ?? []), f])
+  const lines = (path: string) => analysis.metrics[path]?.totalLines ?? 0
+  const total = analysis.taskbots.reduce((sum, b) => sum + lines(b.path), 0)
+  // sizes are compared as shown (one decimal), so items that read the same are a tie
+  const all = analysis.taskbots.flatMap((b) =>
+    lostPoints(byBot.get(b.path) ?? []).map((l) => ({ ...l, botPath: b.path, project: total ? Math.round((l.points * lines(b.path) / total) * 10) / 10 : 0 })),
+  )
+  const score = (i: FixItem) => analysis.scores[i.botPath]?.score ?? 100
+  // a stable sort keeps the input order of ties
+  const sorted = [...all].sort((a, b) => b.project - a.project || score(a) - score(b))
+  // within one size, a taskbot's 2nd item comes after the 1st items of the other taskbots
+  const rank = new Map<FixItem, number>()
+  const seen = new Map<string, number>()
+  for (const i of sorted) {
+    const key = i.project + '|' + i.botPath
+    rank.set(i, seen.get(key) ?? 0)
+    seen.set(key, (seen.get(key) ?? 0) + 1)
+  }
+  const ordered = [...sorted].sort((a, b) => b.project - a.project || rank.get(a)! - rank.get(b)!)
+  const items = ordered.slice(0, n)
+  const last = items.at(-1)
+  return { items, more: last ? ordered.slice(n).filter((i) => i.project === last.project).length : 0 }
+}
+
+/** the family points for each card: the first card of a family carries them, later cards of the same family
+ *  are marked inFamily, so no card reads as free */
+export function entryPoints(entries: FindingEntry[], lost: Lost[]): Map<number, Lost & { inFamily?: boolean }> {
   const byGroup = new Map(lost.map((l) => [l.group, l]))
-  const out = new Map<number, Lost>()
+  const out = new Map<number, Lost & { inFamily?: boolean }>()
   const seen = new Set<string>()
   entries.forEach((e, i) => {
     const group = capGroup(e.kind === 'group' ? e.ruleId : e.finding.ruleId)
-    if (seen.has(group)) return
-    seen.add(group)
     const l = byGroup.get(group)
-    if (l) out.set(i, l)
+    if (!l) return
+    out.set(i, seen.has(group) ? { ...l, inFamily: true } : l)
+    seen.add(group)
   })
   return out
 }

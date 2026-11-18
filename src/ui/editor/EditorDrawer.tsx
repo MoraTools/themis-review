@@ -10,8 +10,8 @@ import { typeColor, typeLabel } from '../canvas/nodeTypes'
 import { describeAction, glyphFor, GLYPH_PATH } from './describe'
 import { Name } from '../shared/Name'
 import { Grade } from '../shared/Grade'
-import { FindingCard, FindingGroupCard, PointsLost } from '../findings/FindingCard'
-import { compareFindings, entryPoints, findingLine, groupFindings, lostPoints, lostTotal, severityCounts as countSeverities } from '../findings/findings'
+import { FindingCard, FindingGroupCard, PointsLost, lostOpenDefault } from '../findings/FindingCard'
+import { compareByFamily, compareFindings, entryPoints, findingLine, groupFindings, lostPoints, lostTotal, severityCounts as countSeverities } from '../findings/findings'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
 
 type Tab = 'code' | 'vars' | 'findings'
@@ -24,9 +24,6 @@ export function initialTab(line: number | undefined, findingCount: number, varia
   if (variable !== undefined) return 'vars'
   return line === undefined && findingCount > 0 ? 'findings' : 'code'
 }
-
-/** the Points lost box is open above 760 px and closed at 760 px and under, where it would push the tabs down */
-const LOST_CLOSED = '(max-width: 760px)'
 
 function ActionGlyph({ action }: { action: Action }) {
   return (
@@ -64,7 +61,7 @@ export default function EditorDrawer({
     [analysis, botPath],
   )
   const [tab, setTab] = useState<Tab>(() => initialTab(line, findings.length, variable))
-  const [lostOpen, setLostOpen] = useState(() => typeof matchMedia === 'undefined' || !matchMedia(LOST_CLOSED).matches)
+  const [lostOpen, setLostOpen] = useState(lostOpenDefault)
   const [flashVar, setFlashVar] = useState<string | null>(variable ?? null)
   const varsRef = useRef<HTMLDivElement>(null)
   const [sevOn, setSevOn] = useState<SeverityOn>(ALL_ON)
@@ -186,8 +183,9 @@ export default function EditorDrawer({
   const hasNameFindings = visible.some((f) => f.ruleId === 'VAR_NAME_FORMAT')
   // a card's id comes from its first finding, so it stays the same when the filter changes
   const cardId = (f: Finding) => 'editor-finding-' + findings.indexOf(f)
-  const entries = groupFindings(visible)
   const lost = lostPoints(findings)
+  // cards in the Points lost order, as in the report; `findings` keeps the severity order for the line flags
+  const entries = groupFindings([...visible].sort(compareByFamily(lost)))
   const points = entryPoints(entries, lost)
   const firstOfFamily = (group: string) => findings.find((f) => capGroup(f.ruleId) === group)
   // a Points lost item opens the Findings tab (with its severity on) before PointsLost scrolls to the card
@@ -260,7 +258,7 @@ export default function EditorDrawer({
         // every rule shows when open: no inner scroll box
         <details className="drawer-lost" open={lostOpen} onToggle={(event) => setLostOpen(event.currentTarget.open)} onClickCapture={openLost}>
           <summary className="drawer-lost-summary">{plural('editor.lost.summary', lost.length, { points: number(lostTotal(lost)) })}</summary>
-          <PointsLost lost={lost} stacked label={false} targetOf={(g) => { const f = firstOfFamily(g); return f && cardId(f) }} />
+          <PointsLost lost={lost} targetOf={(g) => { const f = firstOfFamily(g); return f && cardId(f) }} />
         </details>
       )}
       <div className="tabs small" role="tablist" aria-labelledby="editor-title" onKeyDown={onTabKey}>
