@@ -50,7 +50,7 @@ const paths = {
   'moon': <><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></>,
   'info': <><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></>,
   'triangle-alert': <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></>,
-  'circle-alert': <><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>,
+  'octagon-alert': <><path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"/></>,
   'circle-check': <><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></>,
   'file-archive': <><path d="M13.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v11.5"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M8 12v-1"/><path d="M8 18v-2"/><path d="M8 7V6"/><circle cx="8" cy="20" r="2"/></>,
   'book-open': <><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></>,
@@ -78,8 +78,9 @@ export function Icon({ name, className = '' }: { name: IconName; className?: str
   return <svg className={'icon ' + className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
 
+/** error, warning and info differ by shape (octagon, triangle, circle), not only by color */
 export function SeverityIcon({ severity }: { severity: 'error' | 'warn' | 'info' }) {
-  return <Icon className={'severity-icon sev-' + severity} name={severity === 'error' ? 'circle-alert' : severity === 'warn' ? 'triangle-alert' : 'info'} />
+  return <Icon className={'severity-icon sev-' + severity} name={severity === 'error' ? 'octagon-alert' : severity === 'warn' ? 'triangle-alert' : 'info'} />
 }
 
 /** the one disclosure caret (Fix first, Legend, Points lost): a chevron that CSS turns down when open */

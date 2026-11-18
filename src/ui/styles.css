@@ -29,14 +29,17 @@
   --crit-text:#ab3415;
   --info:#1f689d;
   --selection:rgb(235 180 50 / 30%);
+  --hover-bg:var(--surface-raised);
+  --hover-border:var(--border-strong);
   --shadow-overlay:0 12px 32px rgb(40 35 25 / 16%);
   --chip-ink-mix:90%;
   --seal-filter:invert(1);
   --seal-blend:multiply;
-  --grade-a: color-mix(in oklab, var(--ok) 90%, var(--text));
-  --grade-b: color-mix(in oklab, var(--info) 90%, var(--text));
-  --grade-c: color-mix(in oklab, var(--warn) 90%, var(--text));
-  --grade-d: color-mix(in oklab, var(--crit) 55%, var(--warn));
+  /* grades have their own values: B parts from --info, C from the gold and from D (tests/theme-contrast.test.ts) */
+  --grade-a: #1c6e36;
+  --grade-b: #1d4f82;
+  --grade-c: #6f420a;
+  --grade-d: #ab4c11;
   /* F: a deeper red than the orange D, with a lower lightness */
   --grade-f: #a61b1b;
   --edge-call: var(--accent-text);
@@ -77,14 +80,17 @@
   --crit-text:#f2b39d;
   --info:#79b1e0;
   --selection:rgb(239 188 75 / 28%);
+  --hover-bg:var(--surface-raised);
+  --hover-border:var(--border-strong);
   --shadow-overlay:0 18px 50px rgb(0 0 0 / 45%);
   --chip-ink-mix:100%;
   --seal-filter:none;
   --seal-blend:screen;
-  --grade-a: color-mix(in oklab, var(--ok) 90%, var(--text));
-  --grade-b: color-mix(in oklab, var(--info) 90%, var(--text));
-  --grade-c: color-mix(in oklab, var(--warn) 90%, var(--text));
-  --grade-d: color-mix(in oklab, var(--crit) 75%, var(--warn));
+  /* grades have their own values: B parts from --info, C from the gold and from D (tests/theme-contrast.test.ts) */
+  --grade-a: #6cc17e;
+  --grade-b: #8eccf9;
+  --grade-c: #dda051;
+  --grade-d: #f37e47;
   /* F: the strongest red, not lighter and not less saturated than D, and a cooler hue (25 degrees or more from D) */
   --grade-f: #f6728b;
   --edge-call: var(--accent);
@@ -126,14 +132,17 @@
   --crit-text:#f2b39d;
   --info:#79b1e0;
   --selection:rgb(239 188 75 / 28%);
+  --hover-bg:var(--surface-raised);
+  --hover-border:var(--border-strong);
   --shadow-overlay:0 18px 50px rgb(0 0 0 / 45%);
   --chip-ink-mix:100%;
   --seal-filter:none;
   --seal-blend:screen;
-  --grade-a: color-mix(in oklab, var(--ok) 90%, var(--text));
-  --grade-b: color-mix(in oklab, var(--info) 90%, var(--text));
-  --grade-c: color-mix(in oklab, var(--warn) 90%, var(--text));
-  --grade-d: color-mix(in oklab, var(--crit) 75%, var(--warn));
+  /* grades have their own values: B parts from --info, C from the gold and from D (tests/theme-contrast.test.ts) */
+  --grade-a: #6cc17e;
+  --grade-b: #8eccf9;
+  --grade-c: #dda051;
+  --grade-d: #f37e47;
   /* F: the strongest red, not lighter and not less saturated than D, and a cooler hue (25 degrees or more from D) */
   --grade-f: #f6728b;
   --edge-call: var(--accent);
@@ -150,7 +159,7 @@
   --type-any: #cbd5e0;
 }
 }
-:root{--font-ui:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;--font-mono:Consolas,"Cascadia Mono",ui-monospace,"SF Mono",Menlo,"DejaVu Sans Mono",monospace;--font-display:"Cormorant",Georgia,serif;--radius:4px;--radius-chip:3px;--fs-11:11px;--fs-12:12px;--fs-13:13px;--fs-14:14px;--fs-16:16px;--fs-18:18px;--fs-22:22px;--fs-26:26px;--fs-32:32px;--fs-40:40px;--fs-64:64px;--fs-80:80px;--fs-display:clamp(44px,5vw,64px);--lh-label:1.3;--lh-snug:1.4;--lh-body:1.5;--control-h:32px;--target-min:24px;--selected-border:var(--text);--selected-bg:var(--surface-strong);--track-label:.06em;--track-chip:.04em;--beam-low:color-mix(in oklab,var(--accent-edge) 45%,var(--surface));--beam-high:color-mix(in oklab,var(--accent) 65%,var(--surface));--mask-ink:var(--text);--minimap-mask:color-mix(in oklab,var(--bg) 72%,transparent)}
+:root{--font-ui:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;--font-mono:Consolas,"Cascadia Mono",ui-monospace,"SF Mono",Menlo,"DejaVu Sans Mono",monospace;--font-display:"Cormorant",Georgia,serif;--radius:4px;--radius-chip:3px;--fs-11:11px;--fs-12:12px;--fs-13:13px;--fs-14:14px;--fs-16:16px;--fs-18:18px;--fs-22:22px;--fs-26:26px;--fs-32:32px;--fs-40:40px;--fs-64:64px;--fs-80:80px;--fs-display:clamp(44px,5vw,64px);--lh-label:1.3;--lh-snug:1.4;--lh-body:1.5;--control-h:32px;--target-min:24px;--selected-border:var(--text);--selected-bg:var(--surface-strong);--track-label:.06em;--track-chip:.04em;--beam-low:color-mix(in oklab,var(--accent-edge) 45%,var(--surface));--beam-high:color-mix(in oklab,var(--accent) 65%,var(--surface));--mask-ink:var(--text);--minimap-mask:color-mix(in oklab,var(--bg) 35%,transparent)}
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -184,7 +193,7 @@ details[open] > summary .caret, .legend.open .legend-toggle .caret { transform:r
 summary:has(> .caret) { list-style:none; }
 summary:has(> .caret)::-webkit-details-marker { display:none; }
 /* one caps-label recipe: 11px mono uppercase with the label tracking */
-.legend-group, .legend-item dt, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-sort-by, .report-score-label, .grade-strip-label, .file-kind, .code-off, .finding-items-caption { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+.legend-group, .legend-item dt, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-sort-by, .report-score-label, .grade-strip-label, .file-kind, .code-off, .finding-items-caption, .report-foot { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 .app-main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -220,7 +229,7 @@ summary:has(> .caret)::-webkit-details-marker { display:none; }
 /* the header tabs are links: center the text like a button and drop the link underline */
 a.tab { display:inline-flex; align-items:center; text-decoration:none; }
 .btn, .icon-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:var(--control-h); padding:0 12px; border:1px solid var(--border-strong); border-radius:var(--radius); background:var(--surface); color:var(--text); font:600 var(--fs-13)/1 var(--font-ui); cursor:pointer; white-space:nowrap; }
-.btn:hover, .icon-btn:hover { background:var(--surface-raised); }
+.btn:hover, .icon-btn:hover { background:var(--hover-bg); }
 .btn.primary { border-color:var(--accent-edge); background:var(--accent); color:var(--on-accent); }
 .btn.primary:hover { background:var(--accent-hover); }
 .icon-btn { position:relative; width:var(--control-h); padding:0; background:transparent; border-color:transparent; color:var(--text-muted); }
@@ -418,8 +427,8 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .dropzone-tab {
   padding: 0 0 12px;
-  border-bottom: 2px solid var(--accent);
-  color: var(--accent-text);
+  border-bottom: 2px solid var(--text);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: var(--fs-12);
 }
@@ -483,7 +492,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .react-flow__controls-button:first-child { border-radius: var(--radius) var(--radius) 0 0; }
 .react-flow__controls-button:last-child { border-bottom: 1px solid var(--border-strong); border-radius: 0 0 var(--radius) var(--radius); }
-.react-flow__controls-button:hover { background: var(--surface-raised); }
+.react-flow__controls-button:hover { background: var(--hover-bg); }
 .react-flow__controls-button.compact-toggle {
   color: var(--text);
   fill: none;
@@ -512,7 +521,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .react-flow__controls.horizontal .react-flow__controls-button:last-child { border-right: 1px solid var(--border-strong); border-radius: 0 var(--radius) var(--radius) 0; }
 @media (max-width: 760px) { .react-flow__minimap { display: none; } }
 /* a light veil: grade fills outside the view keep their hue; the outline marks the view */
-.react-flow__minimap-mask { fill: color-mix(in oklab, var(--bg) 35%, transparent); }
+.react-flow__minimap-mask { fill: var(--minimap-mask); }
 .react-flow__minimap-node { fill: var(--border-strong); }
 .react-flow__minimap-node.mm-ghost { stroke-dasharray: 16 10; }
 /* F: a second channel besides the hue, a 2 px stroke in the text color (!important: the minimap sets stroke inline) */
@@ -670,7 +679,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   cursor: pointer;
   --focus-offset: 1px;
 }
-.grade-strip button:hover { border-color: var(--border-strong); background: var(--surface-raised); }
+.grade-strip button:hover { border-color: var(--hover-border); background: var(--hover-bg); }
 .grade-strip-label { margin-right: 4px; color: var(--text-muted); }
 /* narrow panes: the strip and Fix first share the panel row, the legend toggle sits right of it; all three are one
    44 px control high. The strip label is for screen readers only (it still names the group); no first-step hint */
@@ -889,7 +898,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .drawer-lost { flex: none; padding: 0 20px; border-bottom: 1px solid var(--border); }
 /* a native disclosure: the summary names the total, the open list shows every rule, one per line, with no inner scroll */
 /* the shared caret, no native marker; the padding makes the 24/44 px target */
-.drawer-lost-summary, .report-lost-summary { display: flex; align-items: center; gap: 6px; padding-block: max(6px, calc((var(--target-min) - 20px) / 2)); color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); cursor: pointer; }
+.drawer-lost-summary, .report-lost-summary, .report-facts-summary { display: flex; box-sizing: border-box; min-height: var(--target-min); align-items: center; gap: 6px; padding-block: max(6px, calc((var(--target-min) - 20px) / 2)); color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); cursor: pointer; }
 .drawer-lost[open] .drawer-lost-summary { padding-bottom: 0; }
 .drawer-lost .report-lost { max-width: none; margin: 0 0 10px; }
 /* on desktop the rules fill columns, so a long list stays a few lines high; the total spans them */
@@ -956,7 +965,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .code-glyph { flex: none; color: var(--text-subtle); }
 .code-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.code-line:hover .code-card { border-color: var(--border-strong); }
+.code-line:hover .code-card { border-color: var(--hover-border); }
 .code-line.flash .code-card { border-color: var(--selected-border); background: var(--selected-bg); color: var(--text); }
 .code-line.flash .code-card * { color: currentColor; }
 .code-line.flash .code-no { color: var(--text); }
@@ -972,7 +981,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .code-inline { order: 4; grid-column: 3 / -1; display: flex; flex-direction: column; gap: 6px; padding: 6px 0 4px; }
 .code-inline .finding-card { margin: 0; }
 .code-flag { flex: none; align-self: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius); background: transparent; cursor: pointer; }
-.code-flag:hover { border-color: var(--border-strong); }
+.code-flag:hover { border-color: var(--hover-border); }
 
 .var-table { width: 100%; margin: 0; border-collapse: collapse; font: 400 var(--fs-14)/var(--lh-body) var(--font-mono); font-variant-numeric: tabular-nums; }
 .var-table th, .var-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -982,7 +991,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   background: var(--surface-strong);
   color: var(--text-muted);
 }
-.var-table tbody tr:hover { background: var(--surface-raised); color: var(--text); }
+.var-table tbody tr:hover { background: var(--hover-bg); color: var(--text); }
 .var-table tbody tr.flash > * { background: var(--selected-bg); color: var(--text); }
 .drawer .var-table th:first-child, .drawer .var-table td:first-child { padding-left: 20px; }
 
@@ -1097,7 +1106,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   color: var(--text-muted);
 }
 .rules-model-block ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
-.rules-model-value { margin: 0; color: var(--accent-text); font-family: var(--font-mono); font-size: var(--fs-26); font-weight: 700; }
+.rules-model-value { margin: 0; color: var(--text); font-family: var(--font-mono); font-size: var(--fs-26); font-weight: 700; }
 .rules-model-note { margin: 6px 0 0; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 .rules-note {
   max-width: 68ch;
@@ -1106,7 +1115,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   font: 400 var(--fs-14)/var(--lh-body) var(--font-ui);
 }
 .report-table.rules-table { min-width: 0; }
-.rules-table code { color: var(--accent-text); }
+.rules-table code { color: var(--text); }
 .rules-msg { min-width: 24ch; max-width: 52ch; white-space: normal; line-height: 1.4; overflow-wrap: break-word; }
 /* ids and paths break at the <wbr> after '_' and '/', not inside a word */
 .rules-table td.rules-text, .rules-table td.rules-sev { white-space: nowrap; }
@@ -1146,7 +1155,6 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .rules-shared { margin-left: 4px; color: var(--text-muted); cursor: help; }
 .rules-view .report-table tbody tr:hover { background: transparent; color: inherit; }
-.rules-view .report-table tbody tr:hover code { color: var(--accent-text); }
 
 /* Wide table scrolls inside its own box so the page never scrolls sideways. */
 .table-scroll { overflow-x: auto; margin-bottom: 36px; }
@@ -1177,7 +1185,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .report-table th { background: var(--surface-strong); color: var(--text-muted); }
 .report-table td.num, .report-table td.rules-times, .report-table td.rules-points { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .report-table tbody tr.row-link { cursor: pointer; }
-.report-table tbody tr:hover { background: var(--surface-raised); color: var(--text); }
+.report-table tbody tr:hover { background: var(--hover-bg); color: var(--text); }
 
 .report-bot {
   margin-top: 44px;
@@ -1208,6 +1216,9 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* the total: a full-width last row under a hairline, also across columns */
 .report-lost-total { column-span: all; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); color: var(--text); font-weight: 600; }
 .report-lost-total .report-lost-points { font-weight: 600; }
+/* the share of the largest row: a neutral 3px bar under the points, right-aligned so it does not read as an
+   underline of the name (width set inline), shown in print too */
+.report-lost-bar { display: block; height: 3px; margin: 1px 0 0 auto; border-radius: 2px; background: var(--border-strong); }
 /* Fix first: the three biggest losses of the project, right after the head */
 .report-fix { max-width: 68ch; margin: 0 0 32px; }
 .report-fix h2 { margin: 0 0 4px; }
@@ -1237,6 +1248,9 @@ a.score-badge { color: inherit; text-decoration: none; }
 .finding-rule-link { border: 0; background: transparent; cursor: pointer; }
 .report-facts { max-width: 68ch; margin: -16px 0 32px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 .report-facts p { margin: 0 0 2px; }
+/* the scoring lines: open on desktop and in print, closed on phones (Report.tsx); open on a wide screen, the toggle hides */
+.report-facts-summary { width: fit-content; }
+@media screen and (min-width: 761px) { .report-facts-more[open] > .report-facts-summary { display: none; } }
 /* the scope line reads as text; formula, bands and distribution stay muted */
 .report-facts .report-facts-scope { color: var(--text); }
 .report-dist { font-family: var(--font-mono); white-space: nowrap; }
@@ -1249,11 +1263,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   padding-top: 20px;
   border-top: 1px solid var(--border-strong);
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-12);
-  letter-spacing: 0.12em;
   text-align: center;
-  text-transform: uppercase;
 }
 
 /* Suite component measurements and browser surfaces. */
@@ -1282,15 +1292,15 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 .finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var, .report-fix-more-toggle { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
 .report-bot h2 { overflow-wrap:anywhere; }
 .tb-stats .icon { width:13px; height:13px; }
-/* One chip shape and type. .severity-chip is the static status tag; .chip (editor filter) and .sev-toggle (report filter) are the filter chip. */
-.chip,.sev-toggle,.severity-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 6px; border:1px solid var(--border-strong); border-radius:var(--radius-chip); font:600 var(--fs-11)/1 var(--font-mono); letter-spacing:var(--track-chip); text-transform:uppercase; white-space:nowrap; }
+/* One chip shape and type. .severity-chip is the static status tag; .sev-toggle (editor and report filter) is the filter chip. */
+.sev-toggle,.severity-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 6px; border:1px solid var(--border-strong); border-radius:var(--radius-chip); font:600 var(--fs-11)/1 var(--font-mono); letter-spacing:var(--track-chip); text-transform:uppercase; white-space:nowrap; }
 .severity-chip { gap:4px; border-color:color-mix(in oklab,var(--tone,var(--text-subtle)) 45%,transparent); background:color-mix(in oklab,var(--tone,var(--text-subtle)) 10%,transparent); color:color-mix(in oklab,var(--tone,var(--text-subtle)) var(--chip-ink-mix),var(--text)); }
-.chip .icon,.sev-toggle .icon,.severity-chip .icon { width:12px; height:12px; }
-.chip,.sev-toggle { position:relative; min-height:var(--control-h); padding:0 10px; background:var(--surface); color:var(--text-muted); cursor:pointer; user-select:none; }
-.chip:hover,.sev-toggle:hover { background:var(--surface-raised); color:var(--text); }
+.sev-toggle .icon,.severity-chip .icon { width:12px; height:12px; }
+.sev-toggle { position:relative; min-height:var(--control-h); padding:0 10px; background:var(--surface); color:var(--text-muted); cursor:pointer; user-select:none; }
+.sev-toggle:hover { background:var(--hover-bg); color:var(--text); }
 /* Selected: fill, text border and a check mark, so the state is not color only. */
-.chip.active,.sev-toggle.on { border-color:var(--selected-border); background:var(--selected-bg); color:var(--text); }
-.chip.active::before,.sev-toggle.on::before { content:""; width:4px; height:8px; margin:-2px 1px 0; border:solid currentColor; border-width:0 2px 2px 0; transform:rotate(45deg); }
+.sev-toggle.on { border-color:var(--selected-border); background:var(--selected-bg); color:var(--text); }
+.sev-toggle.on::before { content:""; width:4px; height:8px; margin:-2px 1px 0; border:solid currentColor; border-width:0 2px 2px 0; transform:rotate(45deg); }
 /* a severity with no finding: nothing to filter */
 /* one disabled look for buttons and filter chips; after the hover rules, so hover does not change it */
 :is(.btn, .sev-toggle):is(:disabled, .disabled, [aria-disabled="true"]), :is(.btn, .sev-toggle):is(:disabled, .disabled, [aria-disabled="true"]):hover { border-color:var(--border); background:var(--surface); color:var(--text-subtle); cursor:default; }
@@ -1383,7 +1393,11 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .summary-table th, .summary-table td { border-bottom:0; }
   .summary-table tbody td:first-child { grid-column:1/-1; padding-bottom:0; }
   /* line 2: findings, then the score at the right */
-  .summary-table thead .col-findings { grid-area:1/2; }
+  /* the findings cells span the row under the name, so their header does not fit a column: hidden, but kept for
+     screen readers (as .sr-only) */
+  .summary-table thead .col-findings { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  /* its sort button stays reachable by keyboard: with focus the cell shows in the header row */
+  .summary-table thead .col-findings:focus-within { position:static; width:auto; height:auto; margin:0; overflow:visible; clip-path:none; grid-area:1/2; }
   .summary-table thead .col-score { grid-area:1/3; }
   /* line 2 gives the findings the free width left of the score, so all three slots show */
   .summary-table tbody .col-findings { grid-area:2/1/3/3; white-space:normal; }
@@ -1397,8 +1411,6 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .finding-head > .finding-title { grid-area:2/1/3/3; }
   .finding-head > .finding-where { grid-area:3/1; justify-self:start; }
   .finding-head > .finding-rule { grid-area:3/2; justify-self:end; }
-  /* the Points lost toggles reach the 44 px target */
-  .drawer-lost-summary, .report-lost-summary { box-sizing:border-box; min-height:var(--target-min); }
   .summary-note { display:block; }
   /* the header row becomes a labelled row of sort chips */
   .rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); text-align:left; }
@@ -1407,7 +1419,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   /* the chip shape and states; the caps font comes from the th (caps-label list). Scoped here: the shared chip
      lists would also restyle the desktop sort headers */
   .rules-table thead th.sortable button { min-height:var(--control-h); padding:0 10px; border:1px solid var(--border-strong); border-radius:var(--radius-chip); background:var(--surface); color:var(--text-muted); }
-  .rules-table thead th.sortable button:hover { background:var(--surface-raised); color:var(--text); }
+  .rules-table thead th.sortable button:hover { background:var(--hover-bg); color:var(--text); }
   .rules-table thead th.sorted button { border-color:var(--selected-border); background:var(--selected-bg); color:var(--text); }
 }
 @media (prefers-reduced-motion:reduce) {
@@ -1441,14 +1453,17 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   --crit-text:#ab3415;
   --info:#1f689d;
   --selection:rgb(235 180 50 / 30%);
+  --hover-bg:var(--surface-raised);
+  --hover-border:var(--border-strong);
   --shadow-overlay:0 12px 32px rgb(40 35 25 / 16%);
   --chip-ink-mix:90%;
   --seal-filter:invert(1);
   --seal-blend:multiply;
-  --grade-a: color-mix(in oklab, var(--ok) 90%, var(--text));
-  --grade-b: color-mix(in oklab, var(--info) 90%, var(--text));
-  --grade-c: color-mix(in oklab, var(--warn) 90%, var(--text));
-  --grade-d: color-mix(in oklab, var(--crit) 55%, var(--warn));
+  /* grades have their own values: B parts from --info, C from the gold and from D (tests/theme-contrast.test.ts) */
+  --grade-a: #1c6e36;
+  --grade-b: #1d4f82;
+  --grade-c: #6f420a;
+  --grade-d: #ab4c11;
   /* F: a deeper red than the orange D, with a lower lightness */
   --grade-f: #a61b1b;
   --edge-call: var(--accent-text);
@@ -1479,8 +1494,13 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .report-table tr, .finding-card:not(.finding-group), .report-facts, .name-key, .report-lost-box { break-inside:avoid; }
   /* the PDF always shows the Points lost list: its summary is the label, without the disclosure marker */
   .report-lost-box::details-content { content-visibility:visible; display:block; }
-  .report-lost-summary { display:block; padding-block:0 2pt; }
+  .report-lost-summary { display:block; min-height:0; padding-block:0 2pt; }
   .report-lost-summary .caret { display:none; }
+  /* the scoring lines are always shown on paper, without their toggle */
+  .report-facts-more::details-content { content-visibility:visible; display:block; }
+  .report-facts-summary { display:none; }
+  /* one chip width for every score up to "A 99.5", in tabular figures, so the chips align across rows */
+  .grade-chip { min-width:calc(5ch + 0.35em + 14px); text-align:center; }
   /* a long list in two columns, so it stays short enough to keep in one piece */
   .report-lost-box:has(.long), .report-lost-box:has(.long) .report-lost { max-width:none; }
   .report-lost-list.long { display:block; columns:2; column-gap:40px; }
@@ -1524,8 +1544,8 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 
 /* Windows high contrast: chips, grade and severity bars and focus keep a visible system color */
 @media (forced-colors: active) {
-  .chip, .sev-toggle, .severity-chip, .grade-chip, .score-badge, .grade-strip button { border: 2px solid CanvasText; }
-  .chip.active, .sev-toggle.on, .compact-toggle[aria-pressed="true"], .rules-table thead th.sorted button { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  .sev-toggle, .severity-chip, .grade-chip, .score-badge, .grade-strip button { border: 2px solid CanvasText; }
+  .sev-toggle.on, .compact-toggle[aria-pressed="true"], .rules-table thead th.sorted button { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   :is(.btn, .sev-toggle):is(:disabled, .disabled, [aria-disabled="true"]) { border-color: GrayText; color: GrayText; }
   .tb-node.g-C, .tb-node.g-D, .tb-node.g-F, .finding-card { border-left: 4px solid CanvasText; }
   :where(button,a,input,select,textarea,summary,[tabindex]):focus-visible, .sev-toggle:has(:focus-visible), .drawer[data-kbd] [role="tab"]:focus, .react-flow .react-flow__node.selectable:focus-visible { outline: 2px solid Highlight; }

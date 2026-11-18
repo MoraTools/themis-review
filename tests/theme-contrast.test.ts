@@ -71,6 +71,13 @@ for (const theme of ['light', 'dark']) {
         const distance = Math.hypot(...labs[i].map((v, k) => v - labs[j][k]))
         expect(distance, `${theme} grades ${grades[i]}/${grades[j]}`).toBeGreaterThan(0.04)
       }
+      // B is not the info blue, C is not the gold (fill or text), and light C and D are not two close browns
+      const pairs: [string, string][] = [['--grade-b', '--info'], ['--grade-c', '--accent'], ['--grade-c', '--accent-text']]
+      if (theme === 'light') pairs.push(['--grade-c', '--grade-d'])
+      for (const [x, y] of pairs) {
+        const [p, q] = [x, y].map(token => toLab(resolve(values[token], values)))
+        expect(Math.hypot(...p.map((v, k) => v - q[k])), `${theme} ${x}/${y}`).toBeGreaterThan(0.075)
+      }
     })
     it('keeps map lines, node borders and rail text readable', () => {
       const surfaces = ['--rail', '--bg', '--surface', '--surface-raised', '--surface-strong', '--field-bg']
@@ -111,6 +118,9 @@ for (const theme of ['light', 'dark']) {
         const ratio = contrast(resolve(values[`--grade-${grade.toLowerCase()}`], values), resolve(tint, values))
         expect(ratio, `${theme} grade ${grade} on its tint`).toBeGreaterThanOrEqual(4.5)
       }
+    })
+    it('gives every grade its own value, not a mix of a status token', () => {
+      for (const grade of grades) expect(values[`--grade-${grade}`], `${theme} grade ${grade}`).toMatch(/^#[\da-f]{6}$/i)
     })
     it('keeps every grade chip readable on its own tinted fill', () => {
       const rule = css.match(/\n\.grade-chip \{([^}]+)\}/)![1]

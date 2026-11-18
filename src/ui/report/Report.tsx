@@ -142,11 +142,11 @@ export default function Report({
       setPending(null)
     }
   })
-  // the PDF shows every Points lost list: closed boxes open for the print and close again after it
+  // the PDF shows every Points lost list and the scoring lines: closed boxes open for the print and close again after it
   useEffect(() => {
     let closed: HTMLDetailsElement[] = []
     const before = () => {
-      closed = [...document.querySelectorAll<HTMLDetailsElement>('details.report-lost-box:not([open])')]
+      closed = [...document.querySelectorAll<HTMLDetailsElement>('details:is(.report-lost-box, .report-facts-more):not([open])')]
       for (const d of closed) d.open = true
     }
     const after = () => { for (const d of closed) d.open = false }
@@ -201,17 +201,21 @@ export default function Report({
               {hidden && ' ' + plural('report.scope.hidden', hiddenTotal(counts, sevOn), { list: hidden })} {t('report.scope.score')}
             </p>
           )}
-          <p className="report-facts-rule">{scoring.rule}</p>
-          <p>{scoring.bands}</p>
-          <p>
-            {t('report.scoring.dist')}{' '}
-            <span className="report-dist">{GRADE_BANDS.map((b, i) => (
-              <span key={b.grade}>
-                {i > 0 && ' · '}
-                <GradeCount grade={b.grade} count={dist[b.grade]} />
-              </span>
-            ))}</span>
-          </p>
+          {/* the scoring lines: closed under 760 px, where they would push Fix first down; the PDF opens them */}
+          <details className="report-facts-more" open={lostOpen}>
+            <summary className="report-facts-summary"><Caret />{t('report.scoring.title')}</summary>
+            <p className="report-facts-rule">{scoring.rule}</p>
+            <p>{scoring.bands}</p>
+            <p>
+              {t('report.scoring.dist')}{' '}
+              <span className="report-dist">{GRADE_BANDS.map((b, i) => (
+                <span key={b.grade}>
+                  {i > 0 && ' · '}
+                  <GradeCount grade={b.grade} count={dist[b.grade]} />
+                </span>
+              ))}</span>
+            </p>
+          </details>
         </div>
       </header>
 

@@ -284,6 +284,7 @@ export function PointsLost({ lost, targetOf, hiddenOf, onShowHidden }: {
   const t = useT()
   const { lang } = useContext(LangContext)
   if (lost.length === 0) return null
+  const largest = Math.max(...lost.map((l) => l.points))
   return (
     <div className="report-lost">
       <ul className={'report-lost-list' + (lost.length > 6 ? ' long' : '')}>
@@ -299,6 +300,8 @@ export function PointsLost({ lost, targetOf, hiddenOf, onShowHidden }: {
           return (
             <li key={l.group}>
               {target ? <CardLink target={target}>{body}</CardLink> : <span className="report-lost-row">{body}</span>}
+              {/* the row's share of the largest row, right under its figure; the figure says the same */}
+              <span className="report-lost-bar" aria-hidden="true" style={{ width: `${(largest > 0 ? l.points / largest : 0) * 100}%` }} />
               {hidden && <HiddenNote text={hidden} onShow={onShowHidden && (() => onShowHidden(l.group))} />}
             </li>
           )
