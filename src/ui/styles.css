@@ -661,7 +661,8 @@ a.score-badge { color: inherit; text-decoration: none; }
   line-height: 1.2;
 }
 .tb-node.compact .tb-chip { padding: calc(2px * var(--s)) calc(4px * var(--s)); font-size: calc(var(--fs-12) * var(--s)); }
-.tb-node.compact .tb-sevs { gap: calc(8px * var(--s)); padding: 0; border: 0; font-size: calc(var(--fs-12) * var(--s)); }
+/* at a high counter-scale the counts may not fit one row: they wrap (compactHeight counts the second row) */
+.tb-node.compact .tb-sevs { flex-wrap: wrap; max-width: 100%; gap: calc(4px * var(--s)) calc(8px * var(--s)); padding: 0; border: 0; font-size: calc(var(--fs-12) * var(--s)); }
 .tb-node.compact .tb-sevs > span { gap: calc(4px * var(--s)); }
 .tb-node.compact .tb-sevs .icon { width: calc(13px * var(--s)); height: calc(13px * var(--s)); }
 .tb-node.ghost { border: 1px dashed var(--border-strong); padding: 12px; }

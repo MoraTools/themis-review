@@ -11,7 +11,7 @@ import { fixFirst, includedList, lostPoints, lostTotal } from '../src/ui/finding
 import { typeLabel } from '../src/ui/canvas/nodeTypes'
 import { LangContext, translate, type Lang } from '../src/ui/i18n'
 
-const DEMO = new URL('../.impeccable/review/themis-ui-council-2026-11-17/tools/demo/', import.meta.url)
+const DEMO = new URL('./fixtures/', import.meta.url)
 const zip = (name: string) => ({ name, data: new Uint8Array(readFileSync(new URL(name, DEMO))) })
 const analysis = analyzeZips([zip('Demo-Facturas.zip'), zip('Demo-Segundo.zip')])
 const old = analysis.taskbots.find((b) => b.name === 'Proceso_Antiguo')!

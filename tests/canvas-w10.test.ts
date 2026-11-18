@@ -225,3 +225,13 @@ describe('grade strip and legend', () => {
     expect(es).toContain('Str · Texto')
   })
 })
+
+describe('compact severity row', () => {
+  it('counts a second row when the counts do not fit the node at a high counter-scale', async () => {
+    const { sevRows, compactHeight } = await import('../src/ui/canvas/nodeTypes')
+    const d = { label: 'Proceso_Antiguo', findingsCount: 43, bySeverity: { error: 6, warn: 24, info: 13 } } as never
+    expect(sevRows(d, 1)).toBe(1)
+    expect(sevRows(d, 2.5)).toBe(2)
+    expect(compactHeight(d, 0.4)).toBeGreaterThan(compactHeight({ ...(d as object), bySeverity: { error: 6, warn: 0, info: 0 } } as never, 0.4))
+  })
+})
