@@ -54,7 +54,7 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
 
   const m = data.metrics!
   const grade = data.score?.grade
-  const chip = data.score && <Grade score={data.score} className="tb-chip" />
+  const chip = data.score && <Grade score={data.score} className="grade-chip" />
   const handles = (
     <>
       {callIn}

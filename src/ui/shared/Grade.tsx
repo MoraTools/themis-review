@@ -23,3 +23,8 @@ export function GradeCount({ grade, count }: { grade: BotScore['grade']; count: 
     </span>
   )
 }
+
+/** a sentence with figures, '30 of 43 shown': the words stay in the UI face, each figure is a mono .fig */
+export function Figures({ text }: { text: string }) {
+  return <>{text.split(/([−+-]?\d[\d.,]*)/).map((part, i) => (i % 2 ? <span key={i} className="fig">{part}</span> : part))}</>
+}

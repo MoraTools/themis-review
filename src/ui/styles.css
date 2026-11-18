@@ -43,7 +43,7 @@
   --type-string: #17689e;
   --type-number: #17743c;
   --type-dictionary: #7543af;
-  --type-list: #97550d;
+  --type-list: #5c7a12;
   --type-boolean: #a32d65;
   --type-datetime: #08776e;
   --type-file: #806300;
@@ -85,13 +85,13 @@
   --grade-b: color-mix(in oklab, var(--info) 90%, var(--text));
   --grade-c: color-mix(in oklab, var(--warn) 90%, var(--text));
   --grade-d: color-mix(in oklab, var(--crit) 75%, var(--warn));
-  /* F: the strongest red, not lighter and not less saturated than D */
-  --grade-f: #f8746c;
+  /* F: the strongest red, not lighter and not less saturated than D, and a cooler hue (25 degrees or more from D) */
+  --grade-f: #f6728b;
   --edge-call: var(--accent);
   --type-string: #63b3ed;
   --type-number: #68d391;
   --type-dictionary: #b794f4;
-  --type-list: #f6ad55;
+  --type-list: #b5d86a;
   --type-boolean: #f687b3;
   --type-datetime: #4fd1c5;
   --type-file: #f6e05e;
@@ -134,13 +134,13 @@
   --grade-b: color-mix(in oklab, var(--info) 90%, var(--text));
   --grade-c: color-mix(in oklab, var(--warn) 90%, var(--text));
   --grade-d: color-mix(in oklab, var(--crit) 75%, var(--warn));
-  /* F: the strongest red, not lighter and not less saturated than D */
-  --grade-f: #f8746c;
+  /* F: the strongest red, not lighter and not less saturated than D, and a cooler hue (25 degrees or more from D) */
+  --grade-f: #f6728b;
   --edge-call: var(--accent);
   --type-string: #63b3ed;
   --type-number: #68d391;
   --type-dictionary: #b794f4;
-  --type-list: #f6ad55;
+  --type-list: #b5d86a;
   --type-boolean: #f687b3;
   --type-datetime: #4fd1c5;
   --type-file: #f6e05e;
@@ -177,7 +177,7 @@ body {
 button, input, select, textarea { font: inherit; }
 code { font-family: var(--font-mono); }
 /* one caps-label recipe: 11px mono uppercase with the label tracking */
-.legend-toggle, .legend-group, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-sort-by, .report-score-label { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+.legend-toggle, .legend-group, .legend-item dt, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-sort-by, .report-score-label, .grade-strip-label, .map-fix summary, .file-kind, .code-off { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 .app-main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -208,7 +208,8 @@ code { font-family: var(--font-mono); }
 .tab:hover { color:var(--text); }
 .tab.active { color:var(--accent-text); border-bottom-color:var(--accent); }
 /* inside the tab so the bar edge does not clip the ring */
-.tab:focus-visible { outline-offset:-4px; border-radius:var(--radius); }
+.tab { --focus-offset:-4px; }
+.tab:focus-visible, .drawer[data-kbd] [role="tab"]:focus { border-radius:var(--radius); }
 /* the header tabs are links: center the text like a button and drop the link underline */
 a.tab { display:inline-flex; align-items:center; text-decoration:none; }
 .btn, .icon-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:var(--control-h); padding:0 12px; border:1px solid var(--border-strong); border-radius:var(--radius); background:var(--surface); color:var(--text); font:600 var(--fs-13)/1 var(--font-ui); cursor:pointer; white-space:nowrap; }
@@ -241,11 +242,30 @@ a.tab { display:inline-flex; align-items:center; text-decoration:none; }
 /* the badge is a link to the report: keep the text color and no underline; the global ring shows on focus */
 a.score-badge { color: inherit; text-decoration: none; }
 .score-badge-label { display: flex; align-items: center; padding: 0 8px; border-right: 1px solid var(--border); color: var(--text-muted); }
-.score-badge-value { display: flex; align-items: center; padding: 0 8px; font-weight: 700; letter-spacing: var(--track-label); }
+.score-badge-value { align-self: center; margin: 0 6px; }
 /* one grade form: letter first, then the score, mono, in the grade color */
 .grade { font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* the baseline pair is an inner span, so a parent box (badge, chip) can center it */
 .grade-pair { display: inline-flex; align-items: baseline; gap: 0.4em; }
+/* one grade chip: map node, score badge, editor title, report taskbot head and summary cells. The fill sets it apart
+   from the severity counts beside it; text contrast on the fill is in tests/theme-contrast.test.ts */
+.grade-chip {
+  display: inline-block;
+  flex: none;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in oklab, currentColor 55%, transparent);
+  border-radius: var(--radius-chip);
+  background: color-mix(in oklab, currentColor 12%, var(--surface));
+  font: 600 var(--fs-12)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.grade-chip .grade-pair { gap: 0.35em; }
+/* figures inside a sentence: the number is mono, the words around it are not */
+.fig { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .grade-A { color: var(--grade-a); }
 .grade-B { color: var(--grade-b); }
@@ -441,8 +461,6 @@ a.score-badge { color: inherit; text-decoration: none; }
   font: 400 var(--fs-14)/var(--lh-body) var(--font-ui);
 }
 .canvas-loading p { margin: 0; }
-.canvas-loading a { color: var(--text); text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
-.canvas-loading a:hover { color: var(--accent-text); }
 .react-flow { --xy-background-color:var(--bg); --xy-background-pattern-dots-color:var(--border-strong); --xy-node-color:var(--text); --xy-node-background-color:var(--surface); --xy-edge-stroke:var(--border-strong); --xy-edge-stroke-selected:var(--accent-edge); --xy-minimap-background-color:var(--surface); --xy-minimap-mask-background-color:var(--minimap-mask); background: var(--bg); }
 .react-flow__background-pattern { color: var(--border); }
 .react-flow__edge.edge-call path { stroke: var(--border-strong); stroke-width: 1.5; }
@@ -569,17 +587,11 @@ a.score-badge { color: inherit; text-decoration: none; }
 .legend-grid .icon:not(.severity-icon) { color: var(--text-muted); }
 .legend .leg-swatch { width: 12px; height: 12px; margin: 0; border-radius: 2px; background: currentColor; }
 .legend .leg-dot { width: 8px; height: 8px; margin: 0; }
-.legend-item dt {
-  color: var(--text);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-}
+.legend-item dt { color: var(--text); }
 .legend-item dd {
   margin: 3px 0 0 26px;
   color: var(--text-muted);
   font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui);
-  letter-spacing: 0;
-  text-transform: none;
 }
 .legend i { display: inline-block; width: 18px; height: 2px; margin-right: 8px; vertical-align: middle; }
 /* tight canvases only get the titles, even when unfolded */
@@ -588,14 +600,14 @@ a.score-badge { color: inherit; text-decoration: none; }
   .legend-body { gap: 6px; }
   .legend-item dd { display: none; }
 }
-.legend-body:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.legend-body { --focus-offset: -2px; }
 .leg-call { background: var(--border-strong); height: 2px; }
 
 /* map head (top-left): the grade strip with the first-step hint beside it, Fix first under it */
 .map-head.react-flow__panel { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: min(640px, calc(100% - 24px)); margin: 12px; }
 .map-head-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 8px; }
 /* on the canvas ground, so it stays a line of its own over an edge or a node */
-.map-hint { align-self: center; margin: 0; padding: 2px 6px; border-radius: var(--radius); background: var(--bg); color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-snug) var(--font-ui); }
+.map-hint { align-self: center; margin: 0; padding: 2px 6px; border-radius: var(--radius); background: var(--bg); color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 .map-fix { border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); }
 /* open, the list takes the row under the strip */
 .map-fix[open] { order: 1; flex-basis: 100%; box-sizing: border-box; }
@@ -606,14 +618,11 @@ a.score-badge { color: inherit; text-decoration: none; }
   box-sizing: border-box;
   padding: 0 10px;
   color: var(--text-muted);
-  font: 600 var(--fs-11)/var(--lh-label) var(--font-mono);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
   cursor: pointer;
+  --focus-offset: -2px;
 }
 .map-fix summary:hover, .map-fix[open] summary { color: var(--text); }
-.map-fix summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.map-fix .report-fix-list { margin: 0; padding: 0 10px 6px 2.2em; font-size: var(--fs-13); }
+.map-fix .report-fix-list { margin: 0; padding: 0 10px 6px 2.2em; }
 .map-fix .report-lost-link { display: block; min-height: var(--target-min); margin: 0; padding: 3px 0; text-align: left; }
 /* grade strip: each grade jumps to its next taskbot, worst first */
 .grade-strip {
@@ -640,11 +649,12 @@ a.score-badge { color: inherit; text-decoration: none; }
   border-radius: var(--radius-chip);
   background: transparent;
   color: var(--text);
-  font-size: var(--fs-13);
+  font-size: var(--fs-12);
   cursor: pointer;
+  --focus-offset: 1px;
 }
 .grade-strip button:hover { border-color: var(--border-strong); background: var(--surface-raised); }
-.grade-strip-label { margin-right: 4px; color: var(--text-muted); font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+.grade-strip-label { margin-right: 4px; color: var(--text-muted); }
 /* narrow panes: the strip, the Fix first toggle and the legend toggle share the top row where they fit; the strip
    label is for screen readers only (it still names the group) and the first-step hint is left out */
 @media screen and (max-width: 760px) {
@@ -653,11 +663,10 @@ a.score-badge { color: inherit; text-decoration: none; }
   .map-hint { display: none; }
   .grade-strip { max-width: 100%; overflow-x: auto; gap: 2px; padding-left: 3px; }
   .grade-strip-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .grade-strip button { padding: 0 5px; font-size: var(--fs-12); }
+  .grade-strip button { padding: 0 5px; }
   .map-fix summary { padding: 0 8px; }
   .legend-toggle { gap: 6px; padding: 0 8px; }
 }
-.grade-strip button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .leg-wire { background: var(--info); }
 .legend i.leg-ghost, .legend i.leg-file { width: 16px; height: 10px; box-sizing: border-box; background: transparent; }
 .leg-ghost { border: 1px dashed var(--border-strong); }
@@ -681,18 +690,8 @@ a.score-badge { color: inherit; text-decoration: none; }
 .tb-node.g-F { border-left: 6px solid var(--grade-f); }
 .tb-node.g-D .tb-head, .tb-node.compact.g-D { background: color-mix(in oklab, var(--grade-d) 10%, var(--surface-raised)); }
 .tb-node.g-F .tb-head, .tb-node.compact.g-F { background: color-mix(in oklab, var(--grade-f) 14%, var(--surface-raised)); }
-.react-flow .react-flow__node.selectable:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius); }
-.tb-chip .grade-pair { gap: 0.35em; }
+.react-flow .react-flow__node.selectable:focus-visible { border-radius: var(--radius); }
 .tb-head .tb-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.tb-chip {
-  flex: none;
-  padding: 3px 6px;
-  border: 1px solid color-mix(in oklab, currentColor 55%, transparent);
-  border-radius: var(--radius-chip);
-  font: 600 var(--fs-12)/1 var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
 /* under the detail zoom: grade, name and severity counts, scaled so they stay 12 px on screen */
 .tb-node.compact {
   --s: min(calc(1 / var(--zoom, 1)), 3.4); /* unitless, so sizes are tokens times --s */
@@ -715,14 +714,15 @@ a.score-badge { color: inherit; text-decoration: none; }
   font-size: calc(var(--fs-12) * var(--s));
   line-height: 1.2;
 }
-.tb-node.compact .tb-chip { padding: calc(2px * var(--s)) calc(4px * var(--s)); font-size: calc(var(--fs-12) * var(--s)); }
+.tb-node.compact .grade-chip { padding: calc(2px * var(--s)) calc(4px * var(--s)); font-size: calc(var(--fs-12) * var(--s)); }
 /* at a high counter-scale the counts may not fit one row: they wrap (compactHeight counts the second row) */
 .tb-node.compact .tb-sevs { flex-wrap: wrap; max-width: 100%; gap: calc(4px * var(--s)) calc(8px * var(--s)); padding: 0; border: 0; font-size: calc(var(--fs-12) * var(--s)); }
 .tb-node.compact .tb-sevs > span { gap: calc(4px * var(--s)); }
 .tb-node.compact .tb-sevs .icon { width: calc(13px * var(--s)); height: calc(13px * var(--s)); }
 .tb-node.ghost { border: 1px dashed var(--border-strong); padding: 12px; }
-.tb-node.compact .tb-ghost-tag { margin: 0; font-size: calc(var(--fs-12) * var(--s)); line-height: 1.2; letter-spacing: 0; text-transform: none; }
-.tb-ghost-tag { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-12); letter-spacing: var(--track-label); text-transform: uppercase; }
+.tb-node.compact .tb-ghost-tag { margin: 0; font-size: calc(var(--fs-12) * var(--s)); line-height: 1.2; }
+/* words, not a caps label: Inter in sentence case */
+.tb-ghost-tag { margin-top: 6px; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 /* 'Not called': its own row under the head of a detailed node, a line under the name of a compact one */
 .tb-uncalled { margin: 0; padding: 4px 12px; border-bottom: 1px solid var(--border); line-height: 15px; }
 .tb-node.compact .tb-uncalled { padding: 0; border: 0; line-height: 1.2; }
@@ -740,7 +740,6 @@ a.score-badge { color: inherit; text-decoration: none; }
   /* breaks come from <wbr> between words; inside a word only when it alone is wider than the line */
   overflow-wrap: break-word;
 }
-.tb-grade { font-weight: 700; font-size: var(--fs-12); }
 .tb-stats {
   display: flex;
   flex-wrap: nowrap;
@@ -794,10 +793,10 @@ a.score-badge { color: inherit; text-decoration: none; }
   background: var(--surface);
   font-family: var(--font-mono);
 }
-.file-icon { flex: none; color: var(--accent-text); font-size: var(--fs-16); }
+.file-icon { flex: none; color: var(--text-subtle); font-size: var(--fs-16); }
 .file-label { display: flex; flex-direction: column; min-width: 0; }
 .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-12); color: var(--text); }
-.file-kind { font-size: var(--fs-11); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--text-muted); }
+.file-kind { color: var(--text-muted); }
 .file-handle { width: 7px !important; height: 7px !important; border-radius: 0 !important; border: 1px solid var(--bg) !important; background: var(--border-strong) !important; }
 .react-flow__edge.edge-file path { stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 4 4; }
 
@@ -845,7 +844,6 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 /* Cormorant's default old-style figures make "000_" read as "ooo_"; after the font shorthand below, which resets it */
 .drawer-name { font-variant-numeric: lining-nums; }
-.drawer-title .tb-grade { font-family: var(--font-mono); font-size: var(--fs-13); letter-spacing: 0.08em; }
 /* one line: the path, cut with an ellipsis (in full in its title), then the stats after a separator each */
 .drawer-sub {
   display: flex;
@@ -861,7 +859,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .drawer-lost { flex: none; padding: 0 20px; border-bottom: 1px solid var(--border); }
 /* a native disclosure: the summary names the total, the open list shows every rule, one per line, with no inner scroll */
 /* a list item keeps the native disclosure marker; the padding makes the 24/44 px target */
-.drawer-lost-summary, .report-lost-summary { display: list-item; padding-block: max(6px, calc((var(--target-min) - 18px) / 2)); color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); cursor: pointer; }
+.drawer-lost-summary, .report-lost-summary { display: list-item; padding-block: max(6px, calc((var(--target-min) - 20px) / 2)); color: var(--text); font: 600 var(--fs-14)/var(--lh-snug) var(--font-ui); cursor: pointer; }
 .drawer-lost[open] .drawer-lost-summary { padding-bottom: 0; }
 .drawer-lost .report-lost { max-width: none; margin: 0 0 10px; }
 /* on desktop the rules fill columns, so a long list stays a few lines high; the total spans them */
@@ -870,7 +868,6 @@ a.score-badge { color: inherit; text-decoration: none; }
 }
 .tabs.small { gap: 20px; padding: 12px 20px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
 /* a keyboard open shows the ring on the focused tab in every browser; the first pointer press removes data-kbd */
-.drawer[data-kbd] [role="tab"]:focus { outline: 2px solid var(--focus); outline-offset: -4px; border-radius: var(--radius); }
 .tabs.small .tab { flex: none; min-height: max(40px, var(--control-h)); padding-bottom: 12px; font: 600 var(--fs-13)/1 var(--font-ui); white-space: nowrap; }
 
 /* A <table> is not a scroll container, so it needs a wrapper or the page scrolls instead. */
@@ -927,7 +924,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   border-radius: var(--radius);
   background: var(--surface);
 }
-.code-glyph { flex: none; color: var(--accent-text); }
+.code-glyph { flex: none; color: var(--text-subtle); }
 .code-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .code-line:hover .code-card { border-color: var(--border-strong); }
 .code-line.flash .code-card { border-color: var(--selected-border); background: var(--selected-bg); color: var(--text); }
@@ -937,7 +934,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .code-line.comment .code-label { color: var(--text-muted); font-style: italic; }
 .code-line.disabled .code-card { color: var(--text-subtle); }
 .code-line.msgbox .code-card { border-color: var(--crit-text); }
-.code-off { flex: none; color: var(--warn); font-size: var(--fs-11); letter-spacing: var(--track-label); text-transform: uppercase; }
+.code-off { flex: none; color: var(--warn); }
 .code-flag-cell { order: 3; display: flex; align-items: center; justify-content: center; }
 .code-flag-cell .code-flag { margin: 0; }
 .code-inline { order: 4; grid-column: 3 / -1; display: flex; flex-direction: column; gap: 6px; padding: 6px 0 4px; }
@@ -945,7 +942,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .code-flag { flex: none; align-self: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius); background: transparent; cursor: pointer; }
 .code-flag:hover { border-color: var(--border-strong); }
 
-.var-table { width: 100%; margin: 0; border-collapse: collapse; font: 400 var(--fs-13)/var(--lh-body) var(--font-mono); font-variant-numeric: tabular-nums; }
+.var-table { width: 100%; margin: 0; border-collapse: collapse; font: 400 var(--fs-14)/var(--lh-body) var(--font-mono); font-variant-numeric: tabular-nums; }
 .var-table th, .var-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
 .var-table th {
   position: sticky;
@@ -957,10 +954,10 @@ a.score-badge { color: inherit; text-decoration: none; }
 .var-table tbody tr.flash > * { background: var(--selected-bg); color: var(--text); }
 .drawer .var-table th:first-child, .drawer .var-table td:first-child { padding-left: 20px; }
 
-.var-desc { color: var(--text-muted); }
+.var-desc { color: var(--text-muted); font-family: var(--font-ui); }
 /* each finding of a variable: its icon and the rule title, one button per line */
 .var-findings { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.var-table .var-flag { justify-content: flex-start; gap: 6px; min-width: 0; margin: -3px -4px; color: var(--text); font: 400 var(--fs-13)/var(--lh-snug) var(--font-ui); text-align: left; }
+.var-table .var-flag { justify-content: flex-start; gap: 6px; min-width: 0; margin: -3px -4px; color: var(--text); font: 400 var(--fs-14)/var(--lh-snug) var(--font-ui); text-align: left; }
 .var-table tbody th { position: static; background: transparent; color: inherit; font: inherit; letter-spacing: normal; text-transform: none; font-weight: 400; }
 
 .drawer .editor-filter { margin: 14px 20px 0; }
@@ -982,17 +979,18 @@ a.score-badge { color: inherit; text-decoration: none; }
 .finding-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .finding-where { color: var(--text-muted); font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; }
 .finding-rule { color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-mono); }
-.finding-points { color: var(--text); font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* words in Inter, the figures in .fig */
+.finding-points { color: var(--text); font: 600 var(--fs-12)/var(--lh-snug) var(--font-ui); white-space: nowrap; }
 /* a later card of a family: the family total, muted, so it does not read as a second loss */
 .finding-points.in-family { color: var(--text-muted); font-weight: 400; }
-.finding-var { border: 0; background: transparent; color: var(--accent-text); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* '5 findings' is words: Inter, the figure in .fig */
+.finding-count { font-family: var(--font-ui); }
+.finding-var { border: 0; background: transparent; font: inherit; cursor: pointer; }
 .finding-var code { font: inherit; }
-.finding-var:hover { color: var(--text); }
 .finding-msg, .finding-fix { max-width: 60ch; margin: 8px 0 0; }
-.finding-fix { color: var(--text-muted); }
+.finding-fix { color: var(--text); }
 .finding-fix strong { color: var(--text); font-weight: 600; }
-.finding-line { border: 0; background: transparent; color: var(--accent-text); font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.finding-line:hover { color: var(--text); }
+.finding-line { border: 0; background: transparent; font: 600 var(--fs-12)/var(--lh-snug) var(--font-mono); font-variant-numeric: tabular-nums; cursor: pointer; }
 .finding-items { display: flex; flex-wrap: wrap; gap: 8px 20px; max-width: 100%; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border); list-style: none; font: 400 var(--fs-12)/var(--lh-body) var(--font-mono); }
 .finding-items li { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
 .finding-items code { overflow-wrap: anywhere; }
@@ -1034,7 +1032,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 .report-meta {
   margin: 16px 0 32px;
   color: var(--text-muted);
-  font: 400 var(--fs-12)/var(--lh-body) var(--font-ui);
+  font: 400 var(--fs-14)/var(--lh-body) var(--font-ui);
   overflow-wrap: anywhere;
 }
 .report h2 {
@@ -1053,7 +1051,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  font: 400 var(--fs-13)/var(--lh-body) var(--font-ui);
+  font: 400 var(--fs-14)/var(--lh-body) var(--font-ui);
 }
 .rules-model-label {
   display: block;
@@ -1067,23 +1065,25 @@ a.score-badge { color: inherit; text-decoration: none; }
   max-width: 68ch;
   margin: 0 0 32px;
   color: var(--text-muted);
-  font: 400 var(--fs-13)/var(--lh-body) var(--font-ui);
+  font: 400 var(--fs-14)/var(--lh-body) var(--font-ui);
 }
 .report-table.rules-table { min-width: 0; }
 .rules-table code { color: var(--accent-text); }
 .rules-msg { min-width: 24ch; max-width: 52ch; white-space: normal; line-height: 1.4; overflow-wrap: break-word; }
 /* ids and paths break at the <wbr> after '_' and '/', not inside a word */
 .rules-table td.rules-text { white-space: nowrap; }
-.rules-caption { caption-side: top; margin: 0 0 8px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); text-align: left; }
+.rules-caption { caption-side: top; margin: 0 0 8px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); text-align: left; }
 .rules-name { min-width: 18ch; }
-.rules-title { display: block; color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); }
+.rules-title { display: block; color: var(--text); font: 600 var(--fs-14)/var(--lh-snug) var(--font-ui); }
 .rules-table .rules-id { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--fs-12); overflow-wrap: normal; }
 .rules-key { display: block; margin-top: 6px; color: var(--text-muted); font-size: var(--fs-12); }
-.finding-title { margin: 0; color: var(--text); font: 600 var(--fs-13)/var(--lh-snug) var(--font-ui); }
+.finding-title { margin: 0; color: var(--text); font: 600 var(--fs-16)/var(--lh-snug) var(--font-ui); }
 /* under 760px each rule is a stacked card; the sortable headers stay as a row of buttons */
 @media screen and (max-width: 760px) {
   .rules-view .table-scroll { overflow-x: visible; }
   .rules-table, .rules-table thead, .rules-table tbody { display: block; }
+  /* a table-caption inside a block table shrinks to min-content, one word per line */
+  .rules-table caption { display: block; }
   .rules-table thead tr { display: flex; flex-wrap: wrap; gap: 4px; }
   .rules-table thead th { display: block; border: 0; }
   /* visually hidden, not display:none, so the column headers stay in the table semantics */
@@ -1133,14 +1133,13 @@ a.score-badge { color: inherit; text-decoration: none; }
 .sev-filter legend { float: left; padding: 0; }
 .report-options-hint { flex: 1 1 100%; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 
-.report-table { width: 100%; min-width: 620px; border-collapse: collapse; font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); font-variant-numeric: tabular-nums; }
+.report-table { width: 100%; min-width: 620px; border-collapse: collapse; font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); font-variant-numeric: tabular-nums; }
 .report-table th.sortable { padding: 0; cursor: pointer; user-select: none; white-space: nowrap; }
 .report-table th.sortable:hover, .report-table th.sorted { color: var(--text); }
 .sort-arrow { display: inline-block; width: 1em; margin-left: 4px; font-size: 0.75em; }
 .report-table th, .report-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
 .report-table th { background: var(--surface-strong); color: var(--text-muted); }
-.report-table td:not(:first-child), .report-table td:last-child { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.report-table td.rules-msg, .report-table td.rules-text { font-family: var(--font-ui); }
+.report-table td.num, .report-table td.rules-sev, .report-table td.rules-times, .report-table td.rules-points { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .report-table tbody tr.row-link { cursor: pointer; }
 .report-table tbody tr:hover { background: var(--surface-raised); color: var(--text); }
 
@@ -1149,13 +1148,12 @@ a.score-badge { color: inherit; text-decoration: none; }
   padding-top: 20px;
   border-top: 1px solid var(--border-strong);
 }
-.report-bot .tb-grade { font-family: var(--font-mono); font-size: var(--fs-14); letter-spacing: 0.08em; }
 .report-bot-path { margin: 0 0 16px; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-12); overflow-wrap: anywhere; }
 .report-bot .finding-card { max-width: 100%; }
 .report-lost-box { max-width: 56ch; margin: 0 0 12px; }
 .report-lost-summary { width: fit-content; }
 .report-lost-box[open] .report-lost-summary { padding-bottom: 4px; }
-.report-lost { max-width: 56ch; margin: 0 0 12px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); overflow-wrap: anywhere; }
+.report-lost { max-width: 56ch; margin: 0 0 12px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); overflow-wrap: anywhere; }
 .report-lost-box .report-lost { margin: 0; }
 /* one layout everywhere: a stacked list, the rule name left, the points right in tabular figures, the total last */
 .report-lost-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
@@ -1164,14 +1162,11 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* a button fits its content: the link fills the row, its hit padding outside the text column */
 .report-lost-list li > .report-lost-link { width: calc(100% + 8px); }
 .report-lost-title, .report-lost-points { color: var(--text); }
-.report-lost-points { flex: none; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.report-lost-points { flex: none; white-space: nowrap; }
 .report-lost-link { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: inherit; }
-.report-lost-link .report-lost-title { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
-.report-lost-link:hover .report-lost-title { color: var(--accent-text); text-decoration-color: currentColor; }
 .report-lost-hidden { color: var(--text-subtle); font-size: var(--fs-12); }
 /* the hidden-findings note: a text button on screen that shows them */
-.report-lost-show { padding: 0; border: 0; background: transparent; font: inherit; font-size: var(--fs-12); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; cursor: pointer; }
-.report-lost-show:hover { color: var(--accent-text); text-decoration-color: currentColor; }
+.report-lost-show { padding: 0; border: 0; background: transparent; font: inherit; font-size: var(--fs-12); cursor: pointer; }
 .report-lost-list .report-lost-show { min-height: var(--target-min); }
 /* the total: a full-width last row under a hairline, also across columns */
 .report-lost-total { column-span: all; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); color: var(--text); font-weight: 600; }
@@ -1179,17 +1174,17 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* Fix first: the three biggest losses of the project, right after the head */
 .report-fix { max-width: 68ch; margin: 0 0 32px; }
 .report-fix h2 { margin: 0 0 4px; }
-.report-fix-note { margin: 0 0 8px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); }
+.report-fix-note { margin: 0 0 8px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 .report-fix-list { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0; padding-left: 1.5em; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 .report-fix-list li::marker { font-family: var(--font-mono); }
 /* a block target keeps the spaces around the separators and wraps like text */
 .report-fix-list .report-lost-link { display: block; margin: 0; padding: 4px 0; }
 .report-fix-bot { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
-.report-fix-more { margin: 4px 0 0 1.5em; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); }
+.report-fix-more { margin: 4px 0 0 1.5em; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 /* summary findings: fixed slots (error, warning, info, then shown), so each icon has the same x in every row */
 .summary-table .col-findings { white-space: nowrap; }
 .sev-slots { display: inline-flex; align-items: center; gap: 10px; }
-.sev-slot { display: inline-flex; align-items: center; justify-content: flex-start; gap: 3px; width: calc(15px + 3ch); }
+.sev-slot { font-family: var(--font-mono); display: inline-flex; align-items: center; justify-content: flex-start; gap: 3px; width: calc(15px + 3ch); }
 .sev-slot .icon { width: 12px; height: 12px; }
 /* a hidden severity stays readable but steps back */
 .sev-slot.dim { color: var(--text-subtle); }
@@ -1198,13 +1193,12 @@ a.score-badge { color: inherit; text-decoration: none; }
 .sev-none { color: var(--text-muted); font-size: var(--fs-12); }
 .summary-note { display: none; margin: 8px 0 0; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 .rules-sort-by { display: none; }
-.finding-rule-link { border: 0; background: transparent; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
-.finding-rule-link:hover { color: var(--accent-text); text-decoration-color: currentColor; }
-.report-facts { max-width: 68ch; margin: -16px 0 32px; color: var(--text-muted); font: 400 var(--fs-13)/var(--lh-body) var(--font-ui); }
+.finding-rule-link { border: 0; background: transparent; cursor: pointer; }
+.report-facts { max-width: 68ch; margin: -16px 0 32px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 .report-facts p { margin: 0 0 2px; }
 /* the scope line reads as text; formula, bands and distribution stay muted */
 .report-facts .report-facts-scope { color: var(--text); }
-.report-dist { font: 600 var(--fs-12)/var(--lh-body) var(--font-mono); white-space: nowrap; }
+.report-dist { font-family: var(--font-mono); white-space: nowrap; }
 /* a grade count, 'A ×7': the letter in the grade color, the count muted, so it does not read as a score */
 .grade-count { font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .grade-count-n { color: var(--text-muted); font-weight: 400; }
@@ -1224,7 +1218,7 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* Suite component measurements and browser surfaces. */
 * { scrollbar-width:thin; scrollbar-color:var(--border-strong) transparent; }
 a { color:var(--accent-text); text-underline-offset:3px; }
-:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible, .sev-toggle:has(:focus-visible), .drawer[data-kbd] [role="tab"]:focus, .react-flow .react-flow__node.selectable:focus-visible { outline:2px solid var(--focus); outline-offset:var(--focus-offset, 2px); }
 html.theme-changing, html.theme-changing *:not(.theme-toggle .icon) { transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out; }
 input,select,textarea { min-height:var(--control-h); background:var(--field-bg); color:var(--text); border:1px solid var(--border-strong); border-radius:var(--radius); line-height:18px; }
 input[type="checkbox"] { min-height:0; accent-color:var(--accent-text); }
@@ -1233,12 +1227,16 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 .report-table th button { border:0; padding:0; background:transparent; color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; text-align:left; cursor:pointer; }
 /* the sort button fills its header cell */
 .report-table th.sortable button { display:flex; align-items:center; gap:4px; width:100%; min-height:32px; padding:8px 12px; }
-.report-table th.sortable button:focus-visible { outline-offset:-2px; }
+.report-table th.sortable button { --focus-offset:-2px; }
 .report-table th.num button { justify-content:flex-end; text-align:right; }
 .report-table .sort-icon { width:12px; height:12px; }
 .report-table .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.row-name { border:0; background:transparent; color:var(--text); font:inherit; text-align:left; text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
-.row-name:hover { color:var(--accent-text); text-decoration-color:currentColor; }
+.row-name { border:0; background:transparent; font:inherit; text-align:left; cursor:pointer; }
+/* one inline-link recipe: text with a 3:1 underline; hover and focus turn it gold with a full underline */
+.finding-line, .row-name, .finding-rule-link, .finding-var, .report-lost-link .report-lost-title, .report-lost-show, .canvas-loading a { color:var(--text); text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; }
+:is(.finding-line, .row-name, .finding-rule-link, .finding-var, .report-lost-show, .canvas-loading a):is(:hover, :focus-visible), .report-lost-link:is(:hover, :focus-visible) .report-lost-title { color:var(--accent-text); text-decoration-color:currentColor; }
+/* the rule id stays muted at rest (DESIGN.md: it follows the finding title) */
+.finding-rule-link:not(:hover, :focus-visible) { color:var(--text-muted); }
 /* inline text targets: the padding grows the hit box and the matching negative margin keeps the text in place */
 .finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
 .report-bot h2 { overflow-wrap:anywhere; }
@@ -1255,13 +1253,11 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 /* a severity with no finding: nothing to filter */
 .sev-toggle.disabled, .sev-toggle.disabled:hover { border-color:var(--border); background:var(--surface); color:var(--text-subtle); cursor:default; }
 .sev-toggle input { position:absolute; width:1px; height:1px; margin:0; opacity:0; pointer-events:none; }
-.sev-toggle:has(:focus-visible) { outline:2px solid var(--focus); outline-offset:2px; }
 .sev-error { --tone:var(--crit); }
 .sev-warn { --tone:var(--warn); }
 .sev-info { --tone:var(--info); }
 .sev-ok { --tone:var(--ok); }
 .severity-icon { color:var(--tone); }
-.react-flow__arrowhead polyline { fill:var(--edge-call); stroke:var(--edge-call); }
 /* screen only: print keeps the 24px inline targets */
 @media screen and (pointer:coarse), screen and (max-width:760px) { :root { --control-h:44px; --target-min:44px; } }
 @media (max-width:1100px) and (min-width:761px) { .header { gap:16px; padding-inline:16px; flex-wrap:wrap; } .header-right { flex-wrap:wrap; } }
@@ -1359,7 +1355,9 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); text-align:left; }
   .rules-table thead tr { gap:8px; }
   .rules-table thead th.sortable { background:transparent; }
-  .rules-table thead th.sortable button { min-height:var(--control-h); padding:0 10px; border:1px solid var(--border-strong); border-radius:var(--radius-chip); background:var(--surface); color:var(--text-muted); font:600 var(--fs-11)/1 var(--font-mono); letter-spacing:var(--track-chip); }
+  /* the chip shape and states; the caps font comes from the th (caps-label list). Scoped here: the shared chip
+     lists would also restyle the desktop sort headers */
+  .rules-table thead th.sortable button { min-height:var(--control-h); padding:0 10px; border:1px solid var(--border-strong); border-radius:var(--radius-chip); background:var(--surface); color:var(--text-muted); }
   .rules-table thead th.sortable button:hover { background:var(--surface-raised); color:var(--text); }
   .rules-table thead th.sorted button { border-color:var(--selected-border); background:var(--selected-bg); color:var(--text); }
 }
@@ -1408,7 +1406,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   --type-string: #17689e;
   --type-number: #17743c;
   --type-dictionary: #7543af;
-  --type-list: #97550d;
+  --type-list: #5c7a12;
   --type-boolean: #a32d65;
   --type-datetime: #08776e;
   --type-file: #806300;
@@ -1473,8 +1471,8 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 
 /* Windows high contrast: chips, grade and severity bars and focus keep a visible system color */
 @media (forced-colors: active) {
-  .chip, .sev-toggle, .severity-chip, .tb-chip, .score-badge, .grade-strip button { border: 2px solid CanvasText; }
-  .chip.active, .sev-toggle.on, .compact-toggle[aria-pressed="true"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  .chip, .sev-toggle, .severity-chip, .grade-chip, .score-badge, .grade-strip button { border: 2px solid CanvasText; }
+  .chip.active, .sev-toggle.on, .compact-toggle[aria-pressed="true"], .rules-table thead th.sorted button { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   .tb-node.g-C, .tb-node.g-D, .tb-node.g-F, .finding-card { border-left: 4px solid CanvasText; }
-  :where(button,a,input,select,textarea,summary,[tabindex]):focus-visible, .sev-toggle:has(:focus-visible) { outline: 2px solid Highlight; }
+  :where(button,a,input,select,textarea,summary,[tabindex]):focus-visible, .sev-toggle:has(:focus-visible), .drawer[data-kbd] [role="tab"]:focus, .react-flow .react-flow__node.selectable:focus-visible { outline: 2px solid Highlight; }
 }

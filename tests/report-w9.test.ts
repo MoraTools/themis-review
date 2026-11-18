@@ -91,7 +91,7 @@ describe('summary table', () => {
       expect(slots).toEqual(['error', 'warn', 'info'])
     }
     expect(table).toMatch(/<span class="sev-slot sev-slot-warn"><\/span>/)
-    expect(table).toContain('of 43 shown')
+    expect(table).toContain('<span class="sev-shown"><span class="fig">30</span> of <span class="fig">43</span> shown</span>')
     // the ratio only when the filter hides some: 200_ActualizarCatalogo has no hidden finding
     const catalog = rows.find((r) => r.includes('200_ActualizarCatalogo'))!
     expect(catalog).not.toContain('sev-shown')
@@ -177,17 +177,17 @@ describe('card heads and labels', () => {
   it('shows the family points on the first card of a family', () => {
     const html = report('en')
     // '(cap)' is an abbr whose title is the cap note
-    expect(html).toMatch(/<span class="finding-points"><span class="sr-only">points lost: <\/span>−15 \(<abbr title="The most one rule family can take off one taskbot.">cap<\/abbr>\)<\/span>/)
+    expect(html).toMatch(/<span class="finding-points"><span class="sr-only">points lost: <\/span><span class="fig">−15<\/span> \(<abbr title="The most one rule family can take off one taskbot.">cap<\/abbr>\)<\/span>/)
     const f = analysis.findings.find((x) => x.botPath === old.path)!
     const card = wrap('en', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 4, capped: false } }))
-    expect(card).toContain('<span class="finding-points"><span class="sr-only">points lost: </span>−4</span>')
+    expect(card).toContain('<span class="finding-points"><span class="sr-only">points lost: </span><span class="fig">−4</span></span>')
   })
 
   it('marks the later cards of a shared family and lays renames out as a grid of line | old → new', () => {
     const f = analysis.findings.find((x) => x.botPath === old.path)!
     const card = wrap('en', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 2, capped: false, inFamily: true } }))
-    expect(card).toContain('<span class="finding-points in-family"><span class="sr-only">points lost: </span>in family −2</span>')
-    expect(wrap('es', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 2, capped: false, inFamily: true } }))).toContain('en la familia −2')
+    expect(card).toContain('<span class="finding-points in-family"><span class="sr-only">points lost: </span>in family <span class="fig">−2</span></span>')
+    expect(wrap('es', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 2, capped: false, inFamily: true } }))).toContain('en la familia <span class="fig">−2</span>')
     const renames = [
       { ...f, ruleId: 'VAR_NAME_FORMAT', line: 7, varName: 'x', params: { suggestion: 'pStrX' } },
       { ...f, ruleId: 'VAR_NAME_FORMAT', line: undefined, varName: 'temp', params: { suggestion: 'pStrTemp' } },

@@ -2,6 +2,7 @@ import { useContext, useId, type ReactNode } from 'react'
 import type { Finding, Severity } from '../../core/model'
 import { SeverityIcon } from '../Icons'
 import { LangContext, useNumber, usePlural, useT } from '../i18n'
+import { Figures } from '../shared/Grade'
 import { groupLabel, groupTexts, lostTotal, type FixItem, type Lost } from './findings'
 
 /** a variable name; with onVar a screen-only button that opens the editor on the Variables tab, plain text in print */
@@ -52,7 +53,7 @@ function RuleId({ ruleId, onRule }: { ruleId: string; onRule?: (ruleId: string) 
 export function LostPoints({ lost }: { lost: Lost }) {
   const t = useT()
   const number = useNumber()
-  return <>−{number(lost.points)}{lost.capped && <> (<abbr title={t('rules.capNote')}>{t('report.lost.cap')}</abbr>)</>}</>
+  return <><span className="fig">−{number(lost.points)}</span>{lost.capped && <> (<abbr title={t('rules.capNote')}>{t('report.lost.cap')}</abbr>)</>}</>
 }
 
 /** a Fix first item: taskbot · rule family · −points · −project points; the report and the map show it */
@@ -65,7 +66,7 @@ export function FixItemText({ name, item }: { name: string; item: FixItem }) {
   return (
     <span className="report-fix-item">
       <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{groupLabel(lang, item.group)}</span>{sep}
-      <span className="report-lost-points"><LostPoints lost={item} /><span className="report-fix-sep"> ·</span> {t('report.fixFirst.project', { points: number(item.project) })}</span>
+      <span className="report-lost-points"><LostPoints lost={item} /><span className="report-fix-sep"> ·</span> <Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
     </span>
   )
 }
@@ -193,7 +194,7 @@ export function FindingGroupCard({
   return (
     <article id={id} tabIndex={id ? -1 : undefined} className={'finding-card finding-group sev-' + first.severity} aria-labelledby={titleId}>
       <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule} points={points} titleId={titleId} level={level}>
-        <span className="finding-where">{plural('report.group.count', findings.length)}</span>
+        <span className="finding-where finding-count"><Figures text={plural('report.group.count', findings.length)} /></span>
       </Head>
       <p className="finding-msg">{msg}</p>
       <p className="finding-fix">
@@ -285,7 +286,7 @@ export function PointsLost({ lost, targetOf, hiddenOf, onShowHidden }: {
         })}
         <li className="report-lost-total">
           <span className="report-lost-row">
-            {t('report.lost.total')} <span className="report-lost-points">−{number(lostTotal(lost))}</span>
+            {t('report.lost.total')} <span className="report-lost-points fig">−{number(lostTotal(lost))}</span>
           </span>
         </li>
       </ul>

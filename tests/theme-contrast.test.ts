@@ -31,6 +31,13 @@ function contrast(a: Color, b: Color) {
   const x = luminance(a), y = luminance(b)
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
 }
+function hue([, a, b]: Color) {
+  return (Math.atan2(b, a) * 180 / Math.PI + 360) % 360
+}
+function hueGap(x: number, y: number) {
+  const d = Math.abs(x - y) % 360
+  return Math.min(d, 360 - d)
+}
 function tokens(block: string) {
   return Object.fromEntries([...block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(m => [m[1], m[2].trim()]))
 }
@@ -74,6 +81,13 @@ for (const theme of ['light', 'dark']) {
         ['--grade-b', ['--rail', '--surface-strong'], 4.5],
         ['--grade-d', ['--rail'], 4.5],
         ['--grade-f', ['--rail', '--surface-strong'], 4.5],
+        // inline links: text at rest, gold on hover and focus; the suggested fix is text
+        ['--text', ['--bg', '--surface', '--surface-raised'], 4.5],
+        ['--accent-text', ['--bg', '--surface', '--surface-raised'], 4.5],
+        // code-action glyphs and file icons are marks in --text-subtle
+        ['--text-subtle', ['--surface', '--surface-raised', '--surface-strong'], 3],
+        // the List type is a mark on every surface
+        ['--type-list', surfaces, 3],
       ]
       const rows = []
       for (const [fg, grounds, min] of pairs) for (const bg of grounds) {
@@ -98,16 +112,32 @@ for (const theme of ['light', 'dark']) {
         expect(ratio, `${theme} grade ${grade} on its tint`).toBeGreaterThanOrEqual(4.5)
       }
     })
+    it('keeps every grade chip readable on its own tinted fill', () => {
+      const rule = css.match(/\n\.grade-chip \{([^}]+)\}/)![1]
+      const mix = rule.match(/background: color-mix\(in oklab, currentColor (\d+)%, (var\(--[\w-]+\))\);/)!
+      grades.forEach((grade, i) => {
+        const fill = resolve(`color-mix(in oklab, var(--grade-${grade}) ${mix[1]}%, ${mix[2]})`, values)
+        expect(contrast(colors[i], fill), `${theme} grade ${grade} on its chip`).toBeGreaterThanOrEqual(4.5)
+      })
+    })
+    it('keeps dark F a cooler red than D, 25 degrees of hue or more', () => {
+      // light F already parts from D by lightness (it is the darker one)
+      if (theme !== 'dark') return
+      const [, , , d, f] = colors.map(toLab)
+      expect(hueGap(hue(d), hue(f)), `${theme} D/F hue`).toBeGreaterThanOrEqual(25)
+    })
+    it('gives the List type a hue that no status, grade or the accent uses', () => {
+      const list = hue(toLab(resolve(values['--type-list'], values)))
+      for (const token of ['--accent', '--ok', '--warn', '--crit', '--info', ...grades.map(g => `--grade-${g}`)]) {
+        const gap = hueGap(list, hue(toLab(resolve(values[token], values))))
+        expect(gap, `${theme} --type-list vs ${token}`).toBeGreaterThanOrEqual(20)
+      }
+    })
     it('draws the call handle and the legend call swatch like a call edge at rest, gold only when active', () => {
       expect(css).toMatch(/\.react-flow__edge\.edge-call path \{ stroke: var\(--border-strong\); stroke-width: 1\.5; \}/)
       expect(css).toMatch(/\.react-flow__edge\.edge-call\.active path \{ stroke: var\(--edge-call\); stroke-width: 2\.5; \}/)
       expect(css).toMatch(/\.call-handle \{[^}]*background: var\(--border-strong\)/)
       expect(css).toMatch(/\.leg-call \{[^}]*background: var\(--border-strong\)/)
-    })
-    it('keeps the system dark block equal to the explicit dark block', () => {
-      if (theme !== 'dark') return
-      const system = tokens(css.match(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme\]\) \{([^}]+)\}/)![1])
-      expect(system).toEqual(values)
     })
     it('draws F at least as strong as D: not lighter, and in dark not less saturated', () => {
       const [, , , d, f] = colors.map(toLab)
@@ -115,10 +145,38 @@ for (const theme of ['light', 'dark']) {
       // light F is darker than D at the same chroma; dark F was the pale one
       if (theme === 'dark') expect(Math.hypot(f[1], f[2]), `${theme} F chroma`).toBeGreaterThanOrEqual(Math.hypot(d[1], d[2]))
     })
-    it('uses the light tokens for print, on a white page', () => {
-      if (theme !== 'light') return
-      const print = tokens(css.match(/@media print \{\s*:root, :root\[data-theme\] \{([^}]+)\}/)![1])
-      expect(print).toEqual({ ...values, '--bg': '#ffffff' })
-    })
   })
 }
+
+describe('palette blocks', () => {
+  const block = (pattern: RegExp) => tokens(css.match(pattern)![1])
+  const light = block(/:root\[data-theme="light"\] \{([^}]+)\}/)
+  const dark = block(/:root\[data-theme="dark"\] \{([^}]+)\}/)
+  const system = block(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme\]\) \{([^}]+)\}/)
+  const print = block(/@media print \{\s*:root, :root\[data-theme\] \{([^}]+)\}/)
+  // the only tokens print sets on purpose: a white page
+  const PRINT_OVERRIDES = { '--bg': '#ffffff' }
+  it('keeps the system dark block equal to the explicit dark block, token for token', () => {
+    expect(system).toEqual(dark)
+  })
+  it('uses the light tokens for print, apart from the listed print overrides', () => {
+    expect(print).toEqual({ ...light, ...PRINT_OVERRIDES })
+  })
+  it('defines the same token names in light and dark', () => {
+    expect(Object.keys(dark).sort()).toEqual(Object.keys(light).sort())
+  })
+})
+
+describe('style recipes', () => {
+  it('draws the suggested fix in the text color, on screen and in print', () => {
+    expect(css).toMatch(/\.finding-fix \{ color: var\(--text\); \}/)
+    expect(css.slice(css.indexOf('@media print {'))).not.toMatch(/\.finding-fix[^{]*\{[^}]*color/)
+  })
+  it('keeps gold off the code-action glyphs and file icons', () => {
+    expect(css).toMatch(/\.code-glyph \{[^}]*color: var\(--text-subtle\)/)
+    expect(css).toMatch(/\.file-icon \{[^}]*color: var\(--text-subtle\)/)
+  })
+  it('has one call arrowhead color source: the JS marker, no CSS rule', () => {
+    expect(css).not.toMatch(/react-flow__arrowhead/)
+  })
+})

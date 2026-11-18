@@ -4,7 +4,7 @@ import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
 import { LangContext, plural as pluralText, useT, useNumber, usePlural, type Lang } from '../i18n'
 import { Name } from '../shared/Name'
-import { Grade, GradeCount } from '../shared/Grade'
+import { Figures, Grade, GradeCount } from '../shared/Grade'
 import { SortHeader, nextSort, type Sort } from '../shared/SortHeader'
 import { CardLink, FindingCard, FindingGroupCard, FixItemText, HiddenNote, PointsLost, goToCard, lostOpenDefault } from '../findings/FindingCard'
 import { SeverityFilter, type SeverityOn } from '../findings/SeverityFilter'
@@ -260,7 +260,7 @@ export default function Report({
                     : <span className="print-only row-anchor">{r.bot.name}</span>}
                 </td>
                 <td role="cell" className="num col-score">
-                  <Grade score={r.s} />
+                  <Grade score={r.s} className="grade-chip" />
                 </td>
                 <td role="cell" className="num col-detail">{number(r.m.totalLines)}</td>
                 <td role="cell" className="num col-detail">{number(r.m.commentLines)}</td>
@@ -284,8 +284,8 @@ export default function Report({
                       ))}
                       {/* the ratio only when the filter hides some findings of this taskbot */}
                       {r.findings.length === 0
-                        ? <span className="sev-shown">{plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list: hiddenList(r.counts, sevOn, lang) })}</span>
-                        : r.findings.length < r.all.length && <span className="sev-shown">{plural('report.findings.shown', r.all.length, { shown: number(r.findings.length) })}</span>}
+                        ? <span className="sev-shown"><Figures text={plural('report.silent.hidden', hiddenTotal(r.counts, sevOn), { list: hiddenList(r.counts, sevOn, lang) })} /></span>
+                        : r.findings.length < r.all.length && <span className="sev-shown"><Figures text={plural('report.findings.shown', r.all.length, { shown: number(r.findings.length) })} /></span>}
                     </span>
                   )}
                 </td>
@@ -313,7 +313,7 @@ export default function Report({
                 <Name text={r.bot.name} className="report-bot-name" />
               </button>
               <span className="print-only" aria-hidden="true"><Name text={r.bot.name} className="report-bot-name" /></span>{' '}
-              <Grade score={r.s} className="tb-grade" />
+              <Grade score={r.s} className="grade-chip" />
             </h2>
             <p className="report-bot-path">{r.bot.path}</p>
             {r.lost.length > 0 && (

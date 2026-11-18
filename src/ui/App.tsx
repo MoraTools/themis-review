@@ -62,7 +62,7 @@ export function ScoreBadge({ score }: { score: BotScore }) {
   return (
     <a className="score-badge" href="#report" aria-label={t('score.open', { grade: score.grade, score: number(score.score) })}>
       <span className="score-badge-label">{t('score.project')}</span>
-      <Grade score={score} className="score-badge-value" />
+      <Grade score={score} className="score-badge-value grade-chip" />
     </a>
   )
 }

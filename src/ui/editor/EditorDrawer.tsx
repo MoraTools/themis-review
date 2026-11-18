@@ -273,7 +273,7 @@ export default function EditorDrawer({
         <div className="drawer-heading">
           <h1 className="drawer-title">
             <Name text={bot.name} className="drawer-name" id="editor-title" />{' '}
-            <Grade score={score} className="tb-grade" />
+            <Grade score={score} className="grade-chip" />
           </h1>
           {/* one line: the path (cut with an ellipsis, in full in the title), then the stats */}
           <div className="drawer-sub">
