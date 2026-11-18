@@ -1,17 +1,3 @@
-import ELK from 'elkjs/lib/elk.bundled.js'
-import type { ElkNode } from 'elkjs/lib/elk-api'
-import { elkRoutes } from './routes'
-
-const elk = new ELK()
-
-self.onmessage = async (event: MessageEvent<ElkNode>) => {
-  try {
-    const result = await elk.layout(event.data)
-    self.postMessage({
-      positions: result.children?.map((child) => ({ id: child.id, x: child.x ?? 0, y: child.y ?? 0 })) ?? [],
-      routes: elkRoutes(result),
-    })
-  } catch (error) {
-    self.postMessage({ error: String(error) })
-  }
-}
+// The elkjs worker script: in a worker scope it answers the ELK API's messages on self (elkjs README, "Web Worker").
+// elk.bundled.js cannot run here: in a worker scope its embedded worker code exports no Worker class to construct.
+import 'elkjs/lib/elk-worker.min.js'

@@ -12,7 +12,7 @@ import {
   type Node,
   type ReactFlowInstance,
 } from '@xyflow/react'
-import type { ElkNode } from 'elkjs/lib/elk-api'
+import ElkApi, { type ElkNode } from 'elkjs/lib/elk-api'
 import '@xyflow/react/dist/style.css'
 import type { BotScore, ProjectAnalysis, Severity } from '../../core/model'
 import TaskbotNode from './TaskbotNode'
@@ -598,34 +598,35 @@ function buildFlow(a: ProjectAnalysis): { nodes: FlowNode[]; edges: Edge[] } {
 
 type Laid = { positions: { id: string; x: number; y: number }[]; routes: { id: string; points: Point[] }[] }
 
+const laidOut = (result: ElkNode): Laid => ({
+  positions: result.children?.map((child) => ({ id: child.id, x: child.x ?? 0, y: child.y ?? 0 })) ?? [],
+  routes: elkRoutes(result),
+})
+
+/** ELK's API on this thread, its layout code in a worker (elkjs README, "Web Worker" with workerFactory). */
 export function layoutInWorker(graph: ElkNode, signal?: AbortSignal): Promise<Laid> {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' })
+    let worker: Worker | undefined
+    const elk = new ElkApi({
+      workerFactory: () => (worker = new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' })),
+    })
     let settled = false
     const finish = (callback: () => void) => {
       if (settled) return
       settled = true
       signal?.removeEventListener('abort', abort)
-      worker.terminate()
+      elk.terminateWorker()
       callback()
     }
     const abort = () => finish(() => reject(signal?.reason ?? new DOMException('Aborted', 'AbortError')))
-    worker.onmessage = (event: MessageEvent<Partial<Laid> & { error?: string }>) => {
-      finish(() => {
-        if (event.data.positions) resolve({ positions: event.data.positions, routes: event.data.routes ?? [] })
-        else reject(new Error(event.data.error ?? 'Layout failed'))
-      })
-    }
-    worker.onerror = (event) => {
-      finish(() => reject(new Error(event.message)))
-    }
+    // a worker script that fails to load or start never answers ELK's messages
+    if (worker) worker.onerror = (event) => finish(() => reject(new Error(event.message)))
     signal?.addEventListener('abort', abort, { once: true })
     if (signal?.aborted) return abort()
-    try {
-      worker.postMessage(graph)
-    } catch (error) {
-      finish(() => reject(error))
-    }
+    elk.layout(graph).then(
+      (result) => finish(() => resolve(laidOut(result))),
+      (error) => finish(() => reject(error)),
+    )
   })
 }
 
@@ -729,10 +730,7 @@ async function layout(
     const ELK = (await import('elkjs/lib/elk.bundled.js')).default
     const result = await new ELK().layout(graph)
     signal.throwIfAborted()
-    laid = {
-      positions: result.children?.map((child) => ({ id: child.id, x: child.x ?? 0, y: child.y ?? 0 })) ?? [],
-      routes: elkRoutes(result),
-    }
+    laid = laidOut(result)
   }
   const pos = new Map(laid.positions.map((child) => [child.id, { x: child.x, y: child.y }]))
   if (isolates.length) {
