@@ -20,6 +20,7 @@ import {
   includedList,
   lostPoints,
   lostTotal,
+  projectLines,
   scoringLines,
   SEVERITIES,
   severityCounts,
@@ -154,7 +155,24 @@ export default function Report({
     return () => { removeEventListener('beforeprint', before); removeEventListener('afterprint', after) }
   }, [])
   const [lostOpen] = useState(lostOpenDefault)
-  const { items: top, more } = fixFirst(analysis)
+  const { items: top, more, ties } = fixFirst(analysis)
+  // the tied items of '+N more': a disclosure on screen, always listed in print
+  const [tiesOpen, setTiesOpen] = useState(false)
+  const fixItem = (l: (typeof top)[number]) => {
+    const r = rowOf.get(l.botPath)!
+    const target = r.families.get(l.group)
+    const hidden = target ? undefined : hiddenOf(r)(l.group)
+    const body = <FixItemText name={r.bot.name} item={l} />
+    return (
+      <li key={l.botPath + l.group}>
+        {target ? <CardLink target={target}>{body}</CardLink> : body}
+        {hidden && <> <HiddenNote text={hidden} onShow={() => showHidden(r)(l.group)} /></>}
+      </li>
+    )
+  }
+  // each Lines cell also shows the taskbot's share of the project lines, the weight of its score
+  const allLines = projectLines(analysis)
+  const share = new Intl.NumberFormat(lang, { style: 'percent', maximumFractionDigits: 0 }).format
   // pages 2+ of the PDF name the report: @page margin boxes read custom properties only from the root element
   const printId = `${analysis.zipNames.join(', ')} · ${date}`
   useEffect(() => {
@@ -176,10 +194,13 @@ export default function Report({
           {t('report.date')}: {date} · {t('report.files')}: {analysis.zipNames.join(', ')}
         </p>
         <div className="report-facts">
-          <p className="report-facts-scope">
-            {t('report.scope.included', { list: included })}
-            {hidden && ' ' + plural('report.scope.hidden', hiddenTotal(counts, sevOn), { list: hidden })} {t('report.scope.score')}
-          </p>
+          {/* the filter scope: a clean project has no filter */}
+          {analysis.findings.length > 0 && (
+            <p className="report-facts-scope">
+              {t('report.scope.included', { list: included })}
+              {hidden && ' ' + plural('report.scope.hidden', hiddenTotal(counts, sevOn), { list: hidden })} {t('report.scope.score')}
+            </p>
+          )}
           <p className="report-facts-rule">{scoring.rule}</p>
           <p>{scoring.bands}</p>
           <p>
@@ -198,21 +219,17 @@ export default function Report({
         <section className="report-fix" aria-labelledby="report-fix-title">
           <h2 id="report-fix-title">{t('report.fixFirst')}</h2>
           <p className="report-fix-note">{t('report.fixFirst.note')}</p>
-          <ol className="report-fix-list">
-            {top.map((l) => {
-              const r = rowOf.get(l.botPath)!
-              const target = r.families.get(l.group)
-              const hidden = target ? undefined : hiddenOf(r)(l.group)
-              const body = <FixItemText name={r.bot.name} item={l} />
-              return (
-                <li key={l.botPath + l.group}>
-                  {target ? <CardLink target={target}>{body}</CardLink> : body}
-                  {hidden && <> <HiddenNote text={hidden} onShow={() => showHidden(r)(l.group)} /></>}
-                </li>
-              )
-            })}
-          </ol>
-          {more > 0 && <p className="report-fix-more">{plural('report.fixFirst.more', more)}</p>}
+          <ol className="report-fix-list">{top.map(fixItem)}</ol>
+          {more > 0 && (
+            <>
+              <p className="report-fix-more">
+                <button type="button" className="report-fix-more-toggle no-print" aria-expanded={tiesOpen} aria-controls="report-fix-ties"
+                  onClick={() => setTiesOpen((o) => !o)}>{plural('report.fixFirst.more', more)}</button>
+                <span className="print-only">{plural('report.fixFirst.more', more)}</span>
+              </p>
+              <ol id="report-fix-ties" className={'report-fix-list report-fix-ties' + (tiesOpen ? '' : ' closed')} start={top.length + 1}>{ties.map(fixItem)}</ol>
+            </>
+          )}
         </section>
       )}
 
@@ -262,7 +279,10 @@ export default function Report({
                 <td role="cell" className="num col-score">
                   <Grade score={r.s} className="grade-chip" />
                 </td>
-                <td role="cell" className="num col-detail">{number(r.m.totalLines)}</td>
+                <td role="cell" className="num col-detail">
+                  {number(r.m.totalLines)}
+                  {allLines > 0 && <span className="lines-share"> · {share(r.m.totalLines / allLines)}</span>}
+                </td>
                 <td role="cell" className="num col-detail">{number(r.m.commentLines)}</td>
                 <td role="cell" className="num col-detail">{number(r.m.logMessages)}</td>
                 <td role="cell" className="num col-detail">{number(r.m.variables)}</td>
@@ -312,7 +332,7 @@ export default function Report({
               <button type="button" className="row-name report-bot-open no-print" aria-describedby="report-open-hint" onClick={() => onOpen(r.bot.path)}>
                 <Name text={r.bot.name} className="report-bot-name" />
               </button>
-              <span className="print-only" aria-hidden="true"><Name text={r.bot.name} className="report-bot-name" /></span>{' '}
+              <span className="print-only"><Name text={r.bot.name} className="report-bot-name" /></span>{' '}
               <Grade score={r.s} className="grade-chip" />
             </h2>
             <p className="report-bot-path">{r.bot.path}</p>

@@ -177,7 +177,7 @@ body {
 button, input, select, textarea { font: inherit; }
 code { font-family: var(--font-mono); }
 /* one caps-label recipe: 11px mono uppercase with the label tracking */
-.legend-toggle, .legend-group, .legend-item dt, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-sort-by, .report-score-label, .grade-strip-label, .map-fix summary, .file-kind, .code-off { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+.legend-toggle, .legend-group, .legend-item dt, .var-table th, .rules-model-label, .report-options-label, .report-table th, .rules-table td.rules-msg::before, .rules-sort-by, .report-score-label, .grade-strip-label, .map-fix summary, .file-kind, .code-off, .finding-items-caption { font: 600 var(--fs-11)/var(--lh-label) var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 .app-main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -223,7 +223,6 @@ a.tab { display:inline-flex; align-items:center; text-decoration:none; }
 .theme-toggle .moon { opacity:1; transform:rotate(0); }
 :root[data-theme="dark"] .theme-toggle .sun { opacity:1; transform:rotate(0); }
 :root[data-theme="dark"] .theme-toggle .moon { opacity:0; transform:rotate(90deg); }
-.btn:disabled, .btn[aria-disabled="true"] { opacity:.5; cursor:not-allowed; }
 .btn-arrow { display:inline-flex; }
 
 /* outlined rectangular cell, feature-tag pattern */
@@ -998,6 +997,12 @@ a.score-badge { color: inherit; text-decoration: none; }
 .finding-items.finding-renames { display: block; columns: 32ch; column-gap: 24px; }
 .finding-renames li { display: grid; grid-template-columns: 6ch minmax(0, 1fr); column-gap: 8px; align-items: baseline; padding-block: 2px; break-inside: avoid; }
 @media screen and (max-width: 760px) { .finding-items.finding-renames { columns: auto; } }
+/* a rename item without a line: a muted dash keeps the line column */
+.finding-no-line { color: var(--text-subtle); }
+/* the caption of the declared but unused names, the second part of a rename list */
+.finding-items-caption { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--border); color: var(--text-muted); }
+.finding-items + .finding-items-caption { padding-top: 0; border-top: 0; }
+.finding-items-caption + .finding-items { margin-top: 4px; padding-top: 0; border-top: 0; }
 .name-key { max-width: 60ch; margin: 8px 0 0; color: var(--text-muted); font: 400 var(--fs-12)/var(--lh-snug) var(--font-ui); }
 .empty-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; padding: 16px 20px; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
 .report .empty-state { padding: 0; }
@@ -1148,6 +1153,7 @@ a.score-badge { color: inherit; text-decoration: none; }
   padding-top: 20px;
   border-top: 1px solid var(--border-strong);
 }
+.lines-share { color: var(--text-muted); white-space: nowrap; }
 .report-bot-path { margin: 0 0 16px; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-12); overflow-wrap: anywhere; }
 .report-bot .finding-card { max-width: 100%; }
 .report-lost-box { max-width: 56ch; margin: 0 0 12px; }
@@ -1180,7 +1186,11 @@ a.score-badge { color: inherit; text-decoration: none; }
 /* a block target keeps the spaces around the separators and wraps like text */
 .report-fix-list .report-lost-link { display: block; margin: 0; padding: 4px 0; }
 .report-fix-bot { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.report-fix-value { white-space: nowrap; }
 .report-fix-more { margin: 4px 0 0 1.5em; color: var(--text-muted); font: 400 var(--fs-14)/var(--lh-body) var(--font-ui); }
+.report-fix-more-toggle { border: 0; background: transparent; font: inherit; cursor: pointer; }
+.report-fix-ties { margin-top: 4px; }
+@media screen { .report-fix-ties.closed { display: none; } }
 /* summary findings: fixed slots (error, warning, info, then shown), so each icon has the same x in every row */
 .summary-table .col-findings { white-space: nowrap; }
 .sev-slots { display: inline-flex; align-items: center; gap: 10px; }
@@ -1233,12 +1243,12 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 .report-table .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .row-name { border:0; background:transparent; font:inherit; text-align:left; cursor:pointer; }
 /* one inline-link recipe: text with a 3:1 underline; hover and focus turn it gold with a full underline */
-.finding-line, .row-name, .finding-rule-link, .finding-var, .report-lost-link .report-lost-title, .report-lost-show, .canvas-loading a { color:var(--text); text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; }
-:is(.finding-line, .row-name, .finding-rule-link, .finding-var, .report-lost-show, .canvas-loading a):is(:hover, :focus-visible), .report-lost-link:is(:hover, :focus-visible) .report-lost-title { color:var(--accent-text); text-decoration-color:currentColor; }
+.finding-line, .row-name, .finding-rule-link, .finding-var, .report-lost-link .report-lost-title, .report-lost-show, .report-fix-more-toggle, .canvas-loading a { color:var(--text); text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; }
+:is(.finding-line, .row-name, .finding-rule-link, .finding-var, .report-lost-show, .report-fix-more-toggle, .canvas-loading a):is(:hover, :focus-visible), .report-lost-link:is(:hover, :focus-visible) .report-lost-title { color:var(--accent-text); text-decoration-color:currentColor; }
 /* the rule id stays muted at rest (DESIGN.md: it follows the finding title) */
 .finding-rule-link:not(:hover, :focus-visible) { color:var(--text-muted); }
 /* inline text targets: the padding grows the hit box and the matching negative margin keeps the text in place */
-.finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
+.finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var, .report-fix-more-toggle { display:inline-flex; align-items:center; min-width:var(--target-min); min-height:var(--target-min); padding:3px 4px; margin:-3px -4px; }
 .report-bot h2 { overflow-wrap:anywhere; }
 .tb-stats .icon { width:13px; height:13px; }
 /* One chip shape and type. .severity-chip is the static status tag; .chip (editor filter) and .sev-toggle (report filter) are the filter chip. */
@@ -1251,7 +1261,8 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
 .chip.active,.sev-toggle.on { border-color:var(--selected-border); background:var(--selected-bg); color:var(--text); }
 .chip.active::before,.sev-toggle.on::before { content:""; width:4px; height:8px; margin:-2px 1px 0; border:solid currentColor; border-width:0 2px 2px 0; transform:rotate(45deg); }
 /* a severity with no finding: nothing to filter */
-.sev-toggle.disabled, .sev-toggle.disabled:hover { border-color:var(--border); background:var(--surface); color:var(--text-subtle); cursor:default; }
+/* one disabled look for buttons and filter chips; after the hover rules, so hover does not change it */
+:is(.btn, .sev-toggle):is(:disabled, .disabled, [aria-disabled="true"]), :is(.btn, .sev-toggle):is(:disabled, .disabled, [aria-disabled="true"]):hover { border-color:var(--border); background:var(--surface); color:var(--text-subtle); cursor:default; }
 .sev-toggle input { position:absolute; width:1px; height:1px; margin:0; opacity:0; pointer-events:none; }
 .sev-error { --tone:var(--crit); }
 .sev-warn { --tone:var(--warn); }
@@ -1321,9 +1332,10 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .report-fix-list { align-items:stretch; }
   /* a block button keeps its content width; the grid needs the full row */
   .report-fix-list .report-lost-link { width:100%; }
-  .report-fix-item { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:12px; }
+  /* the points take at most half the row: two named values wrap between them, so the rule keeps its width */
+  .report-fix-item { display:grid; grid-template-columns:minmax(0,1fr) fit-content(50%); column-gap:12px; }
   .report-fix-bot { grid-column:1/-1; }
-  .report-fix-item .report-lost-points { justify-self:end; white-space:nowrap; text-align:right; }
+  .report-fix-item .report-lost-points { justify-self:end; white-space:normal; text-align:right; }
   .report-fix-sep { display:none; }
 }
 /* under 760px the summary keeps Taskbot, Findings and Score; the editor shows the rest */
@@ -1343,13 +1355,16 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   .summary-table tbody .col-findings { grid-area:2/1/3/3; white-space:normal; }
   .summary-table tbody .col-score { grid-area:2/3; }
   .sev-slots { flex-wrap:wrap; row-gap:4px; }
-  /* finding card head: chip, title and points on row 1; the place, then the rule id last and muted on row 2 */
-  .finding-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:6px 12px; }
-  .finding-head > .severity-chip { grid-area:1/1; justify-self:start; align-self:start; }
-  .finding-head > .finding-title { grid-area:1/2; }
-  .finding-head > .finding-points { grid-area:1/3; justify-self:end; align-self:start; }
-  .finding-head > .finding-where { grid-area:2/1/3/3; justify-self:start; }
-  .finding-head > .finding-rule { grid-area:2/3; justify-self:end; }
+  /* finding card head: the chip left and the points right on row 1, the title at full width on row 2, then the
+     place (count or line) left and the rule id right on row 3; the DOM order stays chip, title, place, points, id */
+  .finding-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 12px; }
+  .finding-head > .severity-chip { grid-area:1/1; justify-self:start; align-self:center; }
+  .finding-head > .finding-points { grid-area:1/2; justify-self:end; align-self:center; }
+  .finding-head > .finding-title { grid-area:2/1/3/3; }
+  .finding-head > .finding-where { grid-area:3/1; justify-self:start; }
+  .finding-head > .finding-rule { grid-area:3/2; justify-self:end; }
+  /* the Points lost toggles reach the 44 px target */
+  .drawer-lost-summary, .report-lost-summary { box-sizing:border-box; min-height:var(--target-min); }
   .summary-note { display:block; }
   /* the header row becomes a labelled row of sort chips */
   .rules-sort-by { display:block; margin:0 0 8px; color:var(--text-muted); text-align:left; }
@@ -1441,13 +1456,17 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
   /* no print text under 8 pt */
   .report-table th { font-size:8.5pt; }
   .report-lost-hidden, .sev-shown, .sev-none { font-size:9pt; }
-  /* a grouped card may break inside; its head and texts stay with the first lines of the list */
+  /* a grouped card with a rename list may break inside; its head and texts stay with the first lines of the list.
+     Other grouped cards stay in one piece, and message and fix never split */
   .finding-group { break-inside:auto; orphans:3; widows:3; }
-  .finding-group .finding-head, .finding-group .finding-msg, .finding-group .finding-fix, .finding-group .name-key { break-after:avoid; }
+  .finding-group:not(:has(.finding-renames)), .finding-texts { break-inside:avoid; }
+  .finding-group .finding-head, .finding-group .finding-texts, .finding-group .name-key { break-after:avoid; }
+  /* the page is wider than the screen card text: a longer measure in print */
+  .finding-msg, .finding-fix, .name-key { max-width:80ch; }
   /* the footer joins the last card, so no page holds only the footer */
   .report-foot { margin-top:24px; padding-top:12px; break-before:avoid; break-inside:avoid; }
   /* print has no touch targets: inline targets go back to plain inline text */
-  .finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var { display:inline; min-width:0; min-height:0; padding:0; margin:0; }
+  .finding-line, .row-name, .code-flag, .finding-rule-link, .report-lost-link, .finding-var, .report-fix-more-toggle { display:inline; min-width:0; min-height:0; padding:0; margin:0; }
   .finding-card { box-sizing:border-box; max-width:100%; }
   .report-table th.sorted { color:var(--text-muted); }
   .report-table tbody tr:hover { background:transparent; color:inherit; }
@@ -1466,13 +1485,13 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent-edge); }
     @bottom-left { content:var(--print-id, ""); color:var(--text-muted); font:400 var(--fs-11)/1 var(--font-mono); }
     @bottom-right { content:counter(page) " / " counter(pages); color:var(--text-muted); font:400 var(--fs-11)/1 var(--font-mono); }
   }
-  @page :first { @bottom-left { content:none; } }
 }
 
 /* Windows high contrast: chips, grade and severity bars and focus keep a visible system color */
 @media (forced-colors: active) {
   .chip, .sev-toggle, .severity-chip, .grade-chip, .score-badge, .grade-strip button { border: 2px solid CanvasText; }
   .chip.active, .sev-toggle.on, .compact-toggle[aria-pressed="true"], .rules-table thead th.sorted button { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  :is(.btn, .sev-toggle):is(:disabled, .disabled, [aria-disabled="true"]) { border-color: GrayText; color: GrayText; }
   .tb-node.g-C, .tb-node.g-D, .tb-node.g-F, .finding-card { border-left: 4px solid CanvasText; }
   :where(button,a,input,select,textarea,summary,[tabindex]):focus-visible, .sev-toggle:has(:focus-visible), .drawer[data-kbd] [role="tab"]:focus, .react-flow .react-flow__node.selectable:focus-visible { outline: 2px solid Highlight; }
 }

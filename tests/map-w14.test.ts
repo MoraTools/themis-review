@@ -42,10 +42,9 @@ describe('Fix first on the map', () => {
   for (const lang of ['en', 'es'] as const) {
     it(`lists the report's items in the report's order (${lang})`, () => {
       const map = fixItems(wrap(lang, createElement(MapFixFirst, { analysis, onOpen: () => {} })))
-      // the report draws each item twice: a button on screen and an anchor in print
-      const report = fixItems(
-        wrap(lang, createElement(Report, { analysis, onOpen: () => {}, sevOn: DEFAULT_SEVERITY_ON, onToggleSeverity: () => {}, onRule: () => {} })),
-      ).filter((item, i, all) => item !== all[i - 1])
+      // the report draws each item twice: a button on screen and an anchor in print; the tied items follow in their own list
+      const html = wrap(lang, createElement(Report, { analysis, onOpen: () => {}, sevOn: DEFAULT_SEVERITY_ON, onToggleSeverity: () => {}, onRule: () => {} }))
+      const report = fixItems(html.slice(0, html.indexOf('report-fix-ties'))).filter((item, i, all) => item !== all[i - 1])
       expect(map).toHaveLength(fixFirst(analysis).items.length)
       expect(map.length).toBeGreaterThan(0)
       expect(map).toEqual(report)

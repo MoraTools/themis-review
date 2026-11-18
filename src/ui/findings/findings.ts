@@ -52,17 +52,21 @@ export function entrySize(e: FindingEntry): number {
   return e.kind === 'single' ? 1 : e.findings.length
 }
 
-export type Lost = { group: string; points: number; capped: boolean }
+/** `rules`: the rules of the family that have findings, in first-finding order */
+export type Lost = { group: string; points: number; capped: boolean; rules: string[] }
 
 /** points each rule family takes from one bot, with the same cap as scoreFindings(), largest first */
 export function lostPoints(findings: Finding[]): Lost[] {
-  const byGroup = new Map<string, number>()
+  const byGroup = new Map<string, { sum: number; rules: Set<string> }>()
   for (const f of findings) {
     const key = capGroup(f.ruleId)
-    byGroup.set(key, (byGroup.get(key) ?? 0) + DEDUCTION[f.severity])
+    const g = byGroup.get(key) ?? { sum: 0, rules: new Set<string>() }
+    g.sum += DEDUCTION[f.severity]
+    g.rules.add(f.ruleId)
+    byGroup.set(key, g)
   }
   return [...byGroup]
-    .map(([group, sum]) => ({ group, points: Math.min(sum, RULE_CAP), capped: sum >= RULE_CAP }))
+    .map(([group, { sum, rules }]) => ({ group, points: Math.min(sum, RULE_CAP), capped: sum >= RULE_CAP, rules: [...rules] }))
     .sort((a, b) => b.points - a.points || a.group.localeCompare(b.group))
 }
 
@@ -85,18 +89,23 @@ export type FixItem = Lost & {
   project: number
 }
 
+/** all lines of the project: the weight of a taskbot is its lines over this, as in fixFirst() and projectScore() */
+export function projectLines(analysis: Pick<ProjectAnalysis, 'taskbots' | 'metrics'>): number {
+  return analysis.taskbots.reduce((sum, b) => sum + (analysis.metrics[b.path]?.totalLines ?? 0), 0)
+}
+
 /** the losses that raise the project score most when fixed: the report, the PDF and the map call this one function.
  *  Order: project effect, then the lowest taskbot score, then the input order (taskbots, then their lostPoints()).
  *  While other taskbots have a loss of the same size, a taskbot gets at most one item. `more` counts the cut items
- *  of the same size as the last one. */
+ *  of the same size as the last one; `ties` are those items, in rank order. */
 export function fixFirst(
   analysis: Pick<ProjectAnalysis, 'findings' | 'taskbots' | 'metrics' | 'scores'>,
   n = 3,
-): { items: FixItem[]; more: number } {
+): { items: FixItem[]; more: number; ties: FixItem[] } {
   const byBot = new Map<string, Finding[]>()
   for (const f of analysis.findings) byBot.set(f.botPath, [...(byBot.get(f.botPath) ?? []), f])
   const lines = (path: string) => analysis.metrics[path]?.totalLines ?? 0
-  const total = analysis.taskbots.reduce((sum, b) => sum + lines(b.path), 0)
+  const total = projectLines(analysis)
   // sizes are compared as shown (one decimal), so items that read the same are a tie
   const all = analysis.taskbots.flatMap((b) => {
     const lost = lostPoints(byBot.get(b.path) ?? [])
@@ -122,7 +131,8 @@ export function fixFirst(
   const ordered = [...sorted].sort((a, b) => b.project - a.project || rank.get(a)! - rank.get(b)!)
   const items = ordered.slice(0, n)
   const last = items.at(-1)
-  return { items, more: last ? ordered.slice(n).filter((i) => i.project === last.project).length : 0 }
+  const ties = last ? ordered.slice(n).filter((i) => i.project === last.project) : []
+  return { items, more: ties.length, ties }
 }
 
 /** the family points for each card: the first card of a family carries them, later cards of the same family
@@ -190,6 +200,12 @@ export function hiddenTotal(counts: Record<Severity, number>, shown: Record<Seve
 export function groupLabel(lang: Lang, group: string): string {
   const shared = RULES.filter((r) => r.capGroup === group).length > 1
   return translate(lang, shared ? `rule.${group}.family` : `rule.${group}.title`)
+}
+
+/** the name of a Points lost or Fix first row: the rule title (as on its card) when one rule of the family has
+ *  findings, the family label when two or more share the row */
+export function lostLabel(lang: Lang, lost: Pick<Lost, 'group' | 'rules'>): string {
+  return lost.rules.length === 1 ? translate(lang, `rule.${lost.rules[0]}.title`) : groupLabel(lang, lost.group)
 }
 
 /** the sentence and fix of a grouped card: per-rule group texts, never the single message with blanked slots */

@@ -100,9 +100,9 @@ describe('card order and family points', () => {
     expect(entries.map((e) => (e.kind === 'group' ? 'group:' + e.ruleId : e.finding.ruleId))).toEqual([
       'group:MSGBOX_BLOCKING', 'VAR_NO_DESCRIPTION', 'VAR_NO_DESCRIPTION_LOCAL', 'TOO_LONG', 'UNUSED_VAR',
     ])
-    expect(points.get(0)).toEqual({ group: 'MSGBOX_BLOCKING', points: RULE_CAP, capped: true })
+    expect(points.get(0)).toEqual({ group: 'MSGBOX_BLOCKING', points: RULE_CAP, capped: true, rules: ['MSGBOX_BLOCKING'] })
     expect(points.get(1)?.inFamily).toBeUndefined()
-    expect(points.get(2)).toEqual({ group: 'VAR_NO_DESCRIPTION', points: DEDUCTION.warn + DEDUCTION.info, capped: false, inFamily: true })
+    expect(points.get(2)).toEqual({ group: 'VAR_NO_DESCRIPTION', points: DEDUCTION.warn + DEDUCTION.info, capped: false, rules: ['VAR_NO_DESCRIPTION', 'VAR_NO_DESCRIPTION_LOCAL'], inFamily: true })
     expect(entries.every((_, i) => points.has(i))).toBe(true)
   })
 })
@@ -116,11 +116,12 @@ describe('lost points and the scoring text', () => {
       f('DISABLED_CODE', 'info'),
     ]
     const lost = lostPoints(findings)
-    expect(lost[0]).toEqual({ group: 'MSGBOX_BLOCKING', points: RULE_CAP, capped: true })
+    expect(lost[0]).toEqual({ group: 'MSGBOX_BLOCKING', points: RULE_CAP, capped: true, rules: ['MSGBOX_BLOCKING'] })
     expect(lost.find((l) => l.group === 'VAR_NO_DESCRIPTION')).toEqual({
       group: 'VAR_NO_DESCRIPTION',
       points: DEDUCTION.warn + DEDUCTION.info,
       capped: false,
+      rules: ['VAR_NO_DESCRIPTION', 'VAR_NO_DESCRIPTION_LOCAL'],
     })
     const total = lost.reduce((n, l) => n + l.points, 0)
     expect(Math.round((100 - total) * 10) / 10).toBe(scoreFindings(findings))

@@ -49,8 +49,9 @@ describe('label in name', () => {
       expect(html).toContain(`<span id="report-open-hint" hidden="">${hint}</span>`)
       expect(html).toMatch(/<button type="button" class="row-name report-bot-open no-print" aria-describedby="report-open-hint">/)
       expect(html).not.toMatch(/class="row-name[^"]*"[^>]*aria-label=/)
-      // the print copy of the name in the h2 is not read twice
-      expect(html).toMatch(/<span class="print-only" aria-hidden="true"><span class="report-bot-name">/)
+      // the print copy of the name in the h2 is the heading text of the tagged PDF (display:none on screen)
+      expect(html).toMatch(/<span class="print-only"><span class="report-bot-name">/)
+      expect(html).not.toMatch(/<span class="print-only" aria-hidden="true"><span class="report-bot-name">/)
     }
   })
 })
@@ -105,7 +106,8 @@ describe('severity filter', () => {
     const html = wrap('en', createElement(SeverityFilter, {
       label: 'Show:', counts: { error: 2, warn: 0, info: 1 }, on: { error: true, warn: true, info: false }, onToggle: () => {},
     }))
-    expect(html).toContain('<label class="sev-toggle sev-warn on disabled"><input type="checkbox" disabled="" checked=""/>')
+    // a count-0 chip is disabled, not checked and not 'on', also when its state is on
+    expect(html).toContain('<label class="sev-toggle sev-warn disabled"><input type="checkbox" disabled=""/>')
     expect(html).toMatch(/<label class="sev-toggle sev-error on"><input type="checkbox" checked=""\/>/)
   })
 

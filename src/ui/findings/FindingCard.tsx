@@ -3,7 +3,7 @@ import type { Finding, Severity } from '../../core/model'
 import { SeverityIcon } from '../Icons'
 import { LangContext, useNumber, usePlural, useT } from '../i18n'
 import { Figures } from '../shared/Grade'
-import { groupLabel, groupTexts, lostTotal, type FixItem, type Lost } from './findings'
+import { groupTexts, lostLabel, lostTotal, type FixItem, type Lost } from './findings'
 
 /** a variable name; with onVar a screen-only button that opens the editor on the Variables tab, plain text in print */
 function VarName({ name, onVar, className }: { name: string; onVar?: (name: string) => void; className?: string }) {
@@ -49,14 +49,15 @@ function RuleId({ ruleId, onRule }: { ruleId: string; onRule?: (ruleId: string) 
   )
 }
 
-/** what a rule family costs, '−15 (cap)'; the card heads and Fix first use it; '(cap)' explains itself on hover */
-export function LostPoints({ lost }: { lost: Lost }) {
+/** what a rule family costs, '−15 (cap)'; the card heads and Points lost use it. '(cap)' is plain text: the scoring
+ *  line in the report facts names the same word */
+export function LostPoints({ lost }: { lost: Pick<Lost, 'points' | 'capped'> }) {
   const t = useT()
   const number = useNumber()
-  return <><span className="fig">−{number(lost.points)}</span>{lost.capped && <> (<abbr title={t('rules.capNote')}>{t('report.lost.cap')}</abbr>)</>}</>
+  return <><span className="fig">−{number(lost.points)}</span>{lost.capped && ` (${t('report.lost.cap')})`}</>
 }
 
-/** a Fix first item: taskbot · rule family · −points · −project points; the report and the map show it */
+/** a Fix first item: taskbot · rule · −points taskbot · −points project; the report and the map show it */
 export function FixItemText({ name, item }: { name: string; item: FixItem }) {
   const t = useT()
   const number = useNumber()
@@ -66,8 +67,13 @@ export function FixItemText({ name, item }: { name: string; item: FixItem }) {
   const sep = <span className="report-fix-sep"> · </span>
   return (
     <span className="report-fix-item">
-      <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{groupLabel(lang, item.group)}</span>{sep}
-      <span className="report-lost-points"><LostPoints lost={item} /><span className="report-fix-vsep"> ·</span> <Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
+      <span className="report-fix-bot">{name}</span>{sep}<span className="report-lost-title">{lostLabel(lang, item)}</span>{sep}
+      {/* two values, each kept on one line; on phones they may wrap between them */}
+      <span className="report-lost-points">
+        <span className="report-fix-value"><Figures text={t('report.fixFirst.bot', { points: number(item.points) })} />{item.capped && ` (${t('report.lost.cap')})`}</span>{' '}
+        {/* the separator starts the second value, so a wrapped line never ends on it */}
+        <span className="report-fix-value"><span className="report-fix-vsep">· </span><Figures text={t('report.fixFirst.project', { points: number(item.project) })} /></span>
+      </span>
     </span>
   )
 }
@@ -192,43 +198,55 @@ export function FindingGroupCard({
   const sameText = items.every((i) => i.subject === items[0].subject && i.suggestion === items[0].suggestion)
   // a rename list (old → new): one grid row per item, in columns
   const renames = items.some((i) => i.suggestion)
+  // a rename list puts the declared but unused variables (no line) last, under their own caption
+  const isUnused = (i: (typeof items)[number]) => renames && i.line === undefined && !!i.f.varName
+  const used = items.filter((i) => !isUnused(i))
+  const unused = items.filter(isUnused)
+  const item = ({ f, line, subject, suggestion }: (typeof items)[number], i: number) => {
+    // the name starts with the visible text: 'L62, open in the editor'
+    const lineName = line === undefined || !lineAction ? undefined : `L${number(line)}, ${lineAction}`
+    const lineCell = line === undefined ? null : onLine ? (
+      <button type="button" className="finding-line" aria-label={lineName} title={lineName} onClick={() => onLine(line)}>
+        L{number(line)}
+      </button>
+    ) : (
+      <span>L{number(line)}</span>
+    )
+    // an item without a line names a variable: it opens the editor at that variable
+    const name = line === undefined && f.varName && onVar ? <VarName name={subject} onVar={onVar} /> : <code>{subject}</code>
+    return (
+      <li key={i}>
+        {/* the grid line cell: a muted dash when there is no line, so the names stay in one column */}
+        {renames ? <span className="finding-item-line">{lineCell ?? <span className="finding-no-line" aria-hidden="true">—</span>}</span> : lineCell}{' '}
+        {!sameText && (
+          <span className="finding-item-text">
+            {name}
+            {suggestion && <> → <code className="finding-new">{suggestion}</code></>}
+          </span>
+        )}
+      </li>
+    )
+  }
   return (
     <article id={id} tabIndex={id ? -1 : undefined} className={'finding-card finding-group sev-' + first.severity} aria-labelledby={titleId}>
       <Head severity={first.severity} ruleId={first.ruleId} onRule={onRule} points={points} titleId={titleId} level={level}>
         <span className="finding-where finding-count"><Figures text={plural('report.group.count', findings.length)} /></span>
       </Head>
-      <p className="finding-msg">{msg}</p>
-      <p className="finding-fix">
-        <strong>{t('report.finding.fix')}:</strong> {fix}
-      </p>
+      {/* message and fix stay together on paper */}
+      <div className="finding-texts">
+        <p className="finding-msg">{msg}</p>
+        <p className="finding-fix">
+          <strong>{t('report.finding.fix')}:</strong> {fix}
+        </p>
+      </div>
       <NameKey ruleId={first.ruleId} />
-      <ul className={'finding-items' + (renames ? ' finding-renames' : '')}>
-        {items.map(({ f, line, subject, suggestion }, i) => {
-          // the name starts with the visible text: 'L62, open in the editor'
-          const lineName = line === undefined || !lineAction ? undefined : `L${number(line)}, ${lineAction}`
-          const lineCell = line === undefined ? null : onLine ? (
-            <button type="button" className="finding-line" aria-label={lineName} title={lineName} onClick={() => onLine(line)}>
-              L{number(line)}
-            </button>
-          ) : (
-            <span>L{number(line)}</span>
-          )
-          // an item without a line names a variable: it opens the editor at that variable
-          const name = line === undefined && f.varName && onVar && !suggestion && subject === f.varName ? <VarName name={subject} onVar={onVar} /> : <code>{subject}</code>
-          return (
-            <li key={i}>
-              {/* the grid keeps an empty line cell, so the names stay in one column */}
-              {renames ? <span className="finding-item-line">{lineCell}</span> : lineCell}{' '}
-              {!sameText && (
-                <span className="finding-item-text">
-                  {name}
-                  {suggestion && <> → <code className="finding-new">{suggestion}</code></>}
-                </span>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      {used.length > 0 && <ul className={'finding-items' + (renames ? ' finding-renames' : '')}>{used.map(item)}</ul>}
+      {unused.length > 0 && (
+        <>
+          <p className="finding-items-caption">{t('report.group.unused')}</p>
+          <ul className="finding-items finding-renames">{unused.map(item)}</ul>
+        </>
+      )}
     </article>
   )
 }
@@ -274,7 +292,7 @@ export function PointsLost({ lost, targetOf, hiddenOf, onShowHidden }: {
           const hidden = target ? undefined : hiddenOf?.(l.group)
           const body = (
             <>
-              <span className="report-lost-title">{groupLabel(lang, l.group)}</span>{' '}
+              <span className="report-lost-title">{lostLabel(lang, l)}</span>{' '}
               <span className="report-lost-points"><LostPoints lost={l} /></span>
             </>
           )

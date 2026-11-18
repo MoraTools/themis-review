@@ -116,7 +116,7 @@ export default function Rules({ analysis }: { analysis: ProjectAnalysis | null }
           <ul>
             <li>{t('rules.depthExemptItem', { prefix: CALL_DEPTH_UTILITY_PREFIX })}</li>
           </ul>
-          <p className="rules-model-note">{t('rules.depthExemptNote')}</p>
+          <p className="rules-model-note">{t('rules.depthExemptNote', { rule: t('rule.CALL_DEPTH.title') })}</p>
         </div>
       </div>
       <p className="rules-note">{t('rules.note')}</p>

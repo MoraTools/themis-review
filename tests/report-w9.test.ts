@@ -104,7 +104,7 @@ describe('summary table', () => {
     expect(html).not.toContain('report-silent')
     expect(html).not.toContain('report-clean')
     const master = table.split('<tr role="row"').find((r) => r.includes('000_MasterFacturas'))!
-    expect(text(master)).toContain('1 Info hidden')
+    expect(text(master)).toContain('1 Info, not shown')
     expect(master).toContain('<span class="print-only row-anchor">000_MasterFacturas</span>')
     expect(table.split('<tr role="row"').find((r) => r.includes('100_LeerCorreo'))).toContain('No findings')
   })
@@ -142,12 +142,18 @@ describe('fix first', () => {
         expect(html).toContain(`id="${anchor![1]}"`)
       } else expect(item).toContain('not shown')
     })
-    expect(text(block)).toContain('−15 (cap) · −10.4 project')
-    expect(block).toContain('<p class="report-fix-more">+1 more of the same size</p>')
+    expect(text(block)).toContain('−15 taskbot (cap) · −10.4 project')
+    // '+1 more' opens the tied items in the same list form; print lists them
+    expect(block).toContain('<button type="button" class="report-fix-more-toggle no-print" aria-expanded="false" aria-controls="report-fix-ties">+1 more of the same size</button>')
+    const ties = block.slice(block.indexOf('<ol id="report-fix-ties" class="report-fix-list report-fix-ties closed" start="4">'))
+    expect(ties).not.toBe(block)
+    const tie = fixFirst(analysis).ties[0]
+    expect(ties).toContain(analysis.taskbots.find((b) => b.path === tie.botPath)!.name)
+    expect(text(ties)).toContain(`· −${tie.project} project`)
     const es = report('es')
     expect(es).toContain('>Corregir primero</h2>')
     expect(es).toContain('+1 más del mismo tamaño')
-    expect(text(es)).toContain('−15 (tope) · −10,4 proyecto')
+    expect(text(es)).toContain('−15 taskbot (tope) · −10,4 proyecto')
   })
 
   it('lists one item per taskbot while other taskbots have a loss of the same size, and counts the cut ties', () => {
@@ -191,18 +197,20 @@ describe('fix first', () => {
 describe('card heads and labels', () => {
   it('shows the family points on the first card of a family', () => {
     const html = report('en')
-    // '(cap)' is an abbr whose title is the cap note
-    expect(html).toMatch(/<span class="finding-points"><span class="sr-only">points lost: <\/span><span class="fig">−15<\/span> \(<abbr title="The most one rule family can take off one taskbot.">cap<\/abbr>\)<\/span>/)
+    // '(cap)' is plain text; the scoring line names the same word
+    expect(html).toContain('<span class="finding-points"><span class="sr-only">points lost: </span><span class="fig">−15</span> (cap)</span>')
+    expect(html).toContain('at most 15 per rule family (the cap)')
+    expect(report('es')).toContain('por familia de reglas (el tope)')
     const f = analysis.findings.find((x) => x.botPath === old.path)!
-    const card = wrap('en', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 4, capped: false } }))
+    const card = wrap('en', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 4, capped: false, rules: [f.ruleId] } }))
     expect(card).toContain('<span class="finding-points"><span class="sr-only">points lost: </span><span class="fig">−4</span></span>')
   })
 
   it('marks the later cards of a shared family and lays renames out as a grid of line | old → new', () => {
     const f = analysis.findings.find((x) => x.botPath === old.path)!
-    const card = wrap('en', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 2, capped: false, inFamily: true } }))
+    const card = wrap('en', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 2, capped: false, rules: [f.ruleId], inFamily: true } }))
     expect(card).toContain('<span class="finding-points in-family"><span class="sr-only">points lost: </span>in family <span class="fig">−2</span></span>')
-    expect(wrap('es', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 2, capped: false, inFamily: true } }))).toContain('en la familia <span class="fig">−2</span>')
+    expect(wrap('es', createElement(FindingCard, { finding: f, points: { group: f.ruleId, points: 2, capped: false, rules: [f.ruleId], inFamily: true } }))).toContain('en la familia <span class="fig">−2</span>')
     const renames = [
       { ...f, ruleId: 'VAR_NAME_FORMAT', line: 7, varName: 'x', params: { suggestion: 'pStrX' } },
       { ...f, ruleId: 'VAR_NAME_FORMAT', line: undefined, varName: 'temp', params: { suggestion: 'pStrTemp' } },
@@ -210,7 +218,17 @@ describe('card heads and labels', () => {
     const group = wrap('en', createElement(FindingGroupCard, { findings: renames, lineOf: (x: Finding) => x.line }))
     expect(group).toContain('<ul class="finding-items finding-renames">')
     expect(group).toContain('<li><span class="finding-item-line"><span>L7</span></span> <span class="finding-item-text"><code>x</code> → <code class="finding-new">pStrX</code></span></li>')
-    expect(group).toContain('<li><span class="finding-item-line"></span> <span class="finding-item-text"><code>temp</code> → <code class="finding-new">pStrTemp</code></span></li>')
+    // a declared but unused name (no line): last, under its caption, with a muted dash in the line slot
+    expect(group).toContain('<p class="finding-items-caption">Not used in the code</p><ul class="finding-items finding-renames"><li><span class="finding-item-line"><span class="finding-no-line" aria-hidden="true">—</span></span> <span class="finding-item-text"><code>temp</code> → <code class="finding-new">pStrTemp</code></span></li></ul>')
+    expect(group.indexOf('L7')).toBeLessThan(group.indexOf('finding-items-caption'))
+    // with onVar the unused name opens its Variables row
+    const linked = wrap('es', createElement(FindingGroupCard, { findings: renames, lineOf: (x: Finding) => x.line, onVar: () => {} }))
+    expect(linked).toContain('<p class="finding-items-caption">Sin uso en el código</p>')
+    expect(linked).toMatch(/<button type="button" class="finding-var no-print" aria-label="[^"]*temp[^"]*"[^>]*><code>temp<\/code><\/button>/)
+    // a rename without a line and without a variable stays in the main list, with the dash
+    const path = wrap('en', createElement(FindingGroupCard, { findings: [renames[0], { ...renames[1], varName: undefined, params: { path: 'C:\\x', suggestion: 'y' } }], lineOf: (x: Finding) => x.line }))
+    expect(path).not.toContain('finding-items-caption')
+    expect(path).toContain('finding-no-line')
   })
 
   it('names the included severities in the Export PDF label', () => {

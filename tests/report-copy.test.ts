@@ -30,8 +30,8 @@ describe('plurals', () => {
   })
 
   it('picks one and other in Spanish, with agreement', () => {
-    expect(plural('es', 'report.silent.hidden', 1, { list: '1 Info' })).toBe('1 Info oculto')
-    expect(plural('es', 'report.silent.hidden', 16, { list: '16 Info' })).toBe('16 Info ocultos')
+    expect(plural('es', 'report.silent.hidden', 1, { list: '1 Info' })).toBe('1 Info, no se muestra')
+    expect(plural('es', 'report.silent.hidden', 16, { list: '16 Info' })).toBe('16 Info, no se muestran')
     expect(plural('es', 'node.vars', 1)).toBe('1 variable')
     expect(plural('es', 'node.vars', 0)).toBe('0 variables')
     expect(plural('es', 'report.group.count', 1)).toBe('1 hallazgo')
@@ -122,7 +122,9 @@ describe('points lost', () => {
     // the title is the link text; the id stays on the card head only
     expect(html).not.toContain('report-lost-id')
     expect((html.match(/<button/g) ?? []).length).toBe(2)
-    expect(html).toContain('(<abbr title="The most one rule family can take off one taskbot.">cap</abbr>)')
+    // '(cap)' is plain text, no abbr
+    expect(html).toContain('<span class="fig">−15</span> (cap)</span>')
+    expect(html).not.toContain('<abbr')
     // one stacked layout at every length, the print anchors to the same cards, the total last
     expect(html).not.toContain('stacked')
     expect(html).toContain('<a class="print-only card-anchor" href="#bot-0-MSGBOX_BLOCKING">')

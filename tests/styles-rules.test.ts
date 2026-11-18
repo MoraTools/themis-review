@@ -35,8 +35,19 @@ describe('shared style rules', () => {
       expect(css, token).not.toMatch(new RegExp(token + '(?![\\w-])'))
   })
 
-  it('names the report on PDF pages 2 and later', () => {
+  it('names the report on every PDF page, the first too', () => {
     expect(printBlock).toMatch(/@bottom-left \{ content:var\(--print-id, ""\);/)
-    expect(printBlock).toMatch(/@page :first \{ @bottom-left \{ content:none; \} \}/)
+    expect(printBlock).not.toContain('@page :first')
+  })
+
+  it('keeps one disabled rule for buttons and chips, with no opacity, and GrayText in forced colors', () => {
+    expect(css).not.toMatch(/disabled[^{]*\{[^}]*opacity/)
+    expect(css).toMatch(/\n:is\(\.btn, \.sev-toggle\):is\(:disabled, \.disabled, \[aria-disabled="true"\]\)[^{]*\{ border-color:var\(--border\); background:var\(--surface\); color:var\(--text-subtle\); cursor:default; \}/)
+    expect(css.slice(css.indexOf('@media (forced-colors: active)'))).toContain(':is(.btn, .sev-toggle):is(:disabled, .disabled, [aria-disabled="true"]) { border-color: GrayText; color: GrayText; }')
+  })
+
+  it('keeps group cards without a rename list and message with fix in one piece on paper, at 80ch', () => {
+    expect(printBlock).toContain('.finding-group:not(:has(.finding-renames)), .finding-texts { break-inside:avoid; }')
+    expect(printBlock).toContain('.finding-msg, .finding-fix, .name-key { max-width:80ch; }')
   })
 })
