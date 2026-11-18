@@ -162,13 +162,15 @@ export function gradeDistribution(scores: BotScore[]): Record<BotScore['grade'],
   return out
 }
 
-/** each grade band as "≥ 90", the last as "< 40"; the report line and the Rules page share it */
-export function gradeBands(lang: Lang): { grade: BotScore['grade']; text: string }[] {
+/** each grade band as "≥ 90", the last as "< 40"; the report line and the Rules page share it. `words` says
+ *  the same in words ("90 and over", "under 40"), for accessible names and titles */
+export function gradeBands(lang: Lang): { grade: BotScore['grade']; text: string; words: string }[] {
   const n = new Intl.NumberFormat(lang).format
-  return GRADE_BANDS.map((b, i) => ({
-    grade: b.grade,
-    text: b.min > 0 || i === 0 ? `≥ ${n(b.min)}` : `< ${n(GRADE_BANDS[i - 1].min)}`,
-  }))
+  return GRADE_BANDS.map((b, i) => {
+    const min = b.min > 0 || i === 0
+    const value = n(min ? b.min : GRADE_BANDS[i - 1].min)
+    return { grade: b.grade, text: min ? `≥ ${value}` : `< ${value}`, words: translate(lang, min ? 'grade.band.min' : 'grade.band.under', { n: value }) }
+  })
 }
 
 /** the scoring rule and the grade bands, built from the scoring constants (no second copy of the numbers) */

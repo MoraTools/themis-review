@@ -101,9 +101,10 @@ export default function TaskbotNode({ data }: NodeProps<Node<TBNodeData>>) {
   return (
     <div className={'tb-node' + (grade ? ' g-' + grade : '')}>
       {handles}
+      {/* the grade first, as in the compact form */}
       <div className="tb-head">
-        <Name text={data.label} />
         {chip}
+        <Name text={data.label} />
       </div>
       {uncalled}
       <div className="tb-stats">

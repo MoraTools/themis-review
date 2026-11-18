@@ -1,5 +1,5 @@
 import { ThemeToggles } from '../ThemeToggles'
-import { Icon, SeverityIcon } from '../Icons'
+import { Caret, Icon, SeverityIcon } from '../Icons'
 import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { isComment, type Action, type Finding, type ProjectAnalysis } from '../../core/model'
@@ -312,7 +312,7 @@ export default function EditorDrawer({
       {lost.length > 0 && (
         // every rule shows when open: no inner scroll box
         <details className="drawer-lost" open={lostOpen} onToggle={(event) => setLostOpen(event.currentTarget.open)} onClickCapture={openLost}>
-          <summary className="drawer-lost-summary">{plural('editor.lost.summary', lost.length, { points: number(lostTotal(lost)) })}</summary>
+          <summary className="drawer-lost-summary"><Caret />{plural('editor.lost.summary', lost.length, { points: number(lostTotal(lost)) })}</summary>
           <PointsLost lost={lost} targetOf={(g) => { const f = firstOfFamily(g); return f && cardId(f) }} />
         </details>
       )}

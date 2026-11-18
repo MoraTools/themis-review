@@ -217,7 +217,7 @@ function Shell() {
         {analysis && (
           <div className="header-zone header-right">
             <ScoreBadge score={analysis.projectScore} />
-            {/* at 480px and below these show a short label: 'PDF', 'New' */}
+            {/* at 760px and below these show a short label: 'PDF', 'New' */}
             <div className="header-tools">
               {/* one click from every view; the name says which severities the PDF includes */}
               <button className="btn primary" aria-label={t('header.exportScope', { list: includedList(sevOn, lang) })} title={t('header.exportScope', { list: includedList(sevOn, lang) })} onClick={() => window.print()}>

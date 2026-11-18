@@ -3,12 +3,12 @@ import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { analyzeZips } from '../src/core/analyze'
-import { firstFitViewport, MapFixFirst } from '../src/ui/canvas/Canvas'
+import { countInView, firstFitViewport, MapFixFirst } from '../src/ui/canvas/Canvas'
 import { compactWidth, NODE_WIDTH } from '../src/ui/canvas/nodeTypes'
 import { DEFAULT_SEVERITY_ON } from '../src/ui/findings/SeverityFilter'
 import { fixFirst } from '../src/ui/findings/findings'
 import Report from '../src/ui/report/Report'
-import { LangContext, type Lang } from '../src/ui/i18n'
+import { LangContext, plural, type Lang } from '../src/ui/i18n'
 import { joinPoint } from '../src/ui/canvas/routes'
 
 const DEMO = new URL('./fixtures/', import.meta.url)
@@ -51,10 +51,32 @@ describe('Fix first on the map', () => {
     })
   }
 
-  it('is a closed disclosure with one button per item', () => {
+  it('is a closed disclosure whose summary names the first item, with one button per item', () => {
     const html = wrap('en', createElement(MapFixFirst, { analysis, onOpen: () => {} }))
-    expect(html).toMatch(/^<details class="map-fix"><summary>Fix first<\/summary>/)
+    expect(html).toMatch(/^<details class="map-fix"><summary><span class="caret" aria-hidden="true">/)
+    expect(text(html.slice(0, html.indexOf('</summary>')))).toBe('Fix first: Proceso_Antiguo · Message Box that does not close')
+    const es = wrap('es', createElement(MapFixFirst, { analysis, onOpen: () => {} }))
+    expect(text(es.slice(0, es.indexOf('</summary>')))).toMatch(/^Corregir primero: Proceso_Antiguo · /)
     expect(html.match(/<button type="button"/g)).toHaveLength(fixFirst(analysis).items.length)
+  })
+})
+
+describe('cut first view', () => {
+  it('counts the boxes that lie whole in the pane', () => {
+    const boxes = [
+      { x: 0, y: 0, width: 100, height: 50 },
+      { x: 150, y: 0, width: 100, height: 50 },
+      { x: 0, y: 300, width: 100, height: 50 },
+    ]
+    expect(countInView(boxes, { x: 0, y: 0, zoom: 1 }, { width: 400, height: 400 })).toBe(3)
+    // half of the second box is right of the pane, the third is under it
+    expect(countInView(boxes, { x: 0, y: 0, zoom: 1 }, { width: 200, height: 200 })).toBe(1)
+    expect(countInView(boxes, { x: 10, y: 10, zoom: 0.5 }, { width: 200, height: 200 })).toBe(3)
+  })
+
+  it('names the part in both languages', () => {
+    expect(plural('en', 'canvas.cut', 43, { shown: '16' })).toBe('Showing 16 of 43')
+    expect(plural('es', 'canvas.cut', 43, { shown: '16' })).toBe('Mostrando 16 de 43')
   })
 })
 

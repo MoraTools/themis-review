@@ -26,6 +26,20 @@ describe('shared style rules', () => {
     expect(css).toMatch(/\.grade-pair \{ display: inline-flex; align-items: baseline;/)
   })
 
+  it('scales the node edges with the zoom, so they stay one screen px at the fit view', () => {
+    expect(css).toMatch(/\n\.tb-node\.compact \{[^}]*border-width: calc\(1px \* var\(--s\)\);/)
+    expect(css).toContain('.tb-node:not(.compact) { border-width: max(1px, calc(1px / var(--zoom, 1))); }')
+    // a ghost sets only its dash, so the widths above hold for it too
+    expect(css).toContain('.tb-node.ghost { border-style: dashed;')
+    expect(css).not.toMatch(/\.tb-node[^{]*\{[^}]*border: 1px dashed/)
+  })
+
+  it('keeps the disclosure controls out of the caps-label recipe', () => {
+    const caps = css.match(/\n([^\n{]*) \{ font: 600 var\(--fs-11\)\/var\(--lh-label\) var\(--font-mono\);/)![1]
+    expect(caps).toContain('.grade-strip-label')
+    for (const control of ['.legend-toggle', '.map-fix summary', 'lost-summary']) expect(caps).not.toContain(control)
+  })
+
   it('never starts a list line with a separator', () => {
     expect(css).not.toMatch(/li \+ li::before/)
   })

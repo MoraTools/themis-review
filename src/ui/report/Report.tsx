@@ -1,4 +1,4 @@
-import { Icon, SeverityIcon } from '../Icons'
+import { Caret, Icon, SeverityIcon } from '../Icons'
 import { useContext, useEffect, useMemo, useState } from 'react'
 import type { Finding, ProjectAnalysis, Severity } from '../../core/model'
 import { GRADE_BANDS, capGroup } from '../../core/score'
@@ -339,7 +339,7 @@ export default function Report({
             {r.lost.length > 0 && (
               // closed under 760 px, where the list would push the cards a screen down; the PDF opens it
               <details className="report-lost-box" open={lostOpen}>
-                <summary className="report-lost-summary">{plural('editor.lost.summary', r.lost.length, { points: number(lostTotal(r.lost)) })}</summary>
+                <summary className="report-lost-summary"><Caret />{plural('editor.lost.summary', r.lost.length, { points: number(lostTotal(r.lost)) })}</summary>
                 <PointsLost lost={r.lost} targetOf={(g) => r.families.get(g)} hiddenOf={hiddenOf(r)} onShowHidden={showHidden(r)} />
               </details>
             )}

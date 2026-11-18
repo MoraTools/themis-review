@@ -81,3 +81,8 @@ export function Icon({ name, className = '' }: { name: IconName; className?: str
 export function SeverityIcon({ severity }: { severity: 'error' | 'warn' | 'info' }) {
   return <Icon className={'severity-icon sev-' + severity} name={severity === 'error' ? 'circle-alert' : severity === 'warn' ? 'triangle-alert' : 'info'} />
 }
+
+/** the one disclosure caret (Fix first, Legend, Points lost): a chevron that CSS turns down when open */
+export function Caret() {
+  return <span className="caret" aria-hidden="true"><Icon name="chevron-right" /></span>
+}

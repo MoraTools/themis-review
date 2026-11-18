@@ -6,8 +6,8 @@ import {
   Controls,
   MarkerType,
   MiniMap,
-  Panel,
   ReactFlow,
+  ReactFlowProvider,
   type Edge,
   type Node,
   type ReactFlowInstance,
@@ -35,9 +35,9 @@ import {
   type FileNodeData,
   type TBNodeData,
 } from './nodeTypes'
-import { Icon, SeverityIcon } from '../Icons'
-import { LangContext, plural, translate, usePlural, useT } from '../i18n'
-import { fixFirst, gradeBands, gradeDistribution } from '../findings/findings'
+import { Caret, Icon, SeverityIcon } from '../Icons'
+import { LangContext, plural, translate, useNumber, usePlural, useT } from '../i18n'
+import { fixFirst, gradeBands, gradeDistribution, lostLabel } from '../findings/findings'
 import { FixItemText } from '../findings/FindingCard'
 import { GradeCount } from '../shared/Grade'
 
@@ -176,9 +176,7 @@ function Legend({ types, detailed }: { types: string[]; detailed: boolean }) {
   return (
     <div ref={ref} className={'legend' + (open ? ' open' : '')}>
       <button className="legend-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        <span className="legend-caret" aria-hidden="true">
-          <Icon name={open ? 'chevron-down' : 'chevron-right'} />
-        </span>
+        <Caret />
         {t('canvas.legend.title')}
       </button>
       {open && <LegendBody types={types} detailed={detailed} />}
@@ -227,6 +225,8 @@ export function arrowTarget(order: string[], current: string, key: string): stri
 export function GradeStrip({ scores, onShow }: { scores: Record<string, BotScore>; onShow: (path: string) => void }) {
   const t = useT()
   const plural = usePlural()
+  const { lang } = useContext(LangContext)
+  const bands = useMemo(() => new Map(gradeBands(lang).map((b) => [b.grade, b.words])), [lang])
   const order = useMemo(() => gradeOrder(scores), [scores])
   const counts = useMemo(() => gradeDistribution(Object.values(scores)), [scores])
   const last = useRef<Partial<Record<BotScore['grade'], string>>>({})
@@ -237,12 +237,15 @@ export function GradeStrip({ scores, onShow }: { scores: Record<string, BotScore
       <span id="grade-strip-label" className="grade-strip-label">
         {t('canvas.grades')}
       </span>
-      {present.map((g) => (
+      {present.map((g) => {
+        // 'A, 90 and over, ×7, next taskbot with grade A'
+        const name = plural('canvas.grades.next', counts[g], { grade: g, band: bands.get(g)! })
+        return (
         <button
           key={g}
           type="button"
-          aria-label={plural('canvas.grades.next', counts[g], { grade: g })}
-          title={plural('canvas.grades.next', counts[g], { grade: g })}
+          aria-label={name}
+          title={name}
           onClick={() => {
             const path = nextInCycle(order[g], last.current[g])
             if (!path) return
@@ -252,13 +255,15 @@ export function GradeStrip({ scores, onShow }: { scores: Record<string, BotScore
         >
           <GradeCount grade={g} count={counts[g]} />
         </button>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
 /** Fix first on the map: the report's items from the same fixFirst() call; each opens its taskbot at the rule family.
- *  Closed at first at every width: open, it would cover the first rank of a large map */
+ *  Closed at first at every width: open, it would cover the first rank of a large map. The summary names the first
+ *  item, so the closed control already answers what to fix first */
 export function MapFixFirst({
   analysis,
   onOpen,
@@ -267,12 +272,17 @@ export function MapFixFirst({
   onOpen: (path: string, group: string) => void
 }) {
   const t = useT()
+  const { lang } = useContext(LangContext)
   const { items } = fixFirst(analysis)
   if (!items.length) return null
   const names = new Map(analysis.taskbots.map((b) => [b.path, b.name]))
+  const first = items[0]
   return (
     <details className="map-fix">
-      <summary>{t('report.fixFirst')}</summary>
+      <summary>
+        <Caret />
+        <span className="map-fix-text">{`${t('report.fixFirst')}: ${names.get(first.botPath) ?? first.botPath} · ${lostLabel(lang, first)}`}</span>
+      </summary>
       <ol className="report-fix-list">
         {items.map((l) => (
           <li key={l.botPath + l.group}>
@@ -427,6 +437,15 @@ function clearX(
     (x) => shown(x) && !cut(x, 0) && !cut(x, pane.width),
     (x) => shown(x) && !cut(x, 0),
   ])
+}
+
+/** how many boxes (flow units) lie whole inside the pane at `viewport`: the 'Showing 16 of 43' count */
+export function countInView(boxes: Rect[], viewport: { x: number; y: number; zoom: number }, pane: { width: number; height: number }): number {
+  const { x, y, zoom } = viewport
+  // half a pixel of rounding is still in view
+  const inside = (start: number, size: number, offset: number, room: number) =>
+    start * zoom + offset >= -0.5 && (start + size) * zoom + offset <= room + 0.5
+  return boxes.filter((b) => inside(b.x, b.width, x, pane.width) && inside(b.y, b.height, y, pane.height)).length
 }
 
 /** the candidate nearest `v0` that passes the first rule any candidate passes; `v0` when none does */
@@ -795,6 +814,7 @@ export default function Canvas({
 }) {
   const t = useT()
   const countText = usePlural()
+  const number = useNumber()
   const { lang } = useContext(LangContext)
   const { nodes: rawNodes, edges } = useMemo(() => buildFlow(analysis), [analysis])
   const [nodes, setNodes] = useState<FlowNode[] | null>(null)
@@ -817,6 +837,13 @@ export default function Canvas({
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
   const [vertical, setVertical] = useState(() => window.matchMedia(NARROW_QUERY).matches)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // the first view of a large map shows a part: 'Showing 16 of 43 · Show all' until the view moves
+  const [cut, setCut] = useState<{ shown: number; total: number } | null>(null)
+  // the first pan or zoom of the session hides the first-step hint
+  const [moved, setMoved] = useState(false)
+  // a taskbot has keyboard focus: the hint place tells the arrow-key model
+  const [keyboardNode, setKeyboardNode] = useState(false)
+  const fitted = useRef<{ x: number; y: number; zoom: number } | null>(null)
   const floor = vertical ? FIT_FLOOR_NARROW : FIT_FLOOR
   // each taskbot gets the room its compact form needs at the floor zoom, so compact nodes never overlap;
   // left to right, a long name also makes the slot wider (top to bottom keeps the width for the phone)
@@ -835,6 +862,12 @@ export default function Canvas({
       return size
     }
   }, [floor, vertical])
+  // the box a node draws at `zoom` (flow units): compact under the detail zoom, as styles.css sizes .tb-node.compact
+  const shownBox = (n: FlowNode, zoom: number): Rect => {
+    if (n.type === 'file' || zoom >= DETAIL_ZOOM) return { ...n.position, ...detailSize(n) }
+    const width = Math.min(slotSize(n).width, compactWidth(n.data as TBNodeData, zoom))
+    return { ...n.position, width, height: compactHeight(n.data as TBNodeData, zoom, width) }
+  }
   // nodes are read through a ref here: keeping them in the effect's deps made every
   // drag (which rewrites the array) recentre the viewport mid-gesture
   const nodesRef = useRef<FlowNode[] | null>(null)
@@ -940,6 +973,7 @@ export default function Canvas({
     void layout(rawNodes, edges, controller.signal, vertical, pane.clientWidth / Math.max(1, pane.clientHeight), slotSize, BAND_GAP_PX / floor)
       .then((laidOut) => {
         initiallyFitted.current = false // every new layout gets its own first view
+        setCut(null)
         setNodes(laidOut.nodes)
         setRoutes({ points: laidOut.routes, at: new Map(laidOut.nodes.map((n) => [n.id, n.position])) })
       })
@@ -954,17 +988,17 @@ export default function Canvas({
 
   useEffect(() => {
     if (!rf || !nodes || initiallyFitted.current) return
-    initiallyFitted.current = true
     const el = wrapRef.current
     if (!el) return
     const pane = el.getBoundingClientRect()
-    // the panels stay free of nodes: those in the top half (grade strip; legend and controls when
-    // narrow) as a band at the top, those in the bottom-left (minimap, controls) as a corner
+    // the panels stay free of nodes: those in the top half (map head, legend when narrow) as a band at the top,
+    // those in the bottom-left (minimap, controls) as a corner. Narrow panes have the controls in a bar under the pane
     let top = 0
     let cornerRight = 0
     let cornerTop = pane.bottom
     const panels: Rect[] = []
-    for (const part of el.querySelectorAll('.react-flow__minimap, .react-flow__controls, .map-head, .legend')) {
+    const shellParts = el.parentElement?.querySelectorAll(':scope > .map-head, :scope > .legend') ?? []
+    for (const part of [...el.querySelectorAll('.react-flow__minimap, .react-flow__controls'), ...shellParts]) {
       const r = part.getBoundingClientRect()
       if (!r.width) continue
       panels.push({ x: r.left - pane.left, y: r.top - pane.top, width: r.width, height: r.height })
@@ -996,13 +1030,24 @@ export default function Canvas({
         corner: { width: cornerRight, height: pane.bottom - cornerTop },
       },
     )
+    const taskbots = nodes.filter((n) => n.type === 'taskbot' && !(n.data as TBNodeData).ghost)
+    const shown = countInView(taskbots.map((n) => shownBox(n, viewport.zoom)), viewport, pane)
+    const total = analysis.taskbots.length
+    // the line takes a row in the map head: show it first, then fit again with the head at its final height
+    if (shown < total && !cut) {
+      setCut({ shown, total })
+      return
+    }
+    initiallyFitted.current = true
+    setCut(shown < total ? { shown, total } : null)
+    fitted.current = viewport
     setMinZoom(Math.min(0.1, (0.9 * Math.min(pane.width / whole.width, pane.height / whole.height)) || 0.1))
     void rf.setViewport(viewport, { duration: 0 })
     applyZoom(viewport.zoom)
     // shown selected, not focused and not opened: the user decides what to open
     if (viewport.overflow && worst) setNodes((ns) => ns && ns.map((n) => (n.id === worst.id ? { ...n, selected: true } : n)))
     // `vertical` is read, not a trigger: the fit waits for the new layout's nodes
-  }, [rf, nodes, edges, applyZoom, analysis.scores])
+  }, [rf, nodes, edges, applyZoom, analysis.scores, analysis.taskbots, cut])
 
   const showDetails = detailed && !compact
   const isTaskbot = (n: FlowNode) => n.type === 'taskbot' && !(n.data as TBNodeData).ghost
@@ -1066,7 +1111,14 @@ export default function Canvas({
     [],
   )
   const onMoveEnd = useCallback(
-    (_: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => applyZoom(viewport.zoom),
+    (_: MouseEvent | TouchEvent | null, viewport: { x: number; y: number; zoom: number }) => {
+      applyZoom(viewport.zoom)
+      // any move away from the first view (pan, zoom, a control, Show all) ends the cut line and the hint
+      const first = fitted.current
+      if (!first || (Math.abs(first.x - viewport.x) < 0.5 && Math.abs(first.y - viewport.y) < 0.5 && Math.abs(first.zoom - viewport.zoom) < 1e-3)) return
+      setCut(null)
+      setMoved(true)
+    },
     [applyZoom],
   )
   const minimapColor = useCallback((n: FlowNode) => {
@@ -1098,17 +1150,92 @@ export default function Canvas({
     setPendingFocus(id)
   }
 
+  // the whole graph in view, the existing fit-all action of the controls; the line goes and focus stays on the map
+  const showAll = () => {
+    if (!rf) return
+    setCut(null)
+    void rf.fitView().then(() => {
+      applyZoom(rf.getZoom())
+      wrapRef.current?.querySelector<HTMLElement>('.react-flow__node[tabindex="0"]')?.focus({ preventScroll: true })
+    })
+  }
+
+  // the map head comes before the pane in the DOM, so Tab reaches the strip and Fix first before the taskbots;
+  // while loading it holds the strip (its counts are known) and the status line in their final places
+  const mapHead = (
+    <div className="map-head">
+      <GradeStrip scores={analysis.scores} onShow={(path) => showNode(path, rf?.getZoom() ?? 1)} />
+      <div className="map-head-row">
+        {shownNodes ? (
+          <>
+            <MapFixFirst
+              analysis={analysis}
+              onOpen={(path, group) => {
+                // selected and centered, not focused: focus goes into the editor
+                showNode(path, rf?.getZoom() ?? 1, false)
+                onSelect(path, group)
+              }}
+            />
+            {/* the arrow-key model while a taskbot has keyboard focus, else the first-step hint until the first move */}
+            {keyboardNode ? (
+              <p className="map-hint">{t('canvas.nodeHelp')}</p>
+            ) : (
+              hint && !moved && <p className="map-hint">{t('canvas.hint')}</p>
+            )}
+          </>
+        ) : (
+          <>
+            {/* not inside the busy region: a status in a busy region is not announced */}
+            <p className="map-status" role="status">{countText('canvas.loading', analysis.taskbots.length)}</p>
+            <a href="#report">{t('canvas.openReport')}</a>
+          </>
+        )}
+      </div>
+      {cut && (
+        <p className="map-cut">
+          {countText('canvas.cut', cut.total, { shown: number(cut.shown) })}
+          {' · '}
+          <button type="button" className="map-cut-show" onClick={showAll}>{t('canvas.showAll')}</button>
+        </p>
+      )}
+    </div>
+  )
+
   if (!shownNodes)
     return (
-      <div className="canvas-loading" role="region" aria-label={t('canvas.label')} aria-busy="true">
-        <p role="status">{countText('canvas.loading', analysis.taskbots.length)}</p>
-        <a href="#report">{t('canvas.openReport')}</a>
+      <div className="map-shell">
+        {mapHead}
+        <div className="canvas-loading" role="region" aria-label={t('canvas.label')} aria-busy="true" />
       </div>
     )
+
+  // narrow panes: the zoom controls are a bar under the pane, so no taskbot sits under them
+  const controls = (
+    <Controls
+      position="bottom-left"
+      orientation={vertical ? 'horizontal' : 'vertical'}
+      showInteractive={false}
+      className={vertical ? 'map-controls-bar' : undefined}
+    >
+      <ControlButton
+        className={'compact-toggle' + (compact ? ' active' : '')}
+        title={t('canvas.compact')}
+        aria-label={t('canvas.compact')}
+        aria-pressed={compact}
+        onClick={() => setCompact((value) => !value)}
+      >
+        <Icon name="minimize-2" />
+      </ControlButton>
+    </Controls>
+  )
 
   return (
     <DetailContext.Provider value={showDetails}>
      <VerticalContext.Provider value={vertical}>
+      {/* the provider lets the controls bar live outside the pane */}
+      <ReactFlowProvider>
+       <div className="map-shell">
+        {mapHead}
       <ReactFlow
         ref={wrapRef}
         className={rawNodes.length > MINIMAP_NODE_LIMIT ? 'no-minimap' : undefined}
@@ -1125,9 +1252,12 @@ export default function Canvas({
           const id = nodeId(e.target)
           setFocused(id)
           if (id) setLastFocused(id)
+          setKeyboardNode(!!id && (e.target as HTMLElement).matches(':focus-visible'))
         }}
         onBlur={(e) => {
-          if (nodeId(e.target)) setFocused(null)
+          if (!nodeId(e.target)) return
+          setFocused(null)
+          setKeyboardNode(false)
         }}
         // arrow keys move the focus to the next or previous taskbot, never the node itself
         // (React Flow moves the selected node by default)
@@ -1175,22 +1305,6 @@ export default function Canvas({
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={24} />
-        {/* DOM order is Tab order: the strip comes right after the map's one Tab stop */}
-        {/* the strip; under it Fix first and the first-step hint (the open list takes a row of its own) */}
-        <Panel position="top-left" className="map-head">
-          <GradeStrip scores={analysis.scores} onShow={(path) => showNode(path, rf?.getZoom() ?? 1)} />
-          <div className="map-head-row">
-            <MapFixFirst
-              analysis={analysis}
-              onOpen={(path, group) => {
-                // selected and centered, not focused: focus goes into the editor
-                showNode(path, rf?.getZoom() ?? 1, false)
-                onSelect(path, group)
-              }}
-            />
-            {hint && <p className="map-hint">{t('canvas.hint')}</p>}
-          </div>
-        </Panel>
         {rawNodes.length <= MINIMAP_NODE_LIMIT && (
           <MiniMap
             position="bottom-left"
@@ -1205,24 +1319,13 @@ export default function Canvas({
             nodeClassName={minimapClass}
           />
         )}
-        {/* narrow panes: a row at the bottom, so the top keeps one row for the strip and the legend */}
-        <Controls
-          position="bottom-left"
-          orientation={vertical ? 'horizontal' : 'vertical'}
-          showInteractive={false}
-        >
-          <ControlButton
-            className={'compact-toggle' + (compact ? ' active' : '')}
-            title={t('canvas.compact')}
-            aria-label={t('canvas.compact')}
-            aria-pressed={compact}
-            onClick={() => setCompact((value) => !value)}
-          >
-            <Icon name="minimize-2" />
-          </ControlButton>
-        </Controls>
-        <Legend types={types} detailed={showDetails} />
+        {!vertical && controls}
       </ReactFlow>
+        {/* outside the pane, after the map head: open, it covers the head on phones */}
+        <Legend types={types} detailed={showDetails} />
+        {vertical && controls}
+       </div>
+      </ReactFlowProvider>
      </VerticalContext.Provider>
     </DetailContext.Provider>
   )
